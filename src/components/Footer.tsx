@@ -5,6 +5,7 @@ interface FooterProps {
   readonly summary: {
     readonly totalIndividuals: number;
     readonly generations: number;
+    readonly groups?: number;
   };
 }
 
@@ -16,8 +17,9 @@ export function Footer({ t, summary }: FooterProps): React.JSX.Element {
     <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-4 h-8 border-t border-slate-200 dark:border-slate-800 bg-[#f3f4f5] dark:bg-slate-950 text-[#003b5a] dark:text-[#9bccf6]">
       <div className="flex items-center gap-4">
         <span className="font-mono text-[11px]">
-          {t.totalIndividuals}: {summary.totalIndividuals} | {t.generations}:{' '}
-          {summary.generations} | {t.filtered}: {t.none}
+          {t.totalIndividuals}: {summary.totalIndividuals} · {t.generations}:{' '}
+          {summary.generations}
+          {summary.groups !== undefined ? ` · litters: ${summary.groups}` : ''}
         </span>
         <div className="h-3 w-[1px] bg-slate-300" />
         <span className="font-mono text-[11px] text-green-600 flex items-center gap-1">
@@ -31,12 +33,6 @@ export function Footer({ t, summary }: FooterProps): React.JSX.Element {
         </button>
         <button type="button" className="font-mono text-[11px] text-slate-500 hover:text-[#1A5276]">
           {t.resetView}
-        </button>
-        <button
-          type="button"
-          className="font-mono text-[11px] text-[#006397] font-bold hover:text-[#1A5276]"
-        >
-          {t.exportCsv}
         </button>
       </div>
     </footer>

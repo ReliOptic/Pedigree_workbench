@@ -1,33 +1,62 @@
 /**
- * Domain types for the Pedigree Workbench.
+ * Domain types for the Pedigree Workbench (PRD v3.1).
  *
- * These types are the contract between the data-access layer
- * (`src/services/pedigree-store.ts`) and the presentation layer
- * (`src/components/**`). They are intentionally framework-free.
+ * Design principle: the app does not interpret user data. Only three
+ * fields are required (`id`, `sire`, `dam`); the rest are optional
+ * conveniences the canvas and drawer know how to render when present.
+ * All other user columns land in `fields` verbatim and are surfaced in
+ * the drawer as raw key/value pairs.
  */
 
-export type Gender = 'male' | 'female' | 'unknown';
-
 /**
- * A single individual in a pedigree graph. Identifiers are caller-supplied
- * strings (typically lab identifiers) and must be unique within a dataset.
+ * A single individual parsed from an imported row.
+ *
+ * `id` is the only strictly-required field. `sire`/`dam` are string IDs
+ * referencing other individuals; when they reference an unknown id the
+ * canvas renders a "?" placeholder node.
+ *
+ * `fields` holds every non-reserved column from the source file so the
+ * drawer can display them without losing information.
  */
 export interface Individual {
   readonly id: string;
-  readonly label: string;
-  readonly gender: Gender;
-  readonly generation: number;
-  readonly isProband?: boolean;
-  readonly isVerified?: boolean;
+  readonly sire?: string;
+  readonly dam?: string;
+  readonly sex?: string;
+  readonly generation?: string;
+  readonly group?: string;
+  readonly surrogate?: string;
   readonly birthDate?: string;
-  readonly karyotype?: string;
-  readonly phenotype?: string;
-  readonly consanguinity?: boolean;
-  readonly notes?: string;
-  readonly hpoAnnotations?: readonly string[];
-  readonly sireId?: string;
-  readonly damId?: string;
+  readonly status?: string;
+  readonly label?: string;
+  readonly fields: Readonly<Record<string, string>>;
 }
+
+/** Reserved column identifiers used by the column-mapping UI. */
+export type ReservedColumn =
+  | 'id'
+  | 'sire'
+  | 'dam'
+  | 'sex'
+  | 'generation'
+  | 'group'
+  | 'surrogate'
+  | 'birth_date'
+  | 'status'
+  | 'label';
+
+export const RESERVED_COLUMNS: readonly ReservedColumn[] = [
+  'id',
+  'sire',
+  'dam',
+  'sex',
+  'generation',
+  'group',
+  'surrogate',
+  'birth_date',
+  'status',
+  'label',
+] as const;
 
 /**
  * Aggregate snapshot of a pedigree dataset, used for status displays.
@@ -35,4 +64,5 @@ export interface Individual {
 export interface PedigreeSummary {
   readonly totalIndividuals: number;
   readonly generations: number;
+  readonly groups: number;
 }

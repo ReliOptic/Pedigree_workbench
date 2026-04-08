@@ -4,8 +4,8 @@ import { parsePedigreeImport } from '../../src/services/pedigree-import';
 import { PedigreeImportError } from '../../src/types/error.types';
 
 const validPayload = JSON.stringify([
-  { id: 'A', label: 'a', gender: 'male', generation: 1 },
-  { id: 'B', label: 'b', gender: 'female', generation: 2, sireId: 'A' },
+  { id: 'A', sex: 'M', generation: 'F0', label: '01' },
+  { id: 'B', sex: 'F', generation: 'F1', sire: 'A', label: '02' },
 ]);
 
 describe('parsePedigreeImport', () => {
@@ -13,12 +13,26 @@ describe('parsePedigreeImport', () => {
     const result = parsePedigreeImport(validPayload);
     expect(result).toHaveLength(2);
     expect(result[0]?.id).toBe('A');
+    expect(result[1]?.sire).toBe('A');
   });
 
   it('parses an object payload with individuals[]', () => {
     const wrapped = JSON.stringify({ individuals: JSON.parse(validPayload) });
     const result = parsePedigreeImport(wrapped);
     expect(result).toHaveLength(2);
+  });
+
+  it('maps birth_date → birthDate and every row has a fields object', () => {
+    const payload = JSON.stringify([{ id: 'X', birth_date: '2025-07-13' }]);
+    const [row] = parsePedigreeImport(payload);
+    expect(row?.birthDate).toBe('2025-07-13');
+    expect(row?.fields).toEqual({});
+  });
+
+  it('captures unknown columns into fields', () => {
+    const payload = JSON.stringify([{ id: 'X', CD163: '100.00%', 부: 'DD' }]);
+    const [row] = parsePedigreeImport(payload);
+    expect(row?.fields).toEqual({ CD163: '100.00%', 부: 'DD' });
   });
 
   it('rejects empty payload', () => {
@@ -35,8 +49,8 @@ describe('parsePedigreeImport', () => {
     }
   });
 
-  it('rejects schema violations and reports issues', () => {
-    const bad = JSON.stringify([{ id: 'A', label: 'a', gender: 'alien', generation: 1 }]);
+  it('rejects schema violations (missing id) and reports issues', () => {
+    const bad = JSON.stringify([{ sex: 'M' }]);
     try {
       parsePedigreeImport(bad);
       expect.fail('expected throw');

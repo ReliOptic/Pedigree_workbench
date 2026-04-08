@@ -14,10 +14,10 @@ import type { Individual } from '../../src/types/pedigree.types';
 
 const fixture: Individual = {
   id: 'TEST-001',
+  sex: 'M',
+  generation: 'F0',
   label: '01',
-  gender: 'male',
-  generation: 1,
-  isProband: true,
+  fields: {},
 };
 
 beforeEach(async () => {
@@ -58,8 +58,8 @@ describe('pedigree-store', () => {
   it('bulkImport replaces all rows in a single transaction', async () => {
     await upsert(fixture);
     await bulkImport([
-      { id: 'A', label: 'a', gender: 'female', generation: 1 },
-      { id: 'B', label: 'b', gender: 'male', generation: 2 },
+      { id: 'A', sex: 'F', generation: 'F0', fields: {} },
+      { id: 'B', sex: 'M', generation: 'F1', fields: {} },
     ]);
     const all = await listAll();
     expect(all.map((i) => i.id)).toEqual(['A', 'B']);

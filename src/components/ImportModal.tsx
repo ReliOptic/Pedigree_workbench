@@ -16,9 +16,9 @@ interface ImportModalProps {
 }
 
 const PLACEHOLDER = `[
-  { "id": "S-001", "label": "01", "gender": "male", "generation": 1 },
-  { "id": "D-001", "label": "02", "gender": "female", "generation": 1 },
-  { "id": "C-001", "label": "03", "gender": "male", "generation": 2, "sireId": "S-001", "damId": "D-001" }
+  { "id": "SNUDB #1-1", "sex": "수컷", "generation": "F0", "label": "1-1" },
+  { "id": "SNUDB #2-1", "sex": "암컷", "generation": "F0", "label": "2-1" },
+  { "id": "F1-1", "sex": "M", "generation": "F1", "sire": "SNUDB #1-1", "dam": "SNUDB #2-1", "label": "F1-1" }
 ]`;
 
 /**

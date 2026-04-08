@@ -24,9 +24,9 @@ describe('import flow integration', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // First render shows the seeded individuals.
+    // First render shows a seeded individual (PRD seed).
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-GEN-0942')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
     });
 
     // Open the import modal via the upload button.
@@ -34,19 +34,19 @@ describe('import flow integration', () => {
     const textarea = await screen.findByTestId('import-textarea');
 
     const payload = JSON.stringify([
-      { id: 'IMP-A', label: '01', gender: 'male', generation: 1 },
-      { id: 'IMP-B', label: '02', gender: 'female', generation: 1 },
-      { id: 'IMP-C', label: '03', gender: 'male', generation: 2, sireId: 'IMP-A', damId: 'IMP-B' },
+      { id: 'IMP-A', sex: 'M', generation: 'F0', label: '01' },
+      { id: 'IMP-B', sex: 'F', generation: 'F0', label: '02' },
+      { id: 'IMP-C', sex: 'M', generation: 'F1', sire: 'IMP-A', dam: 'IMP-B', label: '03' },
     ]);
 
     fireEvent.change(textarea, { target: { value: payload } });
     await user.click(screen.getByTestId('import-submit'));
 
-    // After import, the new nodes should render and the seeded ones should be gone.
+    // After import, the new nodes should render and the seed should be gone.
     await waitFor(() => {
       expect(screen.getByTestId('pedigree-node-IMP-A')).toBeInTheDocument();
       expect(screen.getByTestId('pedigree-node-IMP-C')).toBeInTheDocument();
-      expect(screen.queryByTestId('pedigree-node-GEN-0942')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pedigree-node-SNUDB #1-1')).not.toBeInTheDocument();
     });
   }, 20000);
 
@@ -55,7 +55,7 @@ describe('import flow integration', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-GEN-0942')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole('button', { name: /upload/i }));
@@ -65,6 +65,6 @@ describe('import flow integration', () => {
 
     expect(await screen.findByTestId('import-error')).toBeInTheDocument();
     // Original seed still rendered behind the modal.
-    expect(screen.getByTestId('pedigree-node-GEN-0942')).toBeInTheDocument();
+    expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
   }, 20000);
 });

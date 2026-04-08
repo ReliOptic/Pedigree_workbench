@@ -17,10 +17,24 @@ interface PedigreeCanvasProps {
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
 
+type SexShape = 'male' | 'female' | 'unknown';
+
+/**
+ * Maps a free-form `sex` column value onto one of the three PRD shapes.
+ * "수컷"/"M" → square, "암컷"/"F" → circle, everything else → diamond.
+ */
+function classifySex(value: string | undefined): SexShape {
+  if (value === undefined) return 'unknown';
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '수컷' || normalized === 'm' || normalized === 'male') return 'male';
+  if (normalized === '암컷' || normalized === 'f' || normalized === 'female') return 'female';
+  return 'unknown';
+}
+
 /**
  * Pan/zoom canvas for the pedigree graph.
  *
- * Layout math is delegated to {@link computeLayout} so this component is
+ * Layout math is delegated to {@link computeLayout}; this component is
  * responsible only for view transforms (pan/zoom) and SVG/DOM rendering.
  */
 export function PedigreeCanvas({
@@ -109,6 +123,8 @@ export function PedigreeCanvas({
           {individuals.map((ind) => {
             const pos = positionById.get(ind.id);
             if (pos === undefined) return null;
+            const shape = classifySex(ind.sex);
+            const display = ind.label ?? ind.id;
             return (
               <motion.button
                 key={ind.id}
@@ -124,31 +140,26 @@ export function PedigreeCanvas({
               >
                 <div
                   className={cn(
-                    'w-10 h-10 border-2 flex items-center justify-center transition-all group-hover:scale-110',
-                    ind.gender === 'male' && 'bg-blue-100 border-blue-600',
-                    ind.gender === 'female' && 'bg-pink-100 border-pink-600 rounded-full',
-                    ind.gender === 'unknown' &&
+                    'w-12 h-12 border-2 flex items-center justify-center transition-all group-hover:scale-110',
+                    shape === 'male' && 'bg-blue-100 border-blue-600',
+                    shape === 'female' && 'bg-pink-100 border-pink-600 rounded-full',
+                    shape === 'unknown' &&
                       'bg-slate-100 border-slate-600 [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]',
                     selectedId === ind.id && 'ring-4 ring-yellow-400 ring-offset-2',
-                    ind.label === '' && 'opacity-40',
                   )}
                 >
-                  {ind.label !== '' && (
-                    <span
-                      className={cn(
-                        'font-mono text-[10px] font-bold',
-                        ind.gender === 'male' && 'text-blue-900',
-                        ind.gender === 'female' && 'text-pink-900',
-                        ind.gender === 'unknown' && 'text-slate-900',
-                      )}
-                    >
-                      {ind.label}
-                    </span>
-                  )}
+                  <span
+                    className={cn(
+                      'font-mono text-[10px] font-bold',
+                      shape === 'male' && 'text-blue-900',
+                      shape === 'female' && 'text-pink-900',
+                      shape === 'unknown' && 'text-slate-900',
+                    )}
+                  >
+                    {display}
+                  </span>
                 </div>
-                {ind.label !== '' && (
-                  <span className="font-mono text-[10px] text-slate-500">{ind.id}</span>
-                )}
+                <span className="font-mono text-[10px] text-slate-500">{ind.id}</span>
               </motion.button>
             );
           })}

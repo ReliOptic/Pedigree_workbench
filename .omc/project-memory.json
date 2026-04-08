@@ -200,21 +200,147 @@
   },
   "hotPaths": [
     {
-      "path": "src/services/pedigree-import.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775646996194,
+      "path": "src/types/pedigree.types.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775652136355,
+      "type": "file"
+    },
+    {
+      "path": "src/types.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775652140908,
+      "type": "file"
+    },
+    {
+      "path": "src/services/seed-data.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775652151303,
       "type": "file"
     },
     {
       "path": "src/services/pedigree-layout.ts",
-      "accessCount": 1,
-      "lastAccessed": 1775646996540,
+      "accessCount": 2,
+      "lastAccessed": 1775652174387,
       "type": "file"
     },
     {
-      "path": "src/types/pedigree.types.ts",
+      "path": "src/services/pedigree-import.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775652194161,
+      "type": "file"
+    },
+    {
+      "path": "src/components/PedigreeCanvas.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775652243675,
+      "type": "file"
+    },
+    {
+      "path": "src/components/NodeInspector.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775652260916,
+      "type": "file"
+    },
+    {
+      "path": "src/components/Footer.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775652268324,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ImportModal.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775652272640,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/pedigree-layout.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775652291692,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/pedigree-store.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775652301863,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/pedigree-import.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1775652313283,
+      "type": "file"
+    },
+    {
+      "path": "tests/integration/import-flow.test.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775652324623,
+      "type": "file"
+    },
+    {
+      "path": "src/services/pedigree-store.ts",
       "accessCount": 1,
-      "lastAccessed": 1775646997225,
+      "lastAccessed": 1775652070914,
+      "type": "file"
+    },
+    {
+      "path": "src/hooks/use-pedigree.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775652072083,
+      "type": "file"
+    },
+    {
+      "path": "src/App.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1775652074203,
+      "type": "file"
+    },
+    {
+      "path": "src/components/TopBar.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1775652075061,
+      "type": "file"
+    },
+    {
+      "path": "src/translations.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775652075928,
+      "type": "file"
+    },
+    {
+      "path": "src/types/error.types.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775652076942,
+      "type": "file"
+    },
+    {
+      "path": "src/config/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775652078767,
+      "type": "file"
+    },
+    {
+      "path": "src/services/settings-store.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775652078775,
+      "type": "file"
+    },
+    {
+      "path": "src/hooks/use-settings.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775652081551,
+      "type": "file"
+    },
+    {
+      "path": "src/index.css",
+      "accessCount": 1,
+      "lastAccessed": 1775652081740,
+      "type": "file"
+    },
+    {
+      "path": "src/types/translation.types.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775652277195,
       "type": "file"
     }
   ],
