@@ -1,0 +1,222 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775646756306,
+  "projectRoot": "/Users/reliqbit_mac/projects/Pedigree_workbench",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "react",
+        "version": "19.0.0",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "19.0.0",
+        "category": "frontend"
+      },
+      {
+        "name": "vite",
+        "version": "6.2.0",
+        "category": "build"
+      },
+      {
+        "name": "vitest",
+        "version": "4.1.3",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": "npm test",
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "vite --port=3000 --host=0.0.0.0",
+      "build": "vite build",
+      "preview": "vite preview",
+      "clean": "rm -rf dist",
+      "lint": "tsc --noEmit",
+      "test": "vitest run",
+      "test:watch": "vitest",
+      "test:ui": "vitest --ui",
+      "tauri": "tauri",
+      "tauri:dev": "tauri dev",
+      "tauri:build": "tauri build"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "src",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 1,
+      "lastAccessed": 1775646756292,
+      "keyFiles": [
+        "index.html"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 5,
+      "lastAccessed": 1775646756292,
+      "keyFiles": [
+        "App.tsx",
+        "index.css",
+        "main.tsx",
+        "translations.ts",
+        "types.ts"
+      ]
+    },
+    "src-tauri": {
+      "path": "src-tauri",
+      "purpose": null,
+      "fileCount": 5,
+      "lastAccessed": 1775646756296,
+      "keyFiles": [
+        "Cargo.lock",
+        "Cargo.toml",
+        "build.rs",
+        "tauri.conf.json"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 1,
+      "lastAccessed": 1775646756296,
+      "keyFiles": [
+        "setup.ts"
+      ]
+    },
+    "dist/assets": {
+      "path": "dist/assets",
+      "purpose": "Static assets",
+      "fileCount": 3,
+      "lastAccessed": 1775646756297,
+      "keyFiles": [
+        "index-Bo3IrdMr.js",
+        "index-Bo3IrdMr.js.map",
+        "index-CqaMKi6R.css"
+      ]
+    },
+    "src/components": {
+      "path": "src/components",
+      "purpose": "UI components",
+      "fileCount": 5,
+      "lastAccessed": 1775646756297,
+      "keyFiles": [
+        "Footer.tsx",
+        "ImportModal.tsx",
+        "NodeInspector.tsx"
+      ]
+    },
+    "src/config": {
+      "path": "src/config",
+      "purpose": "Configuration files",
+      "fileCount": 1,
+      "lastAccessed": 1775646756297,
+      "keyFiles": [
+        "index.ts"
+      ]
+    },
+    "src/lib": {
+      "path": "src/lib",
+      "purpose": "Library code",
+      "fileCount": 1,
+      "lastAccessed": 1775646756297,
+      "keyFiles": [
+        "utils.ts"
+      ]
+    },
+    "src/services": {
+      "path": "src/services",
+      "purpose": "Business logic services",
+      "fileCount": 6,
+      "lastAccessed": 1775646756298,
+      "keyFiles": [
+        "logger.ts",
+        "pedigree-import.ts",
+        "pedigree-layout.ts"
+      ]
+    },
+    "src/types": {
+      "path": "src/types",
+      "purpose": "Type definitions",
+      "fileCount": 3,
+      "lastAccessed": 1775646756298,
+      "keyFiles": [
+        "error.types.ts",
+        "pedigree.types.ts",
+        "translation.types.ts"
+      ]
+    },
+    "src-tauri/src": {
+      "path": "src-tauri/src",
+      "purpose": "Source code",
+      "fileCount": 2,
+      "lastAccessed": 1775646756298,
+      "keyFiles": [
+        "lib.rs",
+        "main.rs"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/services/pedigree-import.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775646996194,
+      "type": "file"
+    },
+    {
+      "path": "src/services/pedigree-layout.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775646996540,
+      "type": "file"
+    },
+    {
+      "path": "src/types/pedigree.types.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775646997225,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -1,24 +1,6 @@
-export type Gender = 'male' | 'female' | 'unknown';
-
-export interface Individual {
-  id: string;
-  label: string;
-  gender: Gender;
-  generation: number;
-  isProband?: boolean;
-  isVerified?: boolean;
-  birthDate?: string;
-  karyotype?: string;
-  phenotype?: string;
-  consanguinity?: boolean;
-  notes?: string;
-  hpoAnnotations?: string[];
-  sireId?: string;
-  damId?: string;
-}
-
-export interface PedigreeData {
-  individuals: Individual[];
-  totalIndividuals: number;
-  generations: number;
-}
+/**
+ * @deprecated Re-export shim for legacy imports. New code should import from
+ * `./types/pedigree.types` directly. This file exists only to keep older
+ * component imports compiling during the refactor.
+ */
+export type { Gender, Individual, PedigreeSummary } from './types/pedigree.types';

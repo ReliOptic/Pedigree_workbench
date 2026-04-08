@@ -1,6 +1,12 @@
-export type Language = 'en' | 'ko';
+import type { Language, Translation, TranslationDictionary } from './types/translation.types';
 
-export const TRANSLATIONS = {
+export type { Language, Translation };
+
+/**
+ * UI string dictionary keyed by language code. Adding a new language requires
+ * extending {@link Language} and providing every key on {@link Translation}.
+ */
+export const TRANSLATIONS: TranslationDictionary = {
   en: {
     appName: 'Pedigree Workbench',
     workbench: 'Workbench',
@@ -36,8 +42,8 @@ export const TRANSLATIONS = {
     hpoAnnotations: 'HPO Annotations',
     editPedigreeNode: 'Edit Pedigree Node',
     importGeneticData: 'Import Genetic Data',
-    importDescription: 'Map your Excel or CSV columns to the Pedigree schema.',
-    rowsDetected: 'rows detected. Drag to replace.',
+    importDescription: 'Paste pedigree JSON exported from another workbench.',
+    rowsDetected: 'rows detected.',
     fileColumn: 'File Column',
     mapToField: 'Map To Field',
     previewRow1: 'Preview (Row 1)',
@@ -82,8 +88,8 @@ export const TRANSLATIONS = {
     hpoAnnotations: 'HPO 주석',
     editPedigreeNode: '가계도 노드 편집',
     importGeneticData: '유전 데이터 가져오기',
-    importDescription: 'Excel 또는 CSV 열을 가계도 스키마에 매핑합니다.',
-    rowsDetected: '개의 행이 감지되었습니다. 드래그하여 교체하세요.',
+    importDescription: '다른 워크벤치에서 내보낸 가계도 JSON을 붙여넣으십시오.',
+    rowsDetected: '행이 감지되었습니다.',
     fileColumn: '파일 열',
     mapToField: '필드 매핑',
     previewRow1: '미리보기 (행 1)',
@@ -92,5 +98,5 @@ export const TRANSLATIONS = {
     true: '예',
     false: '아니오',
     generation: '세대',
-  }
+  },
 };
