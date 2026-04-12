@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import App from '../../src/App';
-import { __resetForTests } from '../../src/services/pedigree-store';
+import { bulkImport, __resetForTests } from '../../src/services/pedigree-store';
+import { SEED_INDIVIDUALS } from '../../src/services/seed-data';
 
 beforeEach(async () => {
   __resetForTests();
@@ -13,6 +14,7 @@ beforeEach(async () => {
     req.onerror = () => reject(req.error);
     req.onblocked = () => resolve();
   });
+  await bulkImport(SEED_INDIVIDUALS);
 });
 
 afterEach(() => {

@@ -1,6 +1,23 @@
-import type { RefObject } from 'react';
-import { Upload, Download, Languages, Plus, Search, Settings, Undo2, Redo2 } from 'lucide-react';
+import { type RefObject, useState, useRef, useEffect } from 'react';
+import {
+  Upload,
+  Download,
+  Languages,
+  Plus,
+  Search,
+  Settings,
+  Undo2,
+  Redo2,
+  FolderOpen,
+  ChevronDown,
+  Trash2,
+  Check,
+  Save,
+  Loader2,
+} from 'lucide-react';
 
+import type { SaveStatus } from '../hooks/use-pedigree';
+import type { Project } from '../types/pedigree.types';
 import type { Language, Translation } from '../types/translation.types';
 
 type ActiveView = 'workbench' | 'paper';
@@ -25,10 +42,16 @@ interface TopBarProps {
   readonly canRedo: boolean;
   readonly onUndo: () => void;
   readonly onRedo: () => void;
+  readonly saveStatus: SaveStatus;
+  readonly projects: readonly Project[];
+  readonly activeProjectId: string | null;
+  readonly onSwitchProject: (id: string) => void;
+  readonly onNewProject: () => void;
+  readonly onDeleteProject: (id: string) => void;
 }
 
 /**
- * Application header: brand, add-node, language toggle, upload.
+ * Application header: brand, project selector, add-node, language toggle, upload.
  */
 export function TopBar({
   uploadButtonRef,
@@ -50,7 +73,30 @@ export function TopBar({
   canRedo,
   onUndo,
   onRedo,
+  saveStatus,
+  projects,
+  activeProjectId,
+  onSwitchProject,
+  onNewProject,
+  onDeleteProject,
 }: TopBarProps): React.JSX.Element {
+  const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const activeProject = projects.find((p) => p.id === activeProjectId);
+
+  // Close project menu on outside click.
+  useEffect(() => {
+    if (!isProjectMenuOpen) return;
+    const handler = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsProjectMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isProjectMenuOpen]);
+
   return (
     <header
       role="banner"
@@ -58,7 +104,84 @@ export function TopBar({
     >
       <div className="flex items-center gap-4">
         <span className="text-xl font-bold text-brand tracking-tight">{t.appName}</span>
-        <nav className="hidden md:flex items-center gap-1 ml-4" aria-label="View switcher">
+
+        {/* Project selector */}
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setIsProjectMenuOpen((prev) => !prev)}
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border rounded hover:bg-slate-100 transition max-w-[200px]"
+            aria-label={t.projects}
+          >
+            <FolderOpen className="w-4 h-4 text-text-secondary flex-shrink-0" aria-hidden="true" />
+            <span className="truncate">
+              {activeProject?.name ?? t.noProjects}
+            </span>
+            <ChevronDown className="w-3 h-3 text-text-secondary flex-shrink-0" aria-hidden="true" />
+          </button>
+          {isProjectMenuOpen && (
+            <div className="absolute top-full left-0 mt-1 w-64 bg-surface-raised border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+              <div className="max-h-60 overflow-y-auto">
+                {projects.length === 0 ? (
+                  <p className="px-4 py-3 text-xs text-slate-400">{t.noProjects}</p>
+                ) : (
+                  projects.map((proj) => (
+                    <div
+                      key={proj.id}
+                      className={`flex items-center justify-between px-4 py-2 hover:bg-slate-100 transition cursor-pointer group ${
+                        proj.id === activeProjectId ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSwitchProject(proj.id);
+                          setIsProjectMenuOpen(false);
+                        }}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                      >
+                        {proj.id === activeProjectId && (
+                          <Check className="w-3.5 h-3.5 text-brand flex-shrink-0" aria-hidden="true" />
+                        )}
+                        <span className="text-sm truncate">{proj.name}</span>
+                        <span className="text-xs text-slate-400 flex-shrink-0">
+                          {proj.data.length}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteProject(proj.id);
+                          if (projects.length <= 1) setIsProjectMenuOpen(false);
+                        }}
+                        className="p-1 rounded hover:bg-red-100 opacity-0 group-hover:opacity-100 transition"
+                        aria-label={`${t.deleteProject}: ${proj.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNewProject();
+                    setIsProjectMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-brand hover:bg-slate-50 transition"
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  {t.newProject}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <nav className="hidden md:flex items-center gap-1 ml-2" aria-label="View switcher">
           <button
             type="button"
             onClick={() => setActiveView('workbench')}
@@ -84,7 +207,7 @@ export function TopBar({
         </nav>
 
         {/* Search input */}
-        <div className="relative ml-4 hidden md:flex items-center">
+        <div className="relative ml-2 hidden md:flex items-center">
           <Search
             className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none"
             aria-hidden="true"
@@ -109,6 +232,9 @@ export function TopBar({
         </div>
       </div>
       <div className="flex items-center gap-3">
+        {/* Save status indicator */}
+        <SaveIndicator status={saveStatus} t={t} />
+
         <button
           type="button"
           onClick={onUndo}
@@ -183,5 +309,38 @@ export function TopBar({
         </button>
       </div>
     </header>
+  );
+}
+
+function SaveIndicator({
+  status,
+  t,
+}: {
+  readonly status: SaveStatus;
+  readonly t: Translation;
+}): React.JSX.Element | null {
+  if (status === 'idle') return null;
+  return (
+    <span
+      className={`flex items-center gap-1.5 px-2 py-1 text-xs font-mono rounded transition-opacity ${
+        status === 'saving'
+          ? 'text-amber-600 bg-amber-50'
+          : 'text-green-600 bg-green-50'
+      }`}
+      role="status"
+      aria-live="polite"
+    >
+      {status === 'saving' ? (
+        <>
+          <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+          {t.saving}
+        </>
+      ) : (
+        <>
+          <Save className="w-3 h-3" aria-hidden="true" />
+          {t.saved}
+        </>
+      )}
+    </span>
   );
 }

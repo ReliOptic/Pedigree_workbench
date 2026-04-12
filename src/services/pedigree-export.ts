@@ -69,7 +69,7 @@ export function toCsv(individuals: readonly Individual[]): string {
     }
   }
 
-  const header = allCols.join(',');
+  const header = allCols.map((col) => escape(col)).join(',');
   const rows = individuals.map((ind) => {
     return allCols
       .map((col) => {
@@ -81,16 +81,22 @@ export function toCsv(individuals: readonly Individual[]): string {
       .join(',');
   });
 
-  return [header, ...rows].join('\n');
+  return [header, ...rows].join('\r\n');
 }
 
-/** Trigger a browser download of text content as a file. */
+/**
+ * Trigger a browser download of text content as a file.
+ * Prepends a UTF-8 BOM so Excel opens CSV files with correct Korean encoding.
+ */
 export function downloadFile(content: string, filename: string, mime: string): void {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8;` });
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + content], { type: `${mime};charset=utf-8;` });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }

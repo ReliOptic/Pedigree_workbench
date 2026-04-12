@@ -14,6 +14,7 @@ const KEY_LANGUAGE = 'pdw.language';
 const KEY_LAST_SELECTED = 'pdw.lastSelectedId';
 const KEY_ACTIVE_NAV = 'pdw.activeNav';
 const KEY_THEME = 'pdw.theme';
+const KEY_ACTIVE_PROJECT = 'pdw.activeProjectId';
 
 const DEFAULT_LANGUAGE: Language = 'en';
 
@@ -82,4 +83,21 @@ export function getTheme(): Theme {
 
 export function setTheme(theme: Theme): void {
   safeSet(KEY_THEME, theme);
+}
+
+/** Returns the persisted active project id, or `null`. */
+export function getActiveProjectId(): string | null {
+  return safeGet(KEY_ACTIVE_PROJECT);
+}
+
+export function setActiveProjectId(id: string | null): void {
+  if (id === null) {
+    try {
+      localStorage?.removeItem(KEY_ACTIVE_PROJECT);
+    } catch (cause) {
+      logger.warn('settings-store.remove-failed', { key: KEY_ACTIVE_PROJECT, cause: String(cause) });
+    }
+    return;
+  }
+  safeSet(KEY_ACTIVE_PROJECT, id);
 }

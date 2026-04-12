@@ -90,3 +90,15 @@ export interface PedigreeSummary {
   readonly generations: number;
   readonly groups: number;
 }
+
+/**
+ * A named project containing a snapshot of pedigree data.
+ * Projects are stored in IndexedDB and allow users to maintain
+ * multiple independent datasets (one per CSV import, for example).
+ */
+export interface Project {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly data: readonly Individual[];
+}

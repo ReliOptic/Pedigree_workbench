@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import App from '../../src/App';
-import { __resetForTests } from '../../src/services/pedigree-store';
+import { bulkImport, __resetForTests } from '../../src/services/pedigree-store';
+import { SEED_INDIVIDUALS } from '../../src/services/seed-data';
 
 beforeEach(async () => {
   __resetForTests();
@@ -13,6 +14,7 @@ beforeEach(async () => {
     req.onerror = () => reject(req.error);
     req.onblocked = () => resolve();
   });
+  await bulkImport(SEED_INDIVIDUALS);
 });
 
 afterEach(() => {
@@ -24,7 +26,7 @@ describe('import flow integration', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // First render shows a seeded individual (PRD seed).
+    // First render shows a seeded individual (manually seeded in beforeEach).
     await waitFor(() => {
       expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
     });

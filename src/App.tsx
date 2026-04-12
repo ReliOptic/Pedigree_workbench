@@ -28,6 +28,7 @@ import {
 } from './components/PedigreeCanvas';
 import { TopBar } from './components/TopBar';
 import { usePedigree } from './hooks/use-pedigree';
+import { useProjects } from './hooks/use-projects';
 import { useUndo } from './hooks/use-undo';
 import { useSettings } from './hooks/use-settings';
 import { summarize } from './services/pedigree-layout';
@@ -40,8 +41,6 @@ type CtxMenu =
 
 /**
  * Best-effort "next generation" calculator for pre-filling Add Child.
- * Parses a numeric suffix (e.g. "F0" → 0) and increments. Unrecognized
- * formats fall back to the original label so the user can edit freely.
  */
 function nextGeneration(current: string | undefined): string | undefined {
   if (current === undefined) return undefined;
@@ -54,8 +53,6 @@ function nextGeneration(current: string | undefined): string | undefined {
 
 /**
  * Best-effort "previous generation" calculator for pre-filling Add Parent.
- * Parses a numeric suffix (e.g. "F1" → 1) and decrements. Unrecognized
- * formats fall back to the original label so the user can edit freely.
  */
 function prevGeneration(current: string | undefined): string | undefined {
   if (current === undefined) return undefined;
@@ -66,11 +63,6 @@ function prevGeneration(current: string | undefined): string | undefined {
   return `${prefix}${n - 1}`;
 }
 
-/**
- * Build an AddNodeModal prefill representing "add parent of this individual".
- * Pre-fills generation to the previous generation. Sire/dam are left empty
- * because the new parent's parents are unknown.
- */
 function buildAddParentPrefill(target: Individual): Partial<Individual> {
   return {
     generation: prevGeneration(target.generation),
@@ -78,10 +70,6 @@ function buildAddParentPrefill(target: Individual): Partial<Individual> {
   };
 }
 
-/**
- * Build an AddNodeModal prefill representing "add child of this individual".
- * Uses sex to pick sire vs dam slot when possible.
- */
 function buildAddChildPrefill(parent: Individual): Partial<Individual> {
   const sexLower = (parent.sex ?? '').trim().toLowerCase();
   const isMale = sexLower === '수컷' || sexLower === 'm' || sexLower === 'male';
@@ -94,7 +82,6 @@ function buildAddChildPrefill(parent: Individual): Partial<Individual> {
   };
 }
 
-/** Build "add sibling of this" — same parents and generation. */
 function buildAddSiblingPrefill(target: Individual): Partial<Individual> {
   return {
     ...(target.sire !== undefined ? { sire: target.sire } : {}),
@@ -104,18 +91,19 @@ function buildAddSiblingPrefill(target: Individual): Partial<Individual> {
   };
 }
 
-/**
- * Application shell. Composes the persistence hooks with presentational
- * components — no business logic lives here. The shell intentionally has no
- * knowledge of IndexedDB or import parsing; it only orchestrates state.
- *
- * Layout: a 3-row CSS grid (header / main / footer). No fixed positioning,
- * so components never need to know each other's height. The inspector is an
- * in-flow sibling of the canvas and collapses out of flow when null.
- */
 export default function App(): React.JSX.Element {
-  const { individuals, isLoading, error, refresh, replaceAll, updateOne, deleteOne, addOne } = usePedigree();
+  const { individuals, isLoading, error, saveStatus, refresh, replaceAll, updateOne, deleteOne, addOne } = usePedigree();
   const { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId, theme, setTheme } = useSettings();
+
+  const {
+    projects,
+    activeProjectId,
+    switchProject,
+    createProject,
+    removeProject,
+    refreshProjects,
+    saveCurrentProject,
+  } = useProjects(refresh);
 
   // Stable ref so undo/redo can read current individuals without stale closures.
   const individualsRef = useRef<readonly Individual[]>(individuals);
@@ -185,9 +173,22 @@ export default function App(): React.JSX.Element {
     }).length;
   }, [individuals, searchQuery]);
 
+  // Auto-save active project periodically (on every mutation, the hook
+  // already persists to IndexedDB; this saves the project snapshot).
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (activeProjectId === null) return;
+    if (saveTimerRef.current !== null) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      void saveCurrentProject();
+    }, 1000);
+    return () => {
+      if (saveTimerRef.current !== null) clearTimeout(saveTimerRef.current);
+    };
+  }, [individuals, activeProjectId, saveCurrentProject]);
+
   // Global keyboard shortcuts for search and undo/redo.
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
-    // Ctrl+Z → undo (skip if inside input/textarea).
     if (
       e.key === 'z' &&
       (e.ctrlKey || e.metaKey) &&
@@ -199,7 +200,6 @@ export default function App(): React.JSX.Element {
       void undo();
       return;
     }
-    // Ctrl+Shift+Z or Ctrl+Y → redo (skip if inside input/textarea).
     if (
       ((e.key === 'z' && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
         (e.key === 'y' && (e.ctrlKey || e.metaKey))) &&
@@ -210,7 +210,6 @@ export default function App(): React.JSX.Element {
       void redo();
       return;
     }
-    // "?" toggles keyboard shortcuts overlay — skip if inside input/textarea.
     if (
       e.key === '?' &&
       !(e.target instanceof HTMLInputElement) &&
@@ -220,7 +219,6 @@ export default function App(): React.JSX.Element {
       setIsShortcutOpen((prev) => !prev);
       return;
     }
-    // "/" focuses search (like GitHub/Slack) — skip if already in an input/textarea.
     if (
       e.key === '/' &&
       !(e.target instanceof HTMLInputElement) &&
@@ -230,7 +228,6 @@ export default function App(): React.JSX.Element {
       searchInputRef.current?.focus();
       return;
     }
-    // Escape inside the search input clears query and blurs.
     if (e.key === 'Escape' && e.target === searchInputRef.current) {
       e.preventDefault();
       setSearchQuery('');
@@ -278,8 +275,9 @@ export default function App(): React.JSX.Element {
         onUploadClick={() => setIsImportOpen(true)}
         onExportClick={() => {
           const csv = toCsv(individuals);
+          const projName = projects.find((p) => p.id === activeProjectId)?.name ?? 'pedigree';
           const date = new Date().toISOString().slice(0, 10);
-          downloadFile(csv, `pedigree-export-${date}.csv`, 'text/csv');
+          downloadFile(csv, `${projName}-${date}.csv`, 'text/csv');
         }}
         onAddNodeClick={() => setIsAddNodeOpen(true)}
         language={language}
@@ -297,6 +295,14 @@ export default function App(): React.JSX.Element {
         canRedo={canRedo}
         onUndo={() => void undo()}
         onRedo={() => void redo()}
+        saveStatus={saveStatus}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSwitchProject={(id) => void switchProject(id)}
+        onNewProject={() => {
+          void createProject(t.untitledProject, []);
+        }}
+        onDeleteProject={(id) => void removeProject(id)}
       />
 
       <main className="grid grid-cols-[1fr_auto] min-h-0 overflow-hidden relative">
@@ -337,7 +343,7 @@ export default function App(): React.JSX.Element {
         )}
       </main>
 
-      <Footer t={t} summary={summary} />
+      <Footer t={t} summary={summary} saveStatus={saveStatus} />
 
       {/* Live region announcing selection changes to assistive tech. */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -347,10 +353,10 @@ export default function App(): React.JSX.Element {
       <ImportModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
-        onImported={() => {
+        onImported={(projectName, importedIndividuals) => {
           pushSnapshot(individuals);
           setIsImportOpen(false);
-          void refresh();
+          void createProject(projectName, importedIndividuals).then(() => refreshProjects());
         }}
         t={t}
       />
@@ -427,8 +433,6 @@ export default function App(): React.JSX.Element {
                     void navigator.clipboard?.writeText(ctxMenu.id).catch(() => {});
                   },
                   onDelete: async () => {
-                    // Direct delete on context-menu action — the node is already
-                    // selected by the right-click handler.
                     try {
                       await trackedDeleteOne(ctxMenu.id);
                       if (selectedId === ctxMenu.id) setSelectedId(null);
@@ -452,12 +456,6 @@ export default function App(): React.JSX.Element {
   );
 }
 
-/**
- * Node right-click menu — informed by GenoPro, Progeny, and Cyrillic's
- * established conventions. Kept flat (no submenus) to match the current
- * {@link ContextMenu} primitive. Add-relative items carry a short prefill
- * hint in the shortcut column so users see which relation they're making.
- */
 function buildNodeMenu(args: {
   readonly target: Individual;
   readonly onEdit: () => void;
@@ -523,7 +521,6 @@ function buildNodeMenu(args: {
   ];
 }
 
-/** Canvas right-click menu (empty background). */
 function buildCanvasMenu(args: {
   readonly onAddNode: () => void;
   readonly onFit: () => void;

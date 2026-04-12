@@ -79,6 +79,15 @@ export interface Translation {
   readonly shortcutContextMenu: string;
   readonly shortcutGeneral: string;
   readonly pressQuestionForHelp: string;
+  readonly projects: string;
+  readonly newProject: string;
+  readonly untitledProject: string;
+  readonly deleteProject: string;
+  readonly renameProject: string;
+  readonly saved: string;
+  readonly saving: string;
+  readonly allChangesSaved: string;
+  readonly noProjects: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

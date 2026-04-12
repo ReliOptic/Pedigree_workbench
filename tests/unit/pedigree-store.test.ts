@@ -4,13 +4,15 @@ import {
   __resetForTests,
   bulkImport,
   clear,
-  ensureSeeded,
   listAll,
+  listProjects,
+  saveProject,
+  getProject,
+  deleteProject,
   remove,
   upsert,
 } from '../../src/services/pedigree-store';
-import { SEED_INDIVIDUALS } from '../../src/services/seed-data';
-import type { Individual } from '../../src/types/pedigree.types';
+import type { Individual, Project } from '../../src/types/pedigree.types';
 
 const fixture: Individual = {
   id: 'TEST-001',
@@ -70,13 +72,45 @@ describe('pedigree-store', () => {
     await clear();
     expect(await listAll()).toEqual([]);
   });
+});
 
-  it('ensureSeeded seeds once and is idempotent', async () => {
-    const firstRun = await ensureSeeded();
-    const secondRun = await ensureSeeded();
-    expect(firstRun).toBe(true);
-    expect(secondRun).toBe(false);
-    const all = await listAll();
-    expect(all).toHaveLength(SEED_INDIVIDUALS.length);
+describe('project-store', () => {
+  it('starts with no projects', async () => {
+    const projects = await listProjects();
+    expect(projects).toEqual([]);
+  });
+
+  it('saveProject + getProject round-trips', async () => {
+    const proj: Project = {
+      id: 'p1',
+      name: 'Test Project',
+      createdAt: '2026-01-01T00:00:00Z',
+      data: [fixture],
+    };
+    await saveProject(proj);
+    const loaded = await getProject('p1');
+    expect(loaded).toBeDefined();
+    expect(loaded!.name).toBe('Test Project');
+    expect(loaded!.data).toHaveLength(1);
+  });
+
+  it('deleteProject removes the project', async () => {
+    const proj: Project = {
+      id: 'p1',
+      name: 'Test',
+      createdAt: '2026-01-01T00:00:00Z',
+      data: [],
+    };
+    await saveProject(proj);
+    await deleteProject('p1');
+    expect(await getProject('p1')).toBeUndefined();
+  });
+
+  it('listProjects returns newest first', async () => {
+    await saveProject({ id: 'a', name: 'Old', createdAt: '2026-01-01T00:00:00Z', data: [] });
+    await saveProject({ id: 'b', name: 'New', createdAt: '2026-06-01T00:00:00Z', data: [] });
+    const list = await listProjects();
+    expect(list[0]!.id).toBe('b');
+    expect(list[1]!.id).toBe('a');
   });
 });

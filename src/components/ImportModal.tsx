@@ -23,7 +23,7 @@ import type { Translation } from '../types/translation.types';
 interface ImportModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onImported: () => void;
+  readonly onImported: (projectName: string, individuals: readonly Individual[]) => void;
   readonly t: Translation;
 }
 
@@ -142,6 +142,7 @@ export function ImportModal({
   const [csvResult, setCsvResult] = useState<CsvParseResult | null>(null);
   const [columnMapping, setColumnMapping] = useState<readonly ColumnMapping[]>([]);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [importFileName, setImportFileName] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,6 +156,7 @@ export function ImportModal({
       setCsvResult(null);
       setColumnMapping([]);
       setIsDragOver(false);
+      setImportFileName('');
     }
   }, [isOpen]);
 
@@ -178,22 +180,27 @@ export function ImportModal({
 
   const commit = useCallback(
     async (individuals: readonly Individual[]): Promise<void> => {
-      await replaceAll(individuals);
-      logger.info('import-modal.success', { count: individuals.length });
+      // Derive project name from file name, or use a default.
+      const projName = importFileName
+        ? importFileName.replace(/\.(csv|tsv|json)$/i, '')
+        : `Import ${new Date().toLocaleDateString()}`;
+      logger.info('import-modal.success', { count: individuals.length, project: projName });
       setRaw('');
       setPending(null);
       setCsvResult(null);
       setColumnMapping([]);
+      setImportFileName('');
       setStep('input');
-      onImported();
+      onImported(projName, individuals);
     },
-    [replaceAll, onImported],
+    [importFileName, onImported],
   );
 
   /** Process a file based on its extension. */
   const processFile = useCallback(
     (file: File): void => {
       setError(null);
+      setImportFileName(file.name);
       const reader = new FileReader();
       reader.onload = (): void => {
         const text = reader.result as string;
