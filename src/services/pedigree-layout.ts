@@ -1,5 +1,6 @@
 import dagre from 'dagre';
 import type { Individual, Mating } from '../types/pedigree.types';
+import { computeAllCOI } from './kinship';
 
 /**
  * Pure layout helpers for the pedigree canvas.
@@ -327,30 +328,12 @@ export function computeLayout(
 }
 
 /**
- * Returns IDs of individuals whose sire and dam share a common ancestor
- * (simple 2-generation check).
+ * Returns IDs of individuals that have a non-zero inbreeding coefficient (F > 0).
+ * Uses Wright's path coefficient method via computeAllCOI.
  */
 export function detectInbreeding(individuals: readonly Individual[]): string[] {
-  const sharedAncestryIds: string[] = [];
-  const parentMap = new Map<string, { sire?: string; dam?: string }>();
-  for (const ind of individuals) {
-    parentMap.set(ind.id, { sire: ind.sire, dam: ind.dam });
-  }
-  for (const ind of individuals) {
-    if (ind.sire === undefined || ind.dam === undefined) continue;
-    const sireParents = parentMap.get(ind.sire);
-    const damParents = parentMap.get(ind.dam);
-    if (sireParents === undefined || damParents === undefined) continue;
-    const sireAncestors = new Set([sireParents.sire, sireParents.dam].filter(Boolean));
-    const damAncestors = new Set([damParents.sire, damParents.dam].filter(Boolean));
-    for (const a of sireAncestors) {
-      if (damAncestors.has(a)) {
-        sharedAncestryIds.push(ind.id);
-        break;
-      }
-    }
-  }
-  return sharedAncestryIds;
+  const results = computeAllCOI(individuals);
+  return results.filter(r => r.coefficient > 0).map(r => r.id);
 }
 
 /** Aggregate counts surfaced by the footer status bar. */

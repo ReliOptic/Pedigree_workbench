@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { computeInbreedingCoefficient } from '../services/kinship';
 import { X, Pencil, Check, Trash2, Copy as CopyIcon, FlaskConical, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -129,6 +130,11 @@ export function NodeInspector({
     () => (individual?.sequence !== undefined ? individual.sequence.replace(/\s/g, '').length : 0),
     [individual?.sequence],
   );
+
+  const coi = useMemo(() => {
+    if (individual === null) return 0;
+    return computeInbreedingCoefficient(individual.id, allIndividuals);
+  }, [individual, allIndividuals]);
 
   const beginEdit = (): void => {
     if (individual === null) return;
@@ -286,6 +292,31 @@ export function NodeInspector({
               />
             ) : (
               <ReadRows ind={individual} />
+            )}
+
+            {/* COI Section */}
+            {individual !== null && (
+              <div className="mt-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                  Inbreeding Coefficient (COI)
+                </div>
+                <div className={`text-lg font-bold ${
+                  coi >= 0.125 ? 'text-red-600 dark:text-red-400' :
+                  coi >= 0.0625 ? 'text-amber-600 dark:text-amber-400' :
+                  coi > 0 ? 'text-indigo-600 dark:text-indigo-400' :
+                  'text-green-600 dark:text-green-400'
+                }`}>
+                  {(coi * 100).toFixed(2)}%
+                </div>
+                {coi >= 0.0625 && (
+                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    {coi >= 0.125
+                      ? '⚠ High inbreeding — increased genetic risk'
+                      : 'Caution: moderate inbreeding level'
+                    }
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Notes section */}

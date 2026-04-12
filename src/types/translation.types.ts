@@ -165,6 +165,7 @@ export interface Translation {
   readonly statusSummary: string;
   readonly genotypeHeatmap: string;
   readonly breedingCandidates2: string;
+  readonly expectedOffspringCOI: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

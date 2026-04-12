@@ -12,6 +12,7 @@ import { Plus, Minus, Focus } from 'lucide-react';
 import { motion } from 'motion/react';
 
 import { computeLayout, detectInbreeding } from '../services/pedigree-layout';
+import { computeAllCOI } from '../services/kinship';
 import { cn } from '../lib/utils';
 import type { Individual, Mating } from '../types/pedigree.types';
 import type { GenerationFormat } from '../services/settings-store';
@@ -143,6 +144,15 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     [individuals, matings, nodePositions],
   );
   const inbredIds = useMemo(() => new Set(detectInbreeding(individuals)), [individuals]);
+
+  const coiMap = useMemo(() => {
+    const results = computeAllCOI(individuals);
+    const map = new Map<string, { coefficient: number; risk: string }>();
+    for (const r of results) {
+      if (r.coefficient > 0) map.set(r.id, r);
+    }
+    return map;
+  }, [individuals]);
 
   // Memoized id→individual map for O(1) lookups (used by hover tooltip).
   const individualsMap = useMemo(() => {
@@ -694,6 +704,20 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                       i
                     </span>
                   )}
+                  {/* COI badge — only show if individual has inbreeding */}
+                  {(() => {
+                    const coi = coiMap.get(ind.id);
+                    if (!coi) return null;
+                    const color = coi.risk === 'high' ? 'bg-red-500' : coi.risk === 'moderate' ? 'bg-amber-500' : 'bg-indigo-400';
+                    return (
+                      <span
+                        className={`absolute -top-1 -right-1 ${color} text-white text-[9px] font-bold px-1 rounded-full`}
+                        title={`COI: ${(coi.coefficient * 100).toFixed(1)}%`}
+                      >
+                        F:{(coi.coefficient * 100).toFixed(0)}%
+                      </span>
+                    );
+                  })()}
                 </div>
                 {/* Primary label below the shape, truncated, full value in title tooltip. */}
                 <span

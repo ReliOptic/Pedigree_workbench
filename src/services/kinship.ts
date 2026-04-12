@@ -113,6 +113,93 @@ function computeCoefficient(
 }
 
 // ---------------------------------------------------------------------------
+// Inbreeding coefficient helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the inbreeding coefficient (F) for a single individual.
+ * F = f(sire, dam) where f is the kinship coefficient between parents.
+ * computeCoefficient returns the kinship coefficient (not relationship r).
+ * Returns 0 if either parent is unknown or not in the dataset.
+ */
+export function computeInbreedingCoefficient(
+  id: string,
+  individuals: readonly Individual[],
+): number {
+  const ind = individuals.find(i => i.id === id);
+  if (!ind?.sire || !ind?.dam) return 0;
+
+  const idSet = new Set(individuals.map(i => i.id));
+  const sireInDataset = idSet.has(ind.sire);
+  const damInDataset = idSet.has(ind.dam);
+  if (!sireInDataset || !damInDataset) return 0;
+
+  // Build parent map for ancestor traversal.
+  const parentMap = new Map<string, string[]>();
+  for (const i of individuals) {
+    const parents: string[] = [];
+    if (i.sire && i.sire.trim() !== '' && idSet.has(i.sire)) parents.push(i.sire);
+    if (i.dam && i.dam.trim() !== '' && idSet.has(i.dam)) parents.push(i.dam);
+    parentMap.set(i.id, parents);
+  }
+
+  const ancestorCache = new Map<string, Map<string, number>>();
+  const depthsSire = buildAncestorDepths(ind.sire, parentMap, ancestorCache);
+  const depthsDam = buildAncestorDepths(ind.dam, parentMap, ancestorCache);
+  const { coefficient } = computeCoefficient(depthsSire, depthsDam, ind.sire, ind.dam);
+  return coefficient;
+}
+
+export interface COIResult {
+  id: string;
+  coefficient: number;  // 0 to 1
+  risk: 'none' | 'low' | 'moderate' | 'high';
+}
+
+function classifyCOIRisk(f: number): 'none' | 'low' | 'moderate' | 'high' {
+  if (f < 0.0001) return 'none';
+  if (f < 0.0625) return 'low';
+  if (f < 0.125) return 'moderate';
+  return 'high';
+}
+
+export function computeAllCOI(individuals: readonly Individual[]): COIResult[] {
+  return individuals.map(ind => {
+    const coefficient = computeInbreedingCoefficient(ind.id, individuals);
+    return { id: ind.id, coefficient, risk: classifyCOIRisk(coefficient) };
+  });
+}
+
+/**
+ * Predict the inbreeding coefficient of a hypothetical offspring.
+ * F(offspring) = f(sire, dam) where f is the kinship coefficient.
+ */
+export function predictOffspringCOI(
+  sireId: string,
+  damId: string,
+  individuals: readonly Individual[],
+): number {
+  const idSet = new Set(individuals.map(i => i.id));
+  const sireExists = idSet.has(sireId);
+  const damExists = idSet.has(damId);
+  if (!sireExists || !damExists) return 0;
+
+  const parentMap = new Map<string, string[]>();
+  for (const i of individuals) {
+    const parents: string[] = [];
+    if (i.sire && i.sire.trim() !== '' && idSet.has(i.sire)) parents.push(i.sire);
+    if (i.dam && i.dam.trim() !== '' && idSet.has(i.dam)) parents.push(i.dam);
+    parentMap.set(i.id, parents);
+  }
+
+  const ancestorCache = new Map<string, Map<string, number>>();
+  const depthsSire = buildAncestorDepths(sireId, parentMap, ancestorCache);
+  const depthsDam = buildAncestorDepths(damId, parentMap, ancestorCache);
+  const { coefficient } = computeCoefficient(depthsSire, depthsDam, sireId, damId);
+  return coefficient;
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 

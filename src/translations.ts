@@ -165,6 +165,7 @@ export const TRANSLATIONS: TranslationDictionary = {
     statusSummary: 'Status Summary',
     genotypeHeatmap: 'Genotype Heatmap',
     breedingCandidates2: 'Breeding Candidates',
+    expectedOffspringCOI: 'Expected Offspring COI',
   },
   ko: {
     appName: '가계도 워크벤치',
@@ -324,5 +325,6 @@ export const TRANSLATIONS: TranslationDictionary = {
     statusSummary: '상태 요약',
     genotypeHeatmap: '유전자형 히트맵',
     breedingCandidates2: '교배 후보',
+    expectedOffspringCOI: '예상 자손 근친교배 계수',
   },
 };

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Heart } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { MATING_STATUSES, type Individual, type Mating, type MatingStatus } from '../types/pedigree.types';
 import type { Translation } from '../types/translation.types';
+import { predictOffspringCOI } from '../services/kinship';
 
 interface MateModalProps {
   readonly isOpen: boolean;
@@ -80,6 +81,11 @@ export function MateModal({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
+
+  const predictedCOI = useMemo(() => {
+    if (!form.sireId || !form.damId) return 0;
+    return predictOffspringCOI(form.sireId, form.damId, allIndividuals);
+  }, [form.sireId, form.damId, allIndividuals]);
 
   if (!isOpen) return null;
 
@@ -277,6 +283,45 @@ export function MateModal({
               <p role="alert" className="text-xs text-red-600 font-mono break-words">
                 {error}
               </p>
+            )}
+
+            {/* Trial Mating COI Preview */}
+            {form.sireId && form.damId && (
+              <div className={`mt-4 p-3 rounded-lg border ${
+                predictedCOI >= 0.125
+                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  : predictedCOI >= 0.0625
+                  ? 'bg-amber-50 border-amber-300 dark:bg-amber-900/20 dark:border-amber-700'
+                  : predictedCOI > 0
+                  ? 'bg-indigo-50 border-indigo-300 dark:bg-indigo-900/20 dark:border-indigo-700'
+                  : 'bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t.expectedOffspringCOI ?? 'Expected Offspring COI'}
+                  </span>
+                  <span className={`text-lg font-bold ${
+                    predictedCOI >= 0.125 ? 'text-red-600 dark:text-red-400' :
+                    predictedCOI >= 0.0625 ? 'text-amber-600 dark:text-amber-400' :
+                    predictedCOI > 0 ? 'text-indigo-600 dark:text-indigo-400' :
+                    'text-green-600 dark:text-green-400'
+                  }`}>
+                    {(predictedCOI * 100).toFixed(2)}%
+                  </span>
+                </div>
+                {predictedCOI >= 0.0625 && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    {predictedCOI >= 0.125
+                      ? '⚠ High inbreeding risk — consider alternative pairing'
+                      : '⚠ Moderate inbreeding — monitor offspring health'}
+                  </p>
+                )}
+                {predictedCOI === 0 && (
+                  <p className="mt-1 text-xs text-green-700 dark:text-green-400">
+                    ✓ No known shared ancestry
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
