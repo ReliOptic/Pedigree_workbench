@@ -6,6 +6,7 @@ import {
   Trash2,
   Plus,
   Users,
+  UserPlus,
   Copy as CopyIcon,
   Focus,
   ZoomIn,
@@ -46,6 +47,32 @@ function nextGeneration(current: string | undefined): string | undefined {
   const prefix = match[1] ?? '';
   const n = Number.parseInt(match[2] ?? '0', 10);
   return `${prefix}${n + 1}`;
+}
+
+/**
+ * Best-effort "previous generation" calculator for pre-filling Add Parent.
+ * Parses a numeric suffix (e.g. "F1" → 1) and decrements. Unrecognized
+ * formats fall back to the original label so the user can edit freely.
+ */
+function prevGeneration(current: string | undefined): string | undefined {
+  if (current === undefined) return undefined;
+  const match = current.match(/^(\D*)(-?\d+)$/);
+  if (match === null) return current;
+  const prefix = match[1] ?? '';
+  const n = Number.parseInt(match[2] ?? '0', 10);
+  return `${prefix}${n - 1}`;
+}
+
+/**
+ * Build an AddNodeModal prefill representing "add parent of this individual".
+ * Pre-fills generation to the previous generation. Sire/dam are left empty
+ * because the new parent's parents are unknown.
+ */
+function buildAddParentPrefill(target: Individual): Partial<Individual> {
+  return {
+    generation: prevGeneration(target.generation),
+    ...(target.group !== undefined ? { group: target.group } : {}),
+  };
 }
 
 /**
@@ -91,6 +118,7 @@ export default function App(): React.JSX.Element {
   const [isAddNodeOpen, setIsAddNodeOpen] = useState<boolean>(false);
   const [addNodePrefill, setAddNodePrefill] = useState<Partial<Individual> | undefined>(undefined);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
+  const [addParentTarget, setAddParentTarget] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const uploadButtonRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<PedigreeCanvasHandle>(null);
@@ -241,9 +269,19 @@ export default function App(): React.JSX.Element {
         onClose={() => {
           setIsAddNodeOpen(false);
           setAddNodePrefill(undefined);
+          setAddParentTarget(null);
         }}
         onAdd={addOne}
-        onAdded={(id) => setSelectedId(id)}
+        onAdded={(id, individual) => {
+          if (addParentTarget !== null) {
+            const sexLower = (individual.sex ?? '').trim().toLowerCase();
+            const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
+            const field = isFemale ? 'dam' : 'sire';
+            void updateOne(addParentTarget, { [field]: id });
+            setAddParentTarget(null);
+          }
+          setSelectedId(id);
+        }}
         t={t}
       />
 
@@ -268,6 +306,11 @@ export default function App(): React.JSX.Element {
                     setIsAddNodeOpen(true);
                   },
                   onAddSibling: (prefill) => {
+                    setAddNodePrefill(prefill);
+                    setIsAddNodeOpen(true);
+                  },
+                  onAddParent: (prefill) => {
+                    setAddParentTarget(ctxMenu.id);
                     setAddNodePrefill(prefill);
                     setIsAddNodeOpen(true);
                   },
@@ -311,6 +354,7 @@ function buildNodeMenu(args: {
   readonly onEdit: () => void;
   readonly onAddChild: (prefill: Partial<Individual>) => void;
   readonly onAddSibling: (prefill: Partial<Individual>) => void;
+  readonly onAddParent: (prefill: Partial<Individual>) => void;
   readonly onCopyId: () => void;
   readonly onDelete: () => void;
 }): readonly MenuEntry[] {
@@ -339,6 +383,14 @@ function buildNodeMenu(args: {
       icon: Users,
       shortcut: 'S',
       onSelect: () => args.onAddSibling(buildAddSiblingPrefill(args.target)),
+    },
+    {
+      kind: 'item',
+      id: 'add-parent',
+      label: 'Add parent',
+      icon: UserPlus,
+      shortcut: 'P',
+      onSelect: () => args.onAddParent(buildAddParentPrefill(args.target)),
     },
     { kind: 'separator', id: 'sep-add' },
     {

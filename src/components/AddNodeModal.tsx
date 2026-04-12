@@ -13,7 +13,7 @@ interface AddNodeModalProps {
   readonly prefill?: Partial<Individual>;
   readonly onClose: () => void;
   readonly onAdd: (ind: Individual) => Promise<void>;
-  readonly onAdded: (id: string) => void;
+  readonly onAdded: (id: string, individual: Individual) => void;
   readonly t: Translation;
 }
 
@@ -120,7 +120,7 @@ export function AddNodeModal({
     try {
       await onAdd(next);
       logger.info('add-node-modal.success', { id });
-      onAdded(id);
+      onAdded(id, next);
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Failed to add node.');

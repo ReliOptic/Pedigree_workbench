@@ -22,6 +22,7 @@ export interface Translation {
   readonly importData: string;
   readonly generation: string;
   readonly addNode: string;
+  readonly addParent: string;
   readonly edit: string;
   readonly save: string;
   readonly delete: string;
