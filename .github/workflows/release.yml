@@ -1,4 +1,4 @@
-name: Release Windows Build
+name: Release Build
 
 on:
   push:
@@ -10,9 +10,23 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    name: Build Windows installer
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact-name: pedigree-workbench-windows
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            artifact-name: pedigree-workbench-macos-arm64
+          - platform: macos-13
+            target: x86_64-apple-darwin
+            artifact-name: pedigree-workbench-macos-x64
+
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout
@@ -27,7 +41,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-pc-windows-msvc
+          targets: ${{ matrix.target }}
 
       - name: Cache Rust build
         uses: swatinem/rust-cache@v2
@@ -43,32 +57,58 @@ jobs:
       - name: Run unit tests
         run: npm run test
 
-      - name: Build frontend
-        run: npm run build
+      - name: Build Tauri installer
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --target ${{ matrix.target }}
 
-      - name: Build Tauri Windows installers
-        run: npx tauri build --target x86_64-pc-windows-msvc
-
-      - name: Collect artifacts
+      - name: Collect artifacts (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Get-ChildItem -Path src-tauri/target/x86_64-pc-windows-msvc/release/bundle -Recurse -Include *.msi,*.exe |
+          Get-ChildItem -Path src-tauri/target/${{ matrix.target }}/release/bundle -Recurse -Include *.msi,*.exe |
             ForEach-Object { Copy-Item $_.FullName -Destination artifacts/ }
           Get-ChildItem artifacts
+
+      - name: Collect artifacts (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p artifacts
+          find src-tauri/target/${{ matrix.target }}/release/bundle -name "*.dmg" -o -name "*.app.tar.gz" | while read f; do
+            cp "$f" artifacts/
+          done
+          ls -la artifacts/
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pedigree-workbench-windows
+          name: ${{ matrix.artifact-name }}
           path: artifacts/*
           if-no-files-found: error
 
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    name: Publish Release
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          merge-multiple: true
+
+      - name: List release files
+        run: ls -la all-artifacts/
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*
+          files: all-artifacts/*
           generate_release_notes: true
           draft: false
           prerelease: false

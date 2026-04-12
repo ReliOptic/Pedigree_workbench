@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": ["nsis", "msi", "dmg", "app"],
     "category": "Productivity",
     "shortDescription": "Offline pedigree analysis workbench.",
     "longDescription": "A professional genomic architect and pedigree analysis tool for visualizing family lineages and genetic data. Fully offline.",
