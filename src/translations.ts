@@ -70,6 +70,8 @@ export const TRANSLATIONS: TranslationDictionary = {
     themeDark: 'Dark',
     themeSystem: 'System',
     language: 'Language',
+    undo: 'Undo',
+    redo: 'Redo',
   },
   ko: {
     appName: '가계도 워크벤치',
@@ -134,5 +136,7 @@ export const TRANSLATIONS: TranslationDictionary = {
     themeDark: '다크',
     themeSystem: '시스템',
     language: '언어',
+    undo: '실행취소',
+    redo: '다시실행',
   },
 };

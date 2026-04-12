@@ -27,6 +27,7 @@ import {
 } from './components/PedigreeCanvas';
 import { TopBar } from './components/TopBar';
 import { usePedigree } from './hooks/use-pedigree';
+import { useUndo } from './hooks/use-undo';
 import { useSettings } from './hooks/use-settings';
 import { summarize } from './services/pedigree-layout';
 import { TRANSLATIONS } from './translations';
@@ -112,8 +113,38 @@ function buildAddSiblingPrefill(target: Individual): Partial<Individual> {
  * in-flow sibling of the canvas and collapses out of flow when null.
  */
 export default function App(): React.JSX.Element {
-  const { individuals, isLoading, error, refresh, updateOne, deleteOne, addOne } = usePedigree();
+  const { individuals, isLoading, error, refresh, replaceAll, updateOne, deleteOne, addOne } = usePedigree();
   const { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId, theme, setTheme } = useSettings();
+
+  // Stable ref so undo/redo can read current individuals without stale closures.
+  const individualsRef = useRef<readonly Individual[]>(individuals);
+  individualsRef.current = individuals;
+  const getIndividuals = useCallback(() => individualsRef.current, []);
+
+  const { canUndo, canRedo, undo, redo, pushSnapshot } = useUndo(replaceAll, getIndividuals);
+
+  // Tracked mutations that push a snapshot before modifying state.
+  const trackedAddOne = useCallback(
+    async (ind: Individual) => {
+      pushSnapshot(individuals);
+      await addOne(ind);
+    },
+    [pushSnapshot, individuals, addOne],
+  );
+  const trackedUpdateOne = useCallback(
+    async (id: string, patch: Partial<Individual>) => {
+      pushSnapshot(individuals);
+      await updateOne(id, patch);
+    },
+    [pushSnapshot, individuals, updateOne],
+  );
+  const trackedDeleteOne = useCallback(
+    async (id: string) => {
+      pushSnapshot(individuals);
+      await deleteOne(id);
+    },
+    [pushSnapshot, individuals, deleteOne],
+  );
   const activeView = (activeNav === 'paper' ? 'paper' : 'workbench') as 'workbench' | 'paper';
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
   const [isAddNodeOpen, setIsAddNodeOpen] = useState<boolean>(false);
@@ -152,8 +183,31 @@ export default function App(): React.JSX.Element {
     }).length;
   }, [individuals, searchQuery]);
 
-  // Global keyboard shortcuts for search.
+  // Global keyboard shortcuts for search and undo/redo.
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ctrl+Z → undo (skip if inside input/textarea).
+    if (
+      e.key === 'z' &&
+      (e.ctrlKey || e.metaKey) &&
+      !e.shiftKey &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement)
+    ) {
+      e.preventDefault();
+      void undo();
+      return;
+    }
+    // Ctrl+Shift+Z or Ctrl+Y → redo (skip if inside input/textarea).
+    if (
+      ((e.key === 'z' && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+        (e.key === 'y' && (e.ctrlKey || e.metaKey))) &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement)
+    ) {
+      e.preventDefault();
+      void redo();
+      return;
+    }
     // "/" focuses search (like GitHub/Slack) — skip if already in an input/textarea.
     if (
       e.key === '/' &&
@@ -170,7 +224,7 @@ export default function App(): React.JSX.Element {
       setSearchQuery('');
       searchInputRef.current?.blur();
     }
-  }, []);
+  }, [undo, redo]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -227,6 +281,10 @@ export default function App(): React.JSX.Element {
         activeView={activeView}
         setActiveView={setActiveNav}
         onSettingsClick={() => setIsSettingsOpen(true)}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={() => void undo()}
+        onRedo={() => void redo()}
       />
 
       <main className="grid grid-cols-[1fr_auto] min-h-0 overflow-hidden relative">
@@ -260,8 +318,8 @@ export default function App(): React.JSX.Element {
             individual={selected}
             allIndividuals={individuals}
             onClose={() => setSelectedId(null)}
-            onUpdate={updateOne}
-            onDelete={deleteOne}
+            onUpdate={trackedUpdateOne}
+            onDelete={trackedDeleteOne}
             t={t}
           />
         )}
@@ -278,6 +336,7 @@ export default function App(): React.JSX.Element {
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onImported={() => {
+          pushSnapshot(individuals);
           setIsImportOpen(false);
           void refresh();
         }}
@@ -293,13 +352,13 @@ export default function App(): React.JSX.Element {
           setAddNodePrefill(undefined);
           setAddParentTarget(null);
         }}
-        onAdd={addOne}
+        onAdd={trackedAddOne}
         onAdded={(id, individual) => {
           if (addParentTarget !== null) {
             const sexLower = (individual.sex ?? '').trim().toLowerCase();
             const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
             const field = isFemale ? 'dam' : 'sire';
-            void updateOne(addParentTarget, { [field]: id });
+            void trackedUpdateOne(addParentTarget, { [field]: id });
             setAddParentTarget(null);
           }
           setSelectedId(id);
@@ -353,7 +412,7 @@ export default function App(): React.JSX.Element {
                     // Direct delete on context-menu action — the node is already
                     // selected by the right-click handler.
                     try {
-                      await deleteOne(ctxMenu.id);
+                      await trackedDeleteOne(ctxMenu.id);
                       if (selectedId === ctxMenu.id) setSelectedId(null);
                     } catch {
                       // Errors are surfaced in the inspector the next time it opens.

@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { Upload, Download, Languages, Plus, Search, Settings } from 'lucide-react';
+import { Upload, Download, Languages, Plus, Search, Settings, Undo2, Redo2 } from 'lucide-react';
 
 import type { Language, Translation } from '../types/translation.types';
 
@@ -21,6 +21,10 @@ interface TopBarProps {
   readonly activeView: ActiveView;
   readonly setActiveView: (v: ActiveView) => void;
   readonly onSettingsClick: () => void;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly onUndo: () => void;
+  readonly onRedo: () => void;
 }
 
 /**
@@ -42,6 +46,10 @@ export function TopBar({
   activeView,
   setActiveView,
   onSettingsClick,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: TopBarProps): React.JSX.Element {
   return (
     <header
@@ -101,6 +109,27 @@ export function TopBar({
         </div>
       </div>
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={!canUndo}
+          aria-label={t.undo}
+          data-testid="undo-button"
+          className="flex items-center justify-center w-9 h-9 border border-border rounded hover:bg-surface transition disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Undo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={onRedo}
+          disabled={!canRedo}
+          aria-label={t.redo}
+          data-testid="redo-button"
+          className="flex items-center justify-center w-9 h-9 border border-border rounded hover:bg-surface transition disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Redo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
+        </button>
+
         <button
           type="button"
           onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}

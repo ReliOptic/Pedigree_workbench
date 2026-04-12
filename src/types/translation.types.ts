@@ -70,6 +70,8 @@ export interface Translation {
   readonly themeDark: string;
   readonly themeSystem: string;
   readonly language: string;
+  readonly undo: string;
+  readonly redo: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;
