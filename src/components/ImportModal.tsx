@@ -15,6 +15,7 @@ import {
   type ColumnMapping,
   type CsvParseResult,
 } from '../services/pedigree-import-csv';
+import { parseExcel } from '../services/pedigree-import-excel';
 import { ColumnMapper } from './ColumnMapper';
 import { PedigreeImportError } from '../types/error.types';
 import type { Individual } from '../types/pedigree.types';
@@ -99,7 +100,7 @@ interface PendingImport {
   readonly warnings: readonly ImportWarning[];
 }
 
-type Step = 'input' | 'mapping' | 'confirm';
+type Step = 'input' | 'sheet-select' | 'mapping' | 'confirm';
 
 function formatWarning(w: ImportWarning): string {
   switch (w.kind) {
@@ -143,6 +144,9 @@ export function ImportModal({
   const [columnMapping, setColumnMapping] = useState<readonly ColumnMapping[]>([]);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [importFileName, setImportFileName] = useState<string>('');
+  const [sheetNames, setSheetNames] = useState<readonly string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+  const [pendingExcelBuffer, setPendingExcelBuffer] = useState<ArrayBuffer | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -157,6 +161,9 @@ export function ImportModal({
       setColumnMapping([]);
       setIsDragOver(false);
       setImportFileName('');
+      setSheetNames([]);
+      setSelectedSheet('');
+      setPendingExcelBuffer(null);
     }
   }, [isOpen]);
 
@@ -182,7 +189,7 @@ export function ImportModal({
     async (individuals: readonly Individual[]): Promise<void> => {
       // Derive project name from file name, or use a default.
       const projName = importFileName
-        ? importFileName.replace(/\.(csv|tsv|json)$/i, '')
+        ? importFileName.replace(/\.(csv|tsv|json|xlsx|xls)$/i, '')
         : `Import ${new Date().toLocaleDateString()}`;
       logger.info('import-modal.success', { count: individuals.length, project: projName });
       setRaw('');
@@ -190,6 +197,9 @@ export function ImportModal({
       setCsvResult(null);
       setColumnMapping([]);
       setImportFileName('');
+      setSheetNames([]);
+      setSelectedSheet('');
+      setPendingExcelBuffer(null);
       setStep('input');
       onImported(projName, individuals);
     },
@@ -201,10 +211,42 @@ export function ImportModal({
     (file: File): void => {
       setError(null);
       setImportFileName(file.name);
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+
+      if (ext === 'xlsx' || ext === 'xls') {
+        // Excel lane: read as ArrayBuffer, then parse.
+        const reader = new FileReader();
+        reader.onload = (): void => {
+          try {
+            const buffer = reader.result as ArrayBuffer;
+            const excelResult = parseExcel(buffer);
+            if (excelResult.sheetNames.length > 1) {
+              // Multiple sheets — ask the user to pick one.
+              setPendingExcelBuffer(buffer);
+              setSheetNames(excelResult.sheetNames);
+              setSelectedSheet(excelResult.sheetNames[0] ?? '');
+              setStep('sheet-select');
+            } else {
+              // Single sheet — go straight to mapping.
+              setCsvResult(excelResult.result);
+              setColumnMapping(excelResult.result.suggestedMapping);
+              setStep('mapping');
+            }
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Failed to parse Excel file.');
+            logger.warn('import-modal.excel-parse-failed', { cause: String(cause) });
+          }
+        };
+        reader.onerror = (): void => {
+          setError('Failed to read file.');
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (): void => {
         const text = reader.result as string;
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
 
         if (ext === 'json') {
           // JSON lane: set the textarea value and let the user hit import.
@@ -332,6 +374,21 @@ export function ImportModal({
     }
   }, [csvResult, columnMapping, pending, commit]);
 
+  const handleSheetSelect = useCallback((): void => {
+    if (pendingExcelBuffer === null) return;
+    setError(null);
+    try {
+      const excelResult = parseExcel(pendingExcelBuffer, selectedSheet);
+      setCsvResult(excelResult.result);
+      setColumnMapping(excelResult.result.suggestedMapping);
+      setPendingExcelBuffer(null);
+      setStep('mapping');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Failed to parse Excel sheet.');
+      logger.warn('import-modal.excel-sheet-parse-failed', { cause: String(cause) });
+    }
+  }, [pendingExcelBuffer, selectedSheet]);
+
   if (!isOpen) return null;
 
   const hasPending = pending !== null;
@@ -361,7 +418,7 @@ export function ImportModal({
                 >
                   {t.browseFile}
                 </button>
-                <span className="text-xs text-slate-400">.json, .csv, .tsv</span>
+                <span className="text-xs text-slate-400">.json, .csv, .tsv, .xlsx, .xls</span>
               </div>
               <button
                 type="button"
@@ -377,7 +434,7 @@ export function ImportModal({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".json,.csv,.tsv"
+            accept=".json,.csv,.tsv,.xlsx,.xls"
             onChange={handleFileChange}
             className="hidden"
             data-testid="import-file-input"
@@ -456,6 +513,66 @@ export function ImportModal({
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
           {hasPending ? 'Import with warnings' : t.importData}
+        </button>
+      </div>
+    </>
+  );
+
+  const renderSheetSelectStep = (): React.JSX.Element => (
+    <>
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {error !== null && (
+          <p
+            data-testid="import-error"
+            role="alert"
+            className="text-xs text-red-600 font-mono break-words"
+          >
+            {error}
+          </p>
+        )}
+        <p className="text-sm text-slate-600">
+          {sheetNames.length} {t.sheetsFound}. {t.selectSheet}:
+        </p>
+        <ul className="space-y-2">
+          {sheetNames.map((name) => (
+            <li key={name}>
+              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="radio"
+                  name="sheet-select"
+                  value={name}
+                  checked={selectedSheet === name}
+                  onChange={() => setSelectedSheet(name)}
+                  className="accent-brand"
+                />
+                <span className="text-sm font-medium text-slate-700">{name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="p-6 border-t border-slate-100 flex justify-between gap-3 bg-slate-50">
+        <button
+          type="button"
+          onClick={() => {
+            setStep('input');
+            setSheetNames([]);
+            setSelectedSheet('');
+            setPendingExcelBuffer(null);
+            setError(null);
+          }}
+          className="px-6 py-2 text-sm font-medium text-slate-500 hover:text-brand transition-colors"
+        >
+          {t.back}
+        </button>
+        <button
+          type="button"
+          disabled={selectedSheet === ''}
+          onClick={handleSheetSelect}
+          className="px-8 py-2 text-sm font-medium bg-brand text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition rounded flex items-center gap-2"
+        >
+          <Upload className="w-4 h-4" aria-hidden="true" />
+          {t.selectSheet}
         </button>
       </div>
     </>
@@ -570,10 +687,18 @@ export function ImportModal({
           <div className="p-6 border-b border-slate-100 flex justify-between items-center">
             <div>
               <h2 id="import-title" className="text-lg font-bold text-brand">
-                {step === 'mapping' || step === 'confirm' ? t.csvImport : t.importGeneticData}
+                {step === 'sheet-select'
+                  ? t.excelImport
+                  : step === 'mapping' || step === 'confirm'
+                    ? t.csvImport
+                    : t.importGeneticData}
               </h2>
               <p className="text-xs text-slate-500">
-                {step === 'mapping' || step === 'confirm' ? t.mapColumns : t.importDescription}
+                {step === 'sheet-select'
+                  ? t.selectSheet
+                  : step === 'mapping' || step === 'confirm'
+                    ? t.mapColumns
+                    : t.importDescription}
               </p>
             </div>
             <button
@@ -587,6 +712,7 @@ export function ImportModal({
           </div>
 
           {step === 'input' && renderInputStep()}
+          {step === 'sheet-select' && renderSheetSelectStep()}
           {step === 'mapping' && renderMappingStep()}
           {step === 'confirm' && renderConfirmStep()}
         </motion.div>

@@ -10,9 +10,10 @@ import {
 import { Plus, Minus, Focus } from 'lucide-react';
 import { motion } from 'motion/react';
 
-import { computeLayout } from '../services/pedigree-layout';
+import { computeLayout, detectInbreeding } from '../services/pedigree-layout';
 import { cn } from '../lib/utils';
-import type { Individual } from '../types/pedigree.types';
+import type { Individual, Mating } from '../types/pedigree.types';
+import type { GenerationFormat } from '../services/settings-store';
 import type { Translation } from '../types/translation.types';
 
 /**
@@ -28,6 +29,7 @@ export interface PedigreeCanvasHandle {
 
 interface PedigreeCanvasProps {
   readonly individuals: readonly Individual[];
+  readonly matings?: readonly Mating[];
   readonly selectedId: string | null;
   readonly onSelect: (id: string | null) => void;
   readonly onNodeContextMenu?: (id: string, position: { x: number; y: number }) => void;
@@ -35,7 +37,40 @@ interface PedigreeCanvasProps {
   readonly t: Translation;
   readonly searchQuery?: string;
   readonly showNotesOnHover?: boolean;
+  readonly generationFormat?: GenerationFormat;
 }
+
+function toRoman(n: number): string {
+  if (n <= 0) return String(n);
+  const vals = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+  const syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+  let result = '';
+  let rem = n;
+  for (let i = 0; i < vals.length; i++) {
+    while (rem >= vals[i]!) { result += syms[i]; rem -= vals[i]!; }
+  }
+  return result;
+}
+
+function formatGeneration(raw: string, format: GenerationFormat): string {
+  const match = raw.match(/^(\D*)(-?\d+)$/);
+  if (match === null) return raw;
+  const n = Number.parseInt(match[2] ?? '0', 10);
+  switch (format) {
+    case 'F': return `F${n}`;
+    case 'Gen': return `Gen ${n}`;
+    case 'Roman': return toRoman(n);
+    case 'Custom': return raw;
+  }
+}
+
+const MATING_STATUS_COLOR: Record<string, string> = {
+  planned: '#94a3b8',
+  mated: '#3b82f6',
+  pregnant: '#ec4899',
+  delivered: '#22c55e',
+  failed: '#ef4444',
+};
 
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 3;
@@ -87,7 +122,7 @@ function describeSex(shape: SexShape): string {
  */
 export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasProps>(
   function PedigreeCanvas(
-    { individuals, selectedId, onSelect, onNodeContextMenu, onCanvasContextMenu, t, searchQuery, showNotesOnHover = true },
+    { individuals, matings = [], selectedId, onSelect, onNodeContextMenu, onCanvasContextMenu, t, searchQuery, showNotesOnHover = true, generationFormat = 'F' },
     ref,
   ): React.JSX.Element {
   const [zoom, setZoom] = useState<number>(1);
@@ -98,7 +133,8 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
-  const layout = useMemo(() => computeLayout(individuals), [individuals]);
+  const layout = useMemo(() => computeLayout(individuals, {}, matings), [individuals, matings]);
+  const inbredIds = useMemo(() => new Set(detectInbreeding(individuals)), [individuals]);
   const positionById = useMemo(() => {
     const map = new Map<string, { x: number; y: number }>();
     for (const node of layout.nodes) map.set(node.id, { x: node.x, y: node.y });
@@ -344,7 +380,25 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           transformOrigin: '0 0',
         }}
       >
-        {/* Connectors. */}
+        {/* Generation bands — alternating subtle backgrounds per row. */}
+        {layout.generationLabels.map((gl, idx) => (
+          idx % 2 === 1 ? (
+            <div
+              key={`band-${gl.label}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: 0,
+                top: gl.y - 28 - 60,
+                width: 5000,
+                height: 240,
+                background: 'rgba(248,250,252,0.5)',
+              }}
+              aria-hidden="true"
+            />
+          ) : null
+        ))}
+
+        {/* Connectors (parent-child). */}
         <svg className="absolute pointer-events-none" width="5000" height="5000" aria-hidden="true">
           <g stroke="var(--color-text-secondary)" strokeWidth="1.75" fill="none">
             {layout.connectors.map((c) => {
@@ -357,6 +411,48 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
               );
             })}
           </g>
+
+          {/* Mating connection lines (from Mating records). */}
+          {layout.matingConnections.map((mc) => {
+            const color = MATING_STATUS_COLOR[mc.status] ?? '#94a3b8';
+            const x1 = mc.sirePos.x + 28;
+            const y1 = mc.sirePos.y + 28;
+            const x2 = mc.damPos.x + 28;
+            const y2 = mc.damPos.y + 28;
+            return (
+              <g key={`mating-${mc.id}`}>
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={color}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+                {/* Diamond at midpoint */}
+                <rect
+                  x={mc.midX - 6}
+                  y={mc.midY - 6}
+                  width={12}
+                  height={12}
+                  fill={color}
+                  transform={`rotate(45 ${mc.midX} ${mc.midY})`}
+                />
+                {/* Status label below midpoint */}
+                <text
+                  x={mc.midX}
+                  y={mc.midY + 18}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill={color}
+                  fontWeight="600"
+                >
+                  {mc.status}
+                </text>
+              </g>
+            );
+          })}
         </svg>
 
         {/* Row labels — positioned in canvas space so they track with nodes. */}
@@ -367,9 +463,14 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
             style={{ left: 0, top: gl.y - 10 }}
             aria-hidden="true"
           >
-            <span className="font-mono text-sm font-bold text-slate-700 tracking-wide bg-white/80 px-2 py-0.5 rounded border border-border shadow-sm">
-              {t.generation} {gl.label}
-            </span>
+            <div className="flex items-center gap-2 bg-white/80 px-2 py-0.5 rounded border border-border shadow-sm" style={{ borderLeft: '2px solid var(--color-brand)' }}>
+              <span className="font-mono text-base font-bold text-slate-700 tracking-wide">
+                {t.generation}
+              </span>
+              <span className="font-mono text-base font-extrabold text-slate-900 tracking-wide">
+                {formatGeneration(gl.label, generationFormat)}
+              </span>
+            </div>
             <span className="h-[1px] w-16 bg-slate-300" />
           </div>
         ))}
@@ -414,6 +515,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
             const isMatch = isSearching && matchingIds.has(ind.id);
             const isDimmed = isSearching && !matchingIds.has(ind.id);
             const isRoving = rovingId === ind.id;
+            const isInbred = inbredIds.has(ind.id);
             const ariaLabel = `${display}, ${describeSex(shape)}${
               ind.generation !== undefined ? `, generation ${ind.generation}` : ''
             }`;
@@ -466,6 +568,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                         'bg-node-unknown-bg border-node-unknown-border [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]',
                       isSelected && 'ring-4 ring-yellow-400 ring-offset-2',
                       isMatch && !isSelected && 'ring-2 ring-yellow-500/70',
+                      isInbred && !isSelected && 'ring-2 ring-orange-400 ring-offset-1',
                     )}
                   />
                   <span
@@ -479,6 +582,15 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   >
                     {sexGlyph}
                   </span>
+                  {isInbred && (
+                    <span
+                      className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-orange-400 flex items-center justify-center text-[9px] text-white font-bold shadow-sm"
+                      aria-label="Inbreeding warning"
+                      title="Inbreeding detected"
+                    >
+                      ⚠
+                    </span>
+                  )}
                 </div>
                 {/* Primary label below the shape, truncated, full value in title tooltip. */}
                 <span

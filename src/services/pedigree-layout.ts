@@ -1,4 +1,4 @@
-import type { Individual } from '../types/pedigree.types';
+import type { Individual, Mating } from '../types/pedigree.types';
 
 /**
  * Pure layout helpers for the pedigree canvas.
@@ -31,6 +31,17 @@ export interface GenerationLabel {
   readonly y: number;
 }
 
+export interface MatingConnection {
+  readonly id: string;
+  readonly sireId: string;
+  readonly damId: string;
+  readonly status: string;
+  readonly midX: number;
+  readonly midY: number;
+  readonly sirePos: { x: number; y: number };
+  readonly damPos: { x: number; y: number };
+}
+
 export interface LayoutResult {
   readonly nodes: readonly NodePosition[];
   readonly connectors: readonly ConnectorPath[];
@@ -41,6 +52,7 @@ export interface LayoutResult {
    * inside the transformed layer so they track pan/zoom with their row.
    */
   readonly generationLabels: readonly GenerationLabel[];
+  readonly matingConnections: readonly MatingConnection[];
 }
 
 export interface LayoutOptions {
@@ -82,6 +94,7 @@ function parseGenerationOrder(label: string): number | null {
 export function computeLayout(
   individuals: readonly Individual[],
   options: Partial<LayoutOptions> = {},
+  matings: readonly Mating[] = [],
 ): LayoutResult {
   const opts: LayoutOptions = { ...DEFAULT_OPTIONS, ...options };
 
@@ -148,7 +161,53 @@ export function computeLayout(
     });
   });
 
-  return { nodes, connectors, generations, generationLabels };
+  const matingConnections: MatingConnection[] = [];
+  for (const mating of matings) {
+    const sirePos = positionById.get(mating.sireId);
+    const damPos = positionById.get(mating.damId);
+    if (sirePos === undefined || damPos === undefined) continue;
+    const midX = (sirePos.x + damPos.x) / 2 + NODE_HALF;
+    const midY = (sirePos.y + damPos.y) / 2 + NODE_HALF;
+    matingConnections.push({
+      id: mating.id,
+      sireId: mating.sireId,
+      damId: mating.damId,
+      status: mating.status,
+      midX,
+      midY,
+      sirePos: { x: sirePos.x, y: sirePos.y },
+      damPos: { x: damPos.x, y: damPos.y },
+    });
+  }
+
+  return { nodes, connectors, generations, generationLabels, matingConnections };
+}
+
+/**
+ * Returns IDs of individuals whose sire and dam share a common ancestor
+ * (simple 2-generation check).
+ */
+export function detectInbreeding(individuals: readonly Individual[]): string[] {
+  const warnings: string[] = [];
+  const parentMap = new Map<string, { sire?: string; dam?: string }>();
+  for (const ind of individuals) {
+    parentMap.set(ind.id, { sire: ind.sire, dam: ind.dam });
+  }
+  for (const ind of individuals) {
+    if (ind.sire === undefined || ind.dam === undefined) continue;
+    const sireParents = parentMap.get(ind.sire);
+    const damParents = parentMap.get(ind.dam);
+    if (sireParents === undefined || damParents === undefined) continue;
+    const sireAncestors = new Set([sireParents.sire, sireParents.dam].filter(Boolean));
+    const damAncestors = new Set([damParents.sire, damParents.dam].filter(Boolean));
+    for (const a of sireAncestors) {
+      if (damAncestors.has(a)) {
+        warnings.push(ind.id);
+        break;
+      }
+    }
+  }
+  return warnings;
 }
 
 /** Aggregate counts surfaced by the footer status bar. */

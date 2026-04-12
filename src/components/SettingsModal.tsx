@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import type { AutoBackupInterval, ConnectorLineStyle, NodeSize, Theme } from '../services/settings-store';
+import type { AutoBackupInterval, ConnectorLineStyle, GenerationFormat, NodeSize, Species, Theme } from '../services/settings-store';
+import { getSpeciesGestation } from '../services/settings-store';
 import type { Language, Translation } from '../types/translation.types';
 
 interface SettingsModalProps {
@@ -29,6 +30,10 @@ interface SettingsModalProps {
   readonly setShowNotesOnHover: (v: boolean) => void;
   readonly connectorLineStyle: ConnectorLineStyle;
   readonly setConnectorLineStyle: (v: ConnectorLineStyle) => void;
+  readonly generationFormat: GenerationFormat;
+  readonly setGenerationFormat: (v: GenerationFormat) => void;
+  readonly species: Species;
+  readonly setSpecies: (v: Species) => void;
 }
 
 /**
@@ -59,6 +64,10 @@ export function SettingsModal({
   setShowNotesOnHover,
   connectorLineStyle,
   setConnectorLineStyle,
+  generationFormat,
+  setGenerationFormat,
+  species,
+  setSpecies,
 }: SettingsModalProps): React.JSX.Element | null {
   useEffect(() => {
     if (!isOpen) return;
@@ -273,11 +282,75 @@ export function SettingsModal({
                     />
                   </button>
                 </div>
+
+                {/* Generation label format */}
+                <div>
+                  <p className="text-xs text-text-secondary mb-2">{t.generationFormat}</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {(['F', 'Gen', 'Roman', 'Custom'] as const).map((value) => {
+                      const label =
+                        value === 'F' ? t.generationFormatF :
+                        value === 'Gen' ? t.generationFormatGen :
+                        value === 'Roman' ? t.generationFormatRoman :
+                        t.generationFormatCustom;
+                      return (
+                        <label
+                          key={value}
+                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                            generationFormat === value
+                              ? 'border-brand bg-brand/10 text-brand font-medium'
+                              : 'border-border text-text-secondary hover:border-border-strong'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="generationFormat"
+                            value={value}
+                            checked={generationFormat === value}
+                            onChange={() => setGenerationFormat(value)}
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               </fieldset>
 
               {/* Data settings section */}
               <fieldset className="space-y-3">
                 <legend className="text-sm font-medium text-text-primary mb-3">{t.dataSettings}</legend>
+
+                {/* Species preset */}
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-text-secondary">{t.species}</span>
+                  <select
+                    value={species}
+                    onChange={(e) => {
+                      const s = e.target.value as Species;
+                      setSpecies(s);
+                      if (s !== 'custom') {
+                        setDefaultGestationDays(getSpeciesGestation(s));
+                      }
+                    }}
+                    className="px-2 py-1 text-sm border border-border rounded bg-surface"
+                  >
+                    {(['pig', 'dog', 'cattle', 'horse', 'sheep', 'goat', 'cat', 'rabbit', 'custom'] as const).map((s) => {
+                      const label =
+                        s === 'pig' ? t.speciesPig :
+                        s === 'dog' ? t.speciesDog :
+                        s === 'cattle' ? t.speciesCattle :
+                        s === 'horse' ? t.speciesHorse :
+                        s === 'sheep' ? t.speciesSheep :
+                        s === 'goat' ? t.speciesGoat :
+                        s === 'cat' ? t.speciesCat :
+                        s === 'rabbit' ? t.speciesRabbit :
+                        t.speciesCustom;
+                      return <option key={s} value={s}>{label}</option>;
+                    })}
+                  </select>
+                </div>
 
                 {/* Default gestation days */}
                 <div className="flex items-center justify-between gap-4">

@@ -6,27 +6,31 @@ import {
   getAutoFitOnImport,
   getConnectorLineStyle,
   getDefaultGestationDays,
+  getGenerationFormat,
   getLanguage,
   getLastSelectedId,
   getNodeSize,
   getShowGenerationLabels,
   getShowNotesOnHover,
   getShowStatusBadges,
+  getSpecies,
   getTheme,
   setActiveNav as persistActiveNav,
   setAutoBackupInterval as persistAutoBackupInterval,
   setAutoFitOnImport as persistAutoFitOnImport,
   setConnectorLineStyle as persistConnectorLineStyle,
   setDefaultGestationDays as persistDefaultGestationDays,
+  setGenerationFormat as persistGenerationFormat,
   setLanguage as persistLanguage,
   setLastSelectedId as persistLastSelectedId,
   setNodeSize as persistNodeSize,
   setShowGenerationLabels as persistShowGenerationLabels,
   setShowNotesOnHover as persistShowNotesOnHover,
   setShowStatusBadges as persistShowStatusBadges,
+  setSpecies as persistSpecies,
   setTheme as persistTheme,
 } from '../services/settings-store';
-import type { AutoBackupInterval, ConnectorLineStyle, NodeSize, Theme } from '../services/settings-store';
+import type { AutoBackupInterval, ConnectorLineStyle, GenerationFormat, NodeSize, Species, Theme } from '../services/settings-store';
 import type { Language } from '../types/translation.types';
 
 interface UseSettingsResult {
@@ -54,6 +58,10 @@ interface UseSettingsResult {
   readonly setShowNotesOnHover: (next: boolean) => void;
   readonly connectorLineStyle: ConnectorLineStyle;
   readonly setConnectorLineStyle: (next: ConnectorLineStyle) => void;
+  readonly generationFormat: GenerationFormat;
+  readonly setGenerationFormat: (next: GenerationFormat) => void;
+  readonly species: Species;
+  readonly setSpecies: (next: Species) => void;
 }
 
 /**
@@ -74,6 +82,8 @@ export function useSettings(): UseSettingsResult {
   const [autoBackupInterval, setAutoBackupIntervalState] = useState<AutoBackupInterval>(() => getAutoBackupInterval());
   const [showNotesOnHover, setShowNotesOnHoverState] = useState<boolean>(() => getShowNotesOnHover());
   const [connectorLineStyle, setConnectorLineStyleState] = useState<ConnectorLineStyle>(() => getConnectorLineStyle());
+  const [generationFormat, setGenerationFormatState] = useState<GenerationFormat>(() => getGenerationFormat());
+  const [species, setSpeciesState] = useState<Species>(() => getSpecies());
 
   const setLanguage = useCallback((next: Language): void => {
     setLanguageState(next);
@@ -135,6 +145,16 @@ export function useSettings(): UseSettingsResult {
     persistConnectorLineStyle(next);
   }, []);
 
+  const setGenerationFormat = useCallback((next: GenerationFormat): void => {
+    setGenerationFormatState(next);
+    persistGenerationFormat(next);
+  }, []);
+
+  const setSpecies = useCallback((next: Species): void => {
+    setSpeciesState(next);
+    persistSpecies(next);
+  }, []);
+
   return {
     language, setLanguage,
     activeNav, setActiveNav,
@@ -148,5 +168,7 @@ export function useSettings(): UseSettingsResult {
     autoBackupInterval, setAutoBackupInterval,
     showNotesOnHover, setShowNotesOnHover,
     connectorLineStyle, setConnectorLineStyle,
+    generationFormat, setGenerationFormat,
+    species, setSpecies,
   };
 }

@@ -113,6 +113,8 @@ export function setActiveProjectId(id: string | null): void {
 export type NodeSize = 'small' | 'medium' | 'large';
 export type AutoBackupInterval = 'off' | '5min' | '15min' | '30min';
 export type ConnectorLineStyle = 'straight' | 'curved';
+export type GenerationFormat = 'F' | 'Gen' | 'Roman' | 'Custom';
+export type Species = 'pig' | 'dog' | 'cattle' | 'horse' | 'sheep' | 'goat' | 'cat' | 'rabbit' | 'custom';
 
 /** Returns the persisted node size, or `'medium'`. */
 export function getNodeSize(): NodeSize {
@@ -194,4 +196,44 @@ export function getConnectorLineStyle(): ConnectorLineStyle {
 
 export function setConnectorLineStyle(value: ConnectorLineStyle): void {
   safeSet(KEY_CONNECTOR_LINE_STYLE, value);
+}
+
+const KEY_GENERATION_FORMAT = 'pdw.generationFormat';
+const KEY_SPECIES = 'pdw.species';
+
+const SPECIES_GESTATION: Record<Species, number> = {
+  pig: 114,
+  dog: 63,
+  cattle: 283,
+  horse: 340,
+  sheep: 150,
+  goat: 150,
+  cat: 65,
+  rabbit: 31,
+  custom: 114,
+};
+
+/** Returns the persisted generation format, or `'F'`. */
+export function getGenerationFormat(): GenerationFormat {
+  const raw = safeGet(KEY_GENERATION_FORMAT);
+  return raw === 'F' || raw === 'Gen' || raw === 'Roman' || raw === 'Custom' ? raw : 'F';
+}
+
+export function setGenerationFormat(value: GenerationFormat): void {
+  safeSet(KEY_GENERATION_FORMAT, value);
+}
+
+/** Returns the persisted species, or `'pig'`. */
+export function getSpecies(): Species {
+  const raw = safeGet(KEY_SPECIES);
+  const valid: Species[] = ['pig', 'dog', 'cattle', 'horse', 'sheep', 'goat', 'cat', 'rabbit', 'custom'];
+  return valid.includes(raw as Species) ? (raw as Species) : 'pig';
+}
+
+export function setSpecies(value: Species): void {
+  safeSet(KEY_SPECIES, value);
+}
+
+export function getSpeciesGestation(s: Species): number {
+  return SPECIES_GESTATION[s];
 }

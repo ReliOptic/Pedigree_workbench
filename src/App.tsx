@@ -110,6 +110,8 @@ export default function App(): React.JSX.Element {
     autoBackupInterval, setAutoBackupInterval,
     showNotesOnHover, setShowNotesOnHover,
     connectorLineStyle, setConnectorLineStyle,
+    generationFormat, setGenerationFormat,
+    species, setSpecies,
   } = useSettings();
   const { matings, addMating, updateMating, deleteMating, replaceAllMatings } = useMatings();
 
@@ -351,6 +353,7 @@ export default function App(): React.JSX.Element {
           <PedigreeCanvas
             ref={canvasRef}
             individuals={individuals}
+            matings={matings}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onNodeContextMenu={(id, pos) => setCtxMenu({ kind: 'node', id, x: pos.x, y: pos.y })}
@@ -358,6 +361,7 @@ export default function App(): React.JSX.Element {
             t={t}
             searchQuery={searchQuery}
             showNotesOnHover={showNotesOnHover}
+            generationFormat={generationFormat}
           />
         )}
 
@@ -456,6 +460,10 @@ export default function App(): React.JSX.Element {
         setShowNotesOnHover={setShowNotesOnHover}
         connectorLineStyle={connectorLineStyle}
         setConnectorLineStyle={setConnectorLineStyle}
+        generationFormat={generationFormat}
+        setGenerationFormat={setGenerationFormat}
+        species={species}
+        setSpecies={setSpecies}
       />
 
       <ShortcutOverlay

@@ -127,6 +127,24 @@ export interface Translation {
   readonly connectorLineStyle: string;
   readonly connectorStraight: string;
   readonly connectorCurved: string;
+  readonly generationFormat: string;
+  readonly generationFormatF: string;
+  readonly generationFormatGen: string;
+  readonly generationFormatRoman: string;
+  readonly generationFormatCustom: string;
+  readonly species: string;
+  readonly speciesPig: string;
+  readonly speciesDog: string;
+  readonly speciesCattle: string;
+  readonly speciesHorse: string;
+  readonly speciesSheep: string;
+  readonly speciesGoat: string;
+  readonly speciesCat: string;
+  readonly speciesRabbit: string;
+  readonly speciesCustom: string;
+  readonly selectSheet: string;
+  readonly sheetsFound: string;
+  readonly excelImport: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;
