@@ -167,7 +167,7 @@ export function AddNodeModal({
 
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                 id *
               </span>
               <input
@@ -182,7 +182,7 @@ export function AddNodeModal({
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                 label
               </span>
               <input
@@ -194,7 +194,7 @@ export function AddNodeModal({
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   sex
                 </span>
                 <input
@@ -206,7 +206,7 @@ export function AddNodeModal({
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   generation
                 </span>
                 <input
@@ -220,7 +220,7 @@ export function AddNodeModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   sire
                 </span>
                 <select
@@ -237,7 +237,7 @@ export function AddNodeModal({
                 </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   dam
                 </span>
                 <select
@@ -256,7 +256,7 @@ export function AddNodeModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   group
                 </span>
                 <input
@@ -267,7 +267,7 @@ export function AddNodeModal({
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   birth_date
                 </span>
                 <input
@@ -280,7 +280,7 @@ export function AddNodeModal({
               </label>
             </div>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                 status
               </span>
               <input

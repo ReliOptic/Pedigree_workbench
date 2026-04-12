@@ -45,6 +45,7 @@ import type { Individual } from './types/pedigree.types';
 import { useCanvasStore } from './stores/canvas-store';
 import { useUIStore } from './stores/ui-store';
 import { initBuiltInPlugins } from './plugins';
+import { isMale, isFemale } from './lib/sex-utils';
 
 // Initialize built-in plugins on app start
 initBuiltInPlugins();
@@ -85,12 +86,9 @@ function buildAddParentPrefill(target: Individual): Partial<Individual> {
 }
 
 function buildAddChildPrefill(parent: Individual): Partial<Individual> {
-  const sexLower = (parent.sex ?? '').trim().toLowerCase();
-  const isMale = sexLower === '수컷' || sexLower === 'm' || sexLower === 'male';
-  const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
   return {
-    ...(isMale ? { sire: parent.id } : {}),
-    ...(isFemale ? { dam: parent.id } : {}),
+    ...(isMale(parent) ? { sire: parent.id } : {}),
+    ...(isFemale(parent) ? { dam: parent.id } : {}),
     generation: nextGeneration(parent.generation),
     ...(parent.group !== undefined ? { group: parent.group } : {}),
   };
@@ -501,9 +499,7 @@ export default function App(): React.JSX.Element {
         onAdd={trackedAddOne}
         onAdded={(id, individual) => {
           if (addParentTarget !== null) {
-            const sexLower = (individual.sex ?? '').trim().toLowerCase();
-            const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
-            const field = isFemale ? 'dam' : 'sire';
+            const field = isFemale(individual) ? 'dam' : 'sire';
             void trackedUpdateOne(addParentTarget, { [field]: id });
           }
           closeAddModal();
@@ -600,9 +596,7 @@ export default function App(): React.JSX.Element {
                   onAddMate: () => {
                     const target = individuals.find((i) => i.id === ctxMenu.id);
                     if (target !== undefined) {
-                      const sexLower = (target.sex ?? '').trim().toLowerCase();
-                      const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
-                      if (isFemale) {
+                      if (isFemale(target)) {
                         openMateModal(undefined, ctxMenu.id);
                       } else {
                         openMateModal(ctxMenu.id, undefined);

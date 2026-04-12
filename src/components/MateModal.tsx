@@ -174,7 +174,7 @@ export function MateModal({
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   sire *
                 </span>
                 <select
@@ -192,7 +192,7 @@ export function MateModal({
                 </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   dam *
                 </span>
                 <select
@@ -211,7 +211,7 @@ export function MateModal({
             </div>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                 {t.matingStatus}
               </span>
               <select
@@ -229,7 +229,7 @@ export function MateModal({
 
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   {t.matingDate}
                 </span>
                 <input
@@ -240,7 +240,7 @@ export function MateModal({
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                   {t.gestationDays}
                 </span>
                 <input
@@ -255,7 +255,7 @@ export function MateModal({
             </div>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                 {t.dueDate}
               </span>
               <input
@@ -267,7 +267,7 @@ export function MateModal({
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
                 {t.notes}
               </span>
               <textarea

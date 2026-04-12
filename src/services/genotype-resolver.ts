@@ -48,16 +48,3 @@ export function resolveGenotype(ind: Individual): GenotypeStatus {
   return { loci, primaryLocus, primaryValue };
 }
 
-// --- BACKWARD COMPATIBILITY ---
-// These helpers let existing code that accessed .cd163 / .genotype
-// continue working during migration. Remove after full migration.
-
-/** @deprecated Use resolveGenotype().loci['CD163'] instead */
-export function resolveCD163(ind: Individual): string | undefined {
-  return resolveGenotype(ind).loci['CD163'];
-}
-
-/** @deprecated Use resolveGenotype().loci['genotype'] instead */
-export function resolveGenotypeField(ind: Individual): string | undefined {
-  return resolveGenotype(ind).loci['genotype'];
-}

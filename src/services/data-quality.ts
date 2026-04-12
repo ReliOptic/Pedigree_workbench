@@ -7,6 +7,7 @@
 
 import type { Individual } from '../types/pedigree.types';
 import { resolveGenotype } from './genotype-resolver';
+import { isMale, isFemale } from '../lib/sex-utils';
 
 export interface DataQualityScore {
   /** 0–100 weighted average of completeness and consistency. */
@@ -29,16 +30,6 @@ export interface DataIssue {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function isMale(ind: Individual): boolean {
-  const s = (ind.sex ?? '').trim().toLowerCase();
-  return s === 'm' || s === 'male' || s === '수컷';
-}
-
-function isFemale(ind: Individual): boolean {
-  const s = (ind.sex ?? '').trim().toLowerCase();
-  return s === 'f' || s === 'female' || s === '암컷';
-}
 
 function isValidDateString(d: string): boolean {
   // Accept YYYY-MM-DD, YYYY/MM/DD, or DD.MM.YYYY loose check

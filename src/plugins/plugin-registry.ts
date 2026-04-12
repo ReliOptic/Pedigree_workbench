@@ -97,7 +97,3 @@ class PluginRegistry {
 /** Singleton plugin registry */
 export const pluginRegistry = new PluginRegistry();
 
-/** React hook helper — use in components to react to plugin changes */
-export function getPluginRegistry(): PluginRegistry {
-  return pluginRegistry;
-}

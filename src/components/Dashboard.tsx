@@ -89,7 +89,7 @@ export function Dashboard({
         <section className="bg-surface-raised border border-border rounded-lg p-4 flex flex-col gap-3 max-h-80 overflow-y-auto">
           <h2 className="text-sm font-semibold text-text-primary sticky top-0 bg-surface-raised pb-1">{t.litterGroups}</h2>
           {litterGroups.length === 0 ? (
-            <p className="text-xs text-slate-400">No litter groups assigned</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">No litter groups assigned</p>
           ) : (
             litterGroups.map((lg) => (
               <LitterGroupCard
@@ -113,7 +113,7 @@ export function Dashboard({
 
           <section className="bg-surface-raised border border-border rounded-lg p-4">
             <h2 className="text-sm font-semibold text-text-primary mb-3">{t.genotypeHeatmap}</h2>
-            <p className="text-[10px] text-slate-400 mb-2">{t.koEfficiency} &nbsp; <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-red-400"/> 0%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-yellow-300"/>50%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-green-400"/>100%</span></p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">{t.koEfficiency} &nbsp; <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-red-400"/> 0%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-yellow-300"/>50%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-green-400"/>100%</span></p>
             <GenotypeHeatmap
               individuals={individuals}
               onSelectIndividual={onSelectIndividual}

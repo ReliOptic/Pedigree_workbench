@@ -1,6 +1,6 @@
 import { pluginRegistry } from './plugin-registry';
 
-export { pluginRegistry, getPluginRegistry } from './plugin-registry';
+export { pluginRegistry } from './plugin-registry';
 export type { PedigreePlugin, PluginAnalysisResult, PluginRenderRequest, PluginSlot, LocusRegistration } from './plugin-api';
 
 // Built-in plugins
@@ -13,8 +13,3 @@ export function initBuiltInPlugins(): void {
   pluginRegistry.register(esmfoldPlugin);
 }
 
-/** List of built-in plugin instances for direct access */
-export const builtInPlugins = {
-  cd163: cd163Plugin,
-  esmfold: esmfoldPlugin,
-} as const;

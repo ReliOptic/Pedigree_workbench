@@ -13,6 +13,7 @@ import type { Individual, Mating } from '../types/pedigree.types';
 import type { KinshipPair } from './kinship';
 import { classifyRelationship } from './kinship';
 import { resolveGenotype } from './genotype-resolver';
+import { isMale, isFemale } from '../lib/sex-utils';
 
 export interface MatingCandidate {
   readonly sireId: string;
@@ -34,16 +35,6 @@ export interface MatingCandidate {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function isMale(ind: Individual): boolean {
-  const s = (ind.sex ?? '').trim().toLowerCase();
-  return s === 'm' || s === 'male' || s === '수컷';
-}
-
-function isFemale(ind: Individual): boolean {
-  const s = (ind.sex ?? '').trim().toLowerCase();
-  return s === 'f' || s === 'female' || s === '암컷';
-}
 
 function isBreedingCandidate(ind: Individual): boolean {
   if (!ind.status) return false;

@@ -39,7 +39,7 @@ function parseEfficiency(raw: string): number | null {
 
 export function GenotypeHeatmap({ individuals, onSelectIndividual }: GenotypeHeatmapProps): React.JSX.Element {
   if (individuals.length === 0) {
-    return <p className="text-xs text-slate-400">No individuals loaded</p>;
+    return <p className="text-xs text-slate-500 dark:text-slate-400">No individuals loaded</p>;
   }
 
   return (

@@ -348,7 +348,7 @@ export function NodeInspector({
                   }}
                   placeholder={t.noNotes}
                   rows={4}
-                  className="w-full p-2 text-xs bg-white border border-border rounded resize-y font-mono"
+                  className="w-full p-2 text-xs bg-white dark:bg-slate-800 border border-border rounded resize-y font-mono"
                 />
               )}
             </section>
@@ -388,7 +388,7 @@ export function NodeInspector({
                     onChange={(e) =>
                       setForm((f) => (f === null ? f : { ...f, sequenceSource: e.target.value }))
                     }
-                    className="w-full p-2 text-xs bg-white border border-border rounded"
+                    className="w-full p-2 text-xs bg-white dark:bg-slate-800 border border-border rounded"
                     aria-label={t.sequenceSource}
                   >
                     <option value="">— {t.none} —</option>
@@ -407,12 +407,12 @@ export function NodeInspector({
                     placeholder="ATGCGTA... (IUPAC codes, whitespace ignored)"
                     spellCheck={false}
                     rows={6}
-                    className="w-full p-2 font-mono text-xs bg-white border border-border rounded resize-y"
+                    className="w-full p-2 font-mono text-xs bg-white dark:bg-slate-800 border border-border rounded resize-y"
                   />
                 </div>
               ) : individual.sequence !== undefined ? (
                 <div className="space-y-2">
-                  <pre className="p-2 font-mono text-[11px] leading-snug text-slate-700 bg-white border border-border rounded max-h-40 overflow-auto break-all whitespace-pre-wrap">
+                  <pre className="p-2 font-mono text-[11px] leading-snug text-slate-700 bg-white dark:bg-slate-800 border border-border rounded max-h-40 overflow-auto break-all whitespace-pre-wrap">
                     {individual.sequence}
                   </pre>
                   <div className="flex gap-2">
@@ -442,7 +442,7 @@ export function NodeInspector({
           </div>
 
           {/* Footer */}
-          <div className="p-3 border-t border-border bg-white text-[11px] font-mono text-text-muted text-center">
+          <div className="p-3 border-t border-border bg-white dark:bg-slate-800 text-[11px] font-mono text-text-muted text-center">
             {t.individualId}: {individual.id}
           </div>
 
@@ -461,7 +461,7 @@ export function NodeInspector({
             <div
               role="alertdialog"
               aria-labelledby="confirm-delete-title"
-              className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center p-6"
+              className="absolute inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-6"
             >
               <div className="max-w-xs text-center space-y-4">
                 <Trash2 className="w-8 h-8 text-red-600 mx-auto" aria-hidden="true" />
@@ -566,7 +566,7 @@ function EditForm({
           type="text"
           value={form.label}
           onChange={patch('label')}
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         />
       </Field>
       <Field label="sex">
@@ -575,7 +575,7 @@ function EditForm({
           value={form.sex}
           onChange={patch('sex')}
           placeholder="수컷 / 암컷 / M / F"
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         />
       </Field>
       <Field label="generation">
@@ -584,14 +584,14 @@ function EditForm({
           value={form.generation}
           onChange={patch('generation')}
           placeholder="F0 / F1 / F2 ..."
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         />
       </Field>
       <Field label="sire">
         <select
           value={form.sire}
           onChange={patch('sire')}
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         >
           <option value="">— none —</option>
           {parentOptions.map((id) => (
@@ -605,7 +605,7 @@ function EditForm({
         <select
           value={form.dam}
           onChange={patch('dam')}
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         >
           <option value="">— none —</option>
           {parentOptions.map((id) => (
@@ -620,7 +620,7 @@ function EditForm({
           type="text"
           value={form.group}
           onChange={patch('group')}
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         />
       </Field>
       <Field label="surrogate">
@@ -628,7 +628,7 @@ function EditForm({
           type="text"
           value={form.surrogate}
           onChange={patch('surrogate')}
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         />
       </Field>
       <Field label="birth_date">
@@ -637,7 +637,7 @@ function EditForm({
           value={form.birthDate}
           onChange={patch('birthDate')}
           placeholder="YYYY-MM-DD"
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         />
       </Field>
       <Field label="status">
@@ -645,7 +645,7 @@ function EditForm({
           type="text"
           value={form.status}
           onChange={patch('status')}
-          className="w-full p-1.5 text-xs bg-white border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
         />
       </Field>
     </div>
@@ -735,7 +735,7 @@ function IndividualMatings({
             myMatings.map((m) => (
               <div
                 key={m.id}
-                className="p-2 bg-white border border-border rounded text-xs space-y-1"
+                className="p-2 bg-white dark:bg-slate-800 border border-border rounded text-xs space-y-1"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-medium text-slate-700 truncate">
@@ -762,7 +762,7 @@ function IndividualMatings({
                     onChange={(e) =>
                       onUpdateMating({ ...m, status: e.target.value as Mating['status'] })
                     }
-                    className="flex-1 p-1 text-[11px] bg-white border border-border rounded font-mono"
+                    className="flex-1 p-1 text-[11px] bg-white dark:bg-slate-800 border border-border rounded font-mono"
                     aria-label={t.matingStatus}
                   >
                     {(['planned', 'mated', 'pregnant', 'delivered', 'failed'] as const).map((s) => (

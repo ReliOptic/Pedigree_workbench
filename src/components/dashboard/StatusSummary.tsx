@@ -24,7 +24,7 @@ interface StatusSummaryProps {
 
 export function StatusSummary({ statusDistribution, totalCount }: StatusSummaryProps): React.JSX.Element {
   if (statusDistribution.size === 0 || totalCount === 0) {
-    return <p className="text-xs text-slate-400">No status data</p>;
+    return <p className="text-xs text-slate-500 dark:text-slate-400">No status data</p>;
   }
 
   const entries = Array.from(statusDistribution.entries()).sort((a, b) => b[1] - a[1]);

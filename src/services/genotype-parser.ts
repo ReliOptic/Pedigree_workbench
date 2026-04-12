@@ -89,9 +89,6 @@ export function parseEditingGenotype(raw: string): GenotypeResult {
   return { raw: trimmed, alleles, koEfficiency, isHomozygous };
 }
 
-/** @deprecated Use parseEditingGenotype instead */
-export const parseCD163Genotype = parseEditingGenotype;
-
 /**
  * Classifies a parsed genotype result into a KO status tier.
  */
@@ -111,11 +108,3 @@ export function resolveAndParseLocus(ind: Individual, locusName: string): Genoty
   return parseEditingGenotype(val ?? '');
 }
 
-/**
- * Resolves and parses the CD163 genotype from an individual.
- * Uses genotype-resolver for field access (not direct ind.fields access).
- * @deprecated Use resolveAndParseLocus(ind, 'CD163') instead.
- */
-export function resolveAndParseCD163(ind: Individual): GenotypeResult {
-  return resolveAndParseLocus(ind, 'CD163');
-}

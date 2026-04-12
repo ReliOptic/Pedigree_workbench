@@ -35,7 +35,7 @@ export function BreedingCandidateList({
   const candidates = individuals.filter(isBreedingCandidate);
 
   if (candidates.length === 0) {
-    return <p className="text-xs text-slate-400">No breeding candidates</p>;
+    return <p className="text-xs text-slate-500 dark:text-slate-400">No breeding candidates</p>;
   }
 
   return (
@@ -64,7 +64,7 @@ export function BreedingCandidateList({
                   {sx}
                 </span>
                 {ind.group !== undefined && (
-                  <span className="text-[10px] text-slate-400">{ind.group}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">{ind.group}</span>
                 )}
               </div>
               {(cd163 ?? genotype) !== undefined && (

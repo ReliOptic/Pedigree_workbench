@@ -1,8 +1,5 @@
 import type { Individual } from '../types/pedigree.types';
 
-/** Lifecycle phase for plugin hooks */
-export type PluginHookPhase = 'onRegister' | 'onUnregister';
-
 /** Where a plugin can render UI */
 export type PluginSlot =
   | 'inspector-panel'      // Additional panel in NodeInspector

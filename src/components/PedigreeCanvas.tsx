@@ -11,8 +11,9 @@ import {
 import { Plus, Minus, Focus } from 'lucide-react';
 import { motion } from 'motion/react';
 
-import { computeLayout, detectInbreeding } from '../services/pedigree-layout';
+import { computeLayout } from '../services/pedigree-layout';
 import { computeAllCOI } from '../services/kinship';
+import { classifySex } from '../lib/sex-utils';
 import { cn } from '../lib/utils';
 import type { Individual, Mating } from '../types/pedigree.types';
 import type { GenerationFormat } from '../services/settings-store';
@@ -93,18 +94,6 @@ const PADDING = 160; // fit-to-screen padding (extra room for labels below shape
 
 type SexShape = 'male' | 'female' | 'unknown';
 
-/**
- * Maps a free-form `sex` column value onto one of the three PRD shapes.
- * "수컷"/"M" → square, "암컷"/"F" → circle, everything else → diamond.
- */
-function classifySex(value: string | undefined): SexShape {
-  if (value === undefined) return 'unknown';
-  const normalized = value.trim().toLowerCase();
-  if (normalized === '수컷' || normalized === 'm' || normalized === 'male') return 'male';
-  if (normalized === '암컷' || normalized === 'f' || normalized === 'female') return 'female';
-  return 'unknown';
-}
-
 function describeSex(shape: SexShape): string {
   if (shape === 'male') return 'male';
   if (shape === 'female') return 'female';
@@ -143,8 +132,6 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     () => computeLayout(individuals, {}, matings, nodePositions),
     [individuals, matings, nodePositions],
   );
-  const inbredIds = useMemo(() => new Set(detectInbreeding(individuals)), [individuals]);
-
   const coiMap = useMemo(() => {
     const results = computeAllCOI(individuals);
     const map = new Map<string, { coefficient: number; risk: string }>();
@@ -153,6 +140,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     }
     return map;
   }, [individuals]);
+  const inbredIds = useMemo(() => new Set(coiMap.keys()), [coiMap]);
 
   // Memoized id→individual map for O(1) lookups (used by hover tooltip).
   const individualsMap = useMemo(() => {
@@ -465,7 +453,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                 top: gl.y - 28 - 60,
                 width: 5000,
                 height: 240,
-                background: 'rgba(248,250,252,0.5)',
+                background: 'var(--color-surface-band, rgba(248,250,252,0.5))',
               }}
               aria-hidden="true"
             />
@@ -557,11 +545,11 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
             style={{ left: 0, top: gl.y - 10 }}
             aria-hidden="true"
           >
-            <div className="flex items-center gap-2 bg-white/80 px-2 py-0.5 rounded border border-border shadow-sm" style={{ borderLeft: '2px solid var(--color-brand)' }}>
-              <span className="font-mono text-base font-bold text-slate-700 tracking-wide">
+            <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 px-2 py-0.5 rounded border border-border shadow-sm" style={{ borderLeft: '2px solid var(--color-brand)' }}>
+              <span className="font-mono text-base font-bold text-slate-700 dark:text-slate-300 tracking-wide">
                 {t.generation}
               </span>
-              <span className="font-mono text-base font-extrabold text-slate-900 tracking-wide">
+              <span className="font-mono text-base font-extrabold text-slate-900 dark:text-slate-100 tracking-wide">
                 {formatGeneration(gl.label, generationFormat)}
               </span>
             </div>
@@ -711,7 +699,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                     const color = coi.risk === 'high' ? 'bg-red-500' : coi.risk === 'moderate' ? 'bg-amber-500' : 'bg-indigo-400';
                     return (
                       <span
-                        className={`absolute -top-1 -right-1 ${color} text-white text-[9px] font-bold px-1 rounded-full`}
+                        className={`absolute -top-1 -left-1 ${color} text-white text-[9px] font-bold px-1 rounded-full`}
                         title={`COI: ${(coi.coefficient * 100).toFixed(1)}%`}
                       >
                         F:{(coi.coefficient * 100).toFixed(0)}%
@@ -753,7 +741,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
 
       {/* Zoom toolbar — absolute within viewport, no fixed offsets. */}
       <div
-        className="absolute bottom-4 left-20 flex gap-2 p-2 bg-white/80 backdrop-blur-md rounded border border-border shadow-xl z-30"
+        className="absolute bottom-4 left-20 flex gap-2 p-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded border border-border shadow-xl z-30"
         role="toolbar"
         aria-label="Canvas zoom controls"
       >
@@ -761,7 +749,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           type="button"
           onClick={handleZoomIn}
           aria-label="Zoom in"
-          className="p-2 hover:bg-slate-200 rounded transition-colors"
+          className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
         </button>
@@ -777,7 +765,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           type="button"
           onClick={handleZoomOut}
           aria-label="Zoom out"
-          className="p-2 hover:bg-slate-200 rounded transition-colors"
+          className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
         >
           <Minus className="w-4 h-4" aria-hidden="true" />
         </button>
@@ -786,7 +774,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           type="button"
           onClick={handleFit}
           aria-label="Fit to screen"
-          className="p-2 hover:bg-slate-200 rounded transition-colors"
+          className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
         >
           <Focus className="w-4 h-4" aria-hidden="true" />
         </button>

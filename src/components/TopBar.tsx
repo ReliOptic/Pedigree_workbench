@@ -136,7 +136,7 @@ export function TopBar({
           <button
             type="button"
             onClick={() => setIsProjectMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border rounded hover:bg-slate-100 transition max-w-[200px]"
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition max-w-[200px]"
             aria-label={t.projects}
           >
             <FolderOpen className="w-4 h-4 text-text-secondary flex-shrink-0" aria-hidden="true" />
@@ -149,12 +149,12 @@ export function TopBar({
             <div className="absolute top-full left-0 mt-1 w-64 bg-surface-raised border border-border rounded-lg shadow-lg z-50 overflow-hidden">
               <div className="max-h-60 overflow-y-auto">
                 {projects.length === 0 ? (
-                  <p className="px-4 py-3 text-xs text-slate-400">{t.noProjects}</p>
+                  <p className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{t.noProjects}</p>
                 ) : (
                   projects.map((proj) => (
                     <div
                       key={proj.id}
-                      className={`flex items-center justify-between px-4 py-2 hover:bg-slate-100 transition cursor-pointer group ${
+                      className={`flex items-center justify-between px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer group ${
                         proj.id === activeProjectId ? 'bg-blue-50' : ''
                       }`}
                     >
@@ -336,7 +336,7 @@ export function TopBar({
           type="button"
           onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
           aria-label={`Language: ${language === 'en' ? 'English' : 'Korean'}. Click to switch.`}
-          className="flex items-center gap-2 px-3 h-9 text-xs font-medium border border-border rounded hover:bg-slate-100 transition"
+          className="flex items-center gap-2 px-3 h-9 text-xs font-medium border border-border rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition"
         >
           <Languages className="w-4 h-4" aria-hidden="true" />
           {language === 'en' ? 'KO' : 'EN'}
@@ -367,7 +367,7 @@ export function TopBar({
           onClick={onExportClick}
           aria-label={t.exportCsv}
           data-testid="export-csv-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 transition"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition"
         >
           <Download className="w-4 h-4" aria-hidden="true" />
           {t.exportCsv}
@@ -378,7 +378,7 @@ export function TopBar({
           onClick={onBackupProject}
           aria-label={t.backupProject}
           data-testid="backup-project-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 transition"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition"
         >
           <HardDriveDownload className="w-4 h-4" aria-hidden="true" />
           {t.backupProject}

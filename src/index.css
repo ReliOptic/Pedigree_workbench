@@ -20,6 +20,7 @@
   --color-accent-success: #059669;
   --color-accent-danger: #dc2626;
   --color-dot-grid: rgba(0, 59, 90, 0.22);
+  --color-surface-band: rgba(248, 250, 252, 0.5);
 }
 
 /* Dark overrides when .dark class is on <html> */
@@ -40,6 +41,7 @@
   --color-node-unknown-bg: #1e293b;
   --color-node-unknown-border: #94a3b8;
   --color-dot-grid: rgba(148, 163, 184, 0.3);
+  --color-surface-band: rgba(15, 23, 42, 0.4);
 }
 
 @layer base {

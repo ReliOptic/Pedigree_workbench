@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  parseCD163Genotype,
+  parseEditingGenotype as parseCD163Genotype,
   classifyKOStatus,
-  resolveAndParseCD163,
   resolveAndParseLocus,
 } from '../../src/services/genotype-parser';
 import type { Individual } from '../../src/types/pedigree.types';
@@ -98,21 +97,21 @@ describe('classifyKOStatus', () => {
 describe('resolveAndParseCD163', () => {
   it('uses genotype-resolver to access CD163 field (CD163 key)', () => {
     const ind = makeInd({ id: 'A', fields: { CD163: '3bp del' } });
-    const result = resolveAndParseCD163(ind);
+    const result = resolveAndParseLocus(ind, 'CD163');
     expect(result.alleles).toHaveLength(1);
     expect(result.alleles[0]!.type).toBe('del');
   });
 
   it('uses genotype-resolver to access CD163 field (lowercase cd163 key)', () => {
     const ind = makeInd({ id: 'B', fields: { cd163: '1bp ins' } });
-    const result = resolveAndParseCD163(ind);
+    const result = resolveAndParseLocus(ind, 'CD163');
     expect(result.alleles).toHaveLength(1);
     expect(result.alleles[0]!.type).toBe('ins');
   });
 
   it('returns empty result for individual without CD163 data', () => {
     const ind = makeInd({ id: 'C', fields: {} });
-    const result = resolveAndParseCD163(ind);
+    const result = resolveAndParseLocus(ind, 'CD163');
     expect(result.koEfficiency).toBeNull();
     expect(result.alleles).toHaveLength(0);
   });
