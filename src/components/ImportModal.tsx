@@ -558,7 +558,7 @@ export function ImportModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="import-title"
-          className="bg-white w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] rounded-lg overflow-hidden"
+          className="bg-surface-raised w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] rounded-lg overflow-hidden"
         >
           <div className="p-6 border-b border-slate-100 flex justify-between items-center">
             <div>

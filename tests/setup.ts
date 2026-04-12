@@ -42,6 +42,26 @@ Object.defineProperty(globalThis, 'localStorage', {
   value: memoryLocalStorage,
 });
 
+/**
+ * jsdom does not implement `window.matchMedia`. Provide a minimal stub so
+ * components that read `prefers-color-scheme` (e.g. the dark-mode effect in
+ * App) don't throw.
+ */
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  configurable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+});
+
 beforeEach(() => {
   memoryLocalStorage.clear();
 });

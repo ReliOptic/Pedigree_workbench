@@ -149,7 +149,7 @@ export function AddNodeModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-node-title"
-          className="bg-white w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] rounded-lg overflow-hidden"
+          className="bg-surface-raised w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] rounded-lg overflow-hidden"
         >
           <div className="p-5 border-b border-slate-100 flex justify-between items-center">
             <h2 id="add-node-title" className="text-lg font-bold text-brand">
@@ -177,7 +177,7 @@ export function AddNodeModal({
                 value={form.id}
                 onChange={patch('id')}
                 placeholder="e.g. SNUDB #3-1"
-                className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
                 required
               />
             </label>
@@ -189,7 +189,7 @@ export function AddNodeModal({
                 type="text"
                 value={form.label}
                 onChange={patch('label')}
-                className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
               />
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -202,7 +202,7 @@ export function AddNodeModal({
                   value={form.sex}
                   onChange={patch('sex')}
                   placeholder="수컷 / 암컷 / M / F"
-                  className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
                 />
               </label>
               <label className="flex flex-col gap-1">
@@ -214,7 +214,7 @@ export function AddNodeModal({
                   value={form.generation}
                   onChange={patch('generation')}
                   placeholder="F0 / F1 ..."
-                  className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
                 />
               </label>
             </div>
@@ -226,7 +226,7 @@ export function AddNodeModal({
                 <select
                   value={form.sire}
                   onChange={patch('sire')}
-                  className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
                 >
                   <option value="">— none —</option>
                   {parentOptions.map((id) => (
@@ -243,7 +243,7 @@ export function AddNodeModal({
                 <select
                   value={form.dam}
                   onChange={patch('dam')}
-                  className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
                 >
                   <option value="">— none —</option>
                   {parentOptions.map((id) => (
@@ -263,7 +263,7 @@ export function AddNodeModal({
                   type="text"
                   value={form.group}
                   onChange={patch('group')}
-                  className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
                 />
               </label>
               <label className="flex flex-col gap-1">
@@ -275,7 +275,7 @@ export function AddNodeModal({
                   value={form.birthDate}
                   onChange={patch('birthDate')}
                   placeholder="YYYY-MM-DD"
-                  className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
                 />
               </label>
             </div>
@@ -287,7 +287,7 @@ export function AddNodeModal({
                 type="text"
                 value={form.status}
                 onChange={patch('status')}
-                className="w-full p-2 text-sm bg-white border border-border rounded font-mono"
+                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
               />
             </label>
 

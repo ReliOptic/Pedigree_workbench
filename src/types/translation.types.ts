@@ -64,6 +64,12 @@ export interface Translation {
   readonly downloadPng: string;
   readonly copyMermaidSource: string;
   readonly copySvg: string;
+  readonly settings: string;
+  readonly theme: string;
+  readonly themeLight: string;
+  readonly themeDark: string;
+  readonly themeSystem: string;
+  readonly language: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

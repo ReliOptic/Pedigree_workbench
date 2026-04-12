@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { AddNodeModal } from './components/AddNodeModal';
+import { SettingsModal } from './components/SettingsModal';
 import { ContextMenu, type MenuEntry } from './components/ContextMenu';
 import { Footer } from './components/Footer';
 import { ImportModal } from './components/ImportModal';
@@ -112,10 +113,11 @@ function buildAddSiblingPrefill(target: Individual): Partial<Individual> {
  */
 export default function App(): React.JSX.Element {
   const { individuals, isLoading, error, refresh, updateOne, deleteOne, addOne } = usePedigree();
-  const { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId } = useSettings();
+  const { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId, theme, setTheme } = useSettings();
   const activeView = (activeNav === 'paper' ? 'paper' : 'workbench') as 'workbench' | 'paper';
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
   const [isAddNodeOpen, setIsAddNodeOpen] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [addNodePrefill, setAddNodePrefill] = useState<Partial<Individual> | undefined>(undefined);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [addParentTarget, setAddParentTarget] = useState<string | null>(null);
@@ -175,6 +177,25 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleGlobalKeyDown]);
 
+  // Apply dark mode class to <html> based on theme preference.
+  useEffect(() => {
+    const apply = (prefersDark: boolean): void => {
+      const shouldBeDark =
+        theme === 'dark' || (theme === 'system' && prefersDark);
+      document.documentElement.classList.toggle('dark', shouldBeDark);
+    };
+
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    apply(mq.matches);
+
+    if (theme === 'system') {
+      const handler = (e: MediaQueryListEvent): void => apply(e.matches);
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+    return undefined;
+  }, [theme]);
+
   // Return focus to the Upload button after the modal closes.
   const prevOpenRef = useRef<boolean>(false);
   useEffect(() => {
@@ -205,6 +226,7 @@ export default function App(): React.JSX.Element {
         totalCount={individuals.length}
         activeView={activeView}
         setActiveView={setActiveNav}
+        onSettingsClick={() => setIsSettingsOpen(true)}
       />
 
       <main className="grid grid-cols-[1fr_auto] min-h-0 overflow-hidden relative">
@@ -282,6 +304,16 @@ export default function App(): React.JSX.Element {
           }
           setSelectedId(id);
         }}
+        t={t}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        setTheme={setTheme}
+        language={language}
+        setLanguage={setLanguage}
         t={t}
       />
 
@@ -481,7 +513,7 @@ function ErrorState({
 }): React.JSX.Element {
   return (
     <div className="flex items-center justify-center" role="alert">
-      <div className="max-w-md p-6 bg-white border border-red-200 rounded shadow-sm flex flex-col items-center gap-3 text-center">
+      <div className="max-w-md p-6 bg-surface-raised border border-red-200 rounded shadow-sm flex flex-col items-center gap-3 text-center">
         <AlertTriangle className="w-8 h-8 text-red-600" aria-hidden="true" />
         <p className="text-sm font-mono text-red-700 break-words">{message}</p>
         <button
@@ -532,7 +564,7 @@ function EmptyState({
           <button
             type="button"
             onClick={onAddNodeClick}
-            className="inline-flex items-center gap-2 px-4 h-9 text-sm font-medium border border-brand text-brand bg-white rounded hover:bg-slate-100 transition"
+            className="inline-flex items-center gap-2 px-4 h-9 text-sm font-medium border border-brand text-brand bg-surface-raised rounded hover:bg-surface transition"
           >
             {t.addNode}
           </button>

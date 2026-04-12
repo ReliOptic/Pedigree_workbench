@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { Upload, Download, Languages, Plus, Search } from 'lucide-react';
+import { Upload, Download, Languages, Plus, Search, Settings } from 'lucide-react';
 
 import type { Language, Translation } from '../types/translation.types';
 
@@ -20,6 +20,7 @@ interface TopBarProps {
   readonly totalCount: number;
   readonly activeView: ActiveView;
   readonly setActiveView: (v: ActiveView) => void;
+  readonly onSettingsClick: () => void;
 }
 
 /**
@@ -40,6 +41,7 @@ export function TopBar({
   totalCount,
   activeView,
   setActiveView,
+  onSettingsClick,
 }: TopBarProps): React.JSX.Element {
   return (
     <header
@@ -111,10 +113,19 @@ export function TopBar({
 
         <button
           type="button"
+          onClick={onSettingsClick}
+          aria-label={t.settings}
+          className="flex items-center justify-center w-9 h-9 border border-border rounded hover:bg-surface transition"
+        >
+          <Settings className="w-5 h-5 text-text-secondary" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
           onClick={onAddNodeClick}
           aria-label={t.addNode}
           data-testid="add-node-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-brand text-brand bg-white rounded hover:bg-slate-100 transition"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-brand text-brand bg-surface-raised rounded hover:bg-surface transition"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           {t.addNode}

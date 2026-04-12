@@ -4,10 +4,13 @@ import {
   getActiveNav,
   getLanguage,
   getLastSelectedId,
+  getTheme,
   setActiveNav as persistActiveNav,
   setLanguage as persistLanguage,
   setLastSelectedId as persistLastSelectedId,
+  setTheme as persistTheme,
 } from '../services/settings-store';
+import type { Theme } from '../services/settings-store';
 import type { Language } from '../types/translation.types';
 
 interface UseSettingsResult {
@@ -17,6 +20,8 @@ interface UseSettingsResult {
   readonly setActiveNav: (next: string) => void;
   readonly selectedId: string | null;
   readonly setSelectedId: (next: string | null) => void;
+  readonly theme: Theme;
+  readonly setTheme: (next: Theme) => void;
 }
 
 /**
@@ -28,6 +33,7 @@ export function useSettings(): UseSettingsResult {
   const [language, setLanguageState] = useState<Language>(() => getLanguage());
   const [activeNav, setActiveNavState] = useState<string>(() => getActiveNav());
   const [selectedId, setSelectedIdState] = useState<string | null>(() => getLastSelectedId());
+  const [theme, setThemeState] = useState<Theme>(() => getTheme());
 
   const setLanguage = useCallback((next: Language): void => {
     setLanguageState(next);
@@ -44,5 +50,10 @@ export function useSettings(): UseSettingsResult {
     persistLastSelectedId(next);
   }, []);
 
-  return { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId };
+  const setTheme = useCallback((next: Theme): void => {
+    setThemeState(next);
+    persistTheme(next);
+  }, []);
+
+  return { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId, theme, setTheme };
 }

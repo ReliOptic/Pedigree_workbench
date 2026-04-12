@@ -173,7 +173,7 @@ export function ContextMenu({
       aria-label={ariaLabel}
       data-testid="context-menu"
       style={style}
-      className="min-w-[200px] py-1 bg-white border border-border rounded-md shadow-xl text-sm select-none"
+      className="min-w-[200px] py-1 bg-surface-raised border border-border rounded-md shadow-xl text-sm select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
       {items.map((entry, idx) => {

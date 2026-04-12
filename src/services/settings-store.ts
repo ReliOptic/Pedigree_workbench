@@ -13,6 +13,7 @@ import { logger } from './logger';
 const KEY_LANGUAGE = 'pdw.language';
 const KEY_LAST_SELECTED = 'pdw.lastSelectedId';
 const KEY_ACTIVE_NAV = 'pdw.activeNav';
+const KEY_THEME = 'pdw.theme';
 
 const DEFAULT_LANGUAGE: Language = 'en';
 
@@ -69,4 +70,16 @@ export function getActiveNav(): string {
 
 export function setActiveNav(value: string): void {
   safeSet(KEY_ACTIVE_NAV, value);
+}
+
+export type Theme = 'light' | 'dark' | 'system';
+
+/** Returns the persisted theme preference, or `'system'`. */
+export function getTheme(): Theme {
+  const raw = safeGet(KEY_THEME);
+  return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : 'system';
+}
+
+export function setTheme(theme: Theme): void {
+  safeSet(KEY_THEME, theme);
 }

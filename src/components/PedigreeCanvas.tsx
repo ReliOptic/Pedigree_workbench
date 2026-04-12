@@ -326,7 +326,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: `radial-gradient(circle, rgba(0,59,90,0.22) 1px, transparent 1px)`,
+          backgroundImage: `radial-gradient(circle, var(--color-dot-grid) 1px, transparent 1px)`,
           backgroundSize: `${40 * zoom}px ${40 * zoom}px`,
           backgroundPosition: `${offset.x}px ${offset.y}px`,
         }}
