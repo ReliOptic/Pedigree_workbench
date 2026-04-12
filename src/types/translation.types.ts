@@ -142,6 +142,14 @@ export interface Translation {
   readonly speciesCat: string;
   readonly speciesRabbit: string;
   readonly speciesCustom: string;
+  readonly speciesSwine: string;
+  readonly speciesCanine: string;
+  readonly speciesEquine: string;
+  readonly speciesFeline: string;
+  readonly speciesZoo: string;
+  readonly pedigreeCertificate: string;
+  readonly ancestorDepth: string;
+  readonly generateCertificate: string;
   readonly selectSheet: string;
   readonly sheetsFound: string;
   readonly excelImport: string;
