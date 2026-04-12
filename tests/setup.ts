@@ -1,6 +1,8 @@
 import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom/vitest';
 import { beforeEach } from 'vitest';
+import { __resetUIStore } from '../src/stores/ui-store';
+import { __resetCanvasStore } from '../src/stores/canvas-store';
 
 /**
  * jsdom 29's Storage implementation is partially stubbed under Vitest 4 — some
@@ -64,4 +66,6 @@ Object.defineProperty(window, 'matchMedia', {
 
 beforeEach(() => {
   memoryLocalStorage.clear();
+  __resetUIStore();
+  __resetCanvasStore();
 });

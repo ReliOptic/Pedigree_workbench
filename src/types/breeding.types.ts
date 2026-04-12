@@ -31,9 +31,13 @@ export interface MissingDataAlert {
   readonly severity: 'low' | 'medium' | 'high';
 }
 
+/** Resolved genotype data for an individual — locus-agnostic */
 export interface GenotypeStatus {
-  readonly cd163?: string; // KO efficiency (0-1 numeric)
-  readonly genotype?: string; // raw bp del/ins pattern
+  /** All detected locus values from the individual's fields */
+  loci: Record<string, string>;
+  /** Legacy: primary locus value (first detected or user-configured) */
+  primaryLocus?: string;
+  primaryValue?: string;
 }
 
 export type KOEfficiency = number | null;

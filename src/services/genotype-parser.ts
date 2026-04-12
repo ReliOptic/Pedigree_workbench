@@ -46,7 +46,7 @@ function parseAlleles(raw: string): readonly Allele[] {
 }
 
 /**
- * Parses a raw CD163 genotype string into a structured GenotypeResult.
+ * Parses a raw gene-editing genotype string (bp del/ins patterns) into a structured GenotypeResult.
  *
  * Input examples:
  *   "3bp del"
@@ -54,7 +54,7 @@ function parseAlleles(raw: string): readonly Allele[] {
  *   "wt/3bp del"
  *   ""  (empty → unknown)
  */
-export function parseCD163Genotype(raw: string): GenotypeResult {
+export function parseEditingGenotype(raw: string): GenotypeResult {
   const trimmed = raw.trim();
 
   if (trimmed === '') {
@@ -89,6 +89,9 @@ export function parseCD163Genotype(raw: string): GenotypeResult {
   return { raw: trimmed, alleles, koEfficiency, isHomozygous };
 }
 
+/** @deprecated Use parseEditingGenotype instead */
+export const parseCD163Genotype = parseEditingGenotype;
+
 /**
  * Classifies a parsed genotype result into a KO status tier.
  */
@@ -100,10 +103,19 @@ export function classifyKOStatus(result: GenotypeResult): KOStatus {
 }
 
 /**
- * Resolves and parses the CD163 genotype from an individual.
+ * Resolves and parses a named locus genotype from an individual.
  * Uses genotype-resolver for field access (not direct ind.fields access).
  */
+export function resolveAndParseLocus(ind: Individual, locusName: string): GenotypeResult {
+  const val = resolveGenotype(ind).loci[locusName];
+  return parseEditingGenotype(val ?? '');
+}
+
+/**
+ * Resolves and parses the CD163 genotype from an individual.
+ * Uses genotype-resolver for field access (not direct ind.fields access).
+ * @deprecated Use resolveAndParseLocus(ind, 'CD163') instead.
+ */
 export function resolveAndParseCD163(ind: Individual): GenotypeResult {
-  const { cd163 } = resolveGenotype(ind);
-  return parseCD163Genotype(cd163 ?? '');
+  return resolveAndParseLocus(ind, 'CD163');
 }

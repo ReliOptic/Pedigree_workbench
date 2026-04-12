@@ -42,6 +42,12 @@ import { summarize } from './services/pedigree-layout';
 import { getNodePositions, setNodePositions } from './services/settings-store';
 import { TRANSLATIONS } from './translations';
 import type { Individual } from './types/pedigree.types';
+import { useCanvasStore } from './stores/canvas-store';
+import { useUIStore } from './stores/ui-store';
+import { initBuiltInPlugins } from './plugins';
+
+// Initialize built-in plugins on app start
+initBuiltInPlugins();
 
 type CtxMenu =
   | { readonly kind: 'node'; readonly id: string; readonly x: number; readonly y: number }
@@ -159,16 +165,41 @@ export default function App(): React.JSX.Element {
     },
     [pushSnapshot, individuals, deleteOne],
   );
-  const [nodePositions, setNodePositionsState] = useState<Record<string, { x: number; y: number }>>({});
+  // Canvas store: node positions and search
+  const {
+    nodePositions,
+    setNodePositions: setStoreNodePositions,
+    updateNodePosition,
+    searchQuery,
+    setSearchQuery,
+  } = useCanvasStore();
+
+  // UI store: modals and shortcut overlay
+  const {
+    showImportModal,
+    openImportModal,
+    closeImportModal,
+    showAddModal,
+    openAddModal,
+    closeAddModal,
+    showSettingsModal,
+    openSettingsModal,
+    closeSettingsModal,
+    showMateModal,
+    openMateModal,
+    closeMateModal,
+    showShortcutOverlay,
+    toggleShortcutOverlay,
+  } = useUIStore();
 
   // Load node positions when the active project changes.
   useEffect(() => {
     if (activeProjectId === null) {
-      setNodePositionsState({});
+      setStoreNodePositions({});
       return;
     }
-    setNodePositionsState(getNodePositions(activeProjectId));
-  }, [activeProjectId]);
+    setStoreNodePositions(getNodePositions(activeProjectId));
+  }, [activeProjectId, setStoreNodePositions]);
 
   // Persist node positions whenever they change.
   useEffect(() => {
@@ -178,25 +209,21 @@ export default function App(): React.JSX.Element {
 
   const handleNodeDrag = useCallback(
     (id: string, x: number, y: number) => {
-      setNodePositionsState((prev) => ({ ...prev, [id]: { x, y } }));
+      updateNodePosition(id, x, y);
     },
-    [],
+    [updateNodePosition],
   );
 
   type ActiveView = 'dashboard' | 'workbench' | 'paper';
   const VALID_VIEWS: readonly ActiveView[] = ['dashboard', 'workbench', 'paper'];
   const activeView: ActiveView = VALID_VIEWS.includes(activeNav as ActiveView) ? (activeNav as ActiveView) : 'workbench';
-  const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
-  const [isAddNodeOpen, setIsAddNodeOpen] = useState<boolean>(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isMateModalOpen, setIsMateModalOpen] = useState<boolean>(false);
-  const [mateModalPrefillSireId, setMateModalPrefillSireId] = useState<string | undefined>(undefined);
-  const [mateModalPrefillDamId, setMateModalPrefillDamId] = useState<string | undefined>(undefined);
-  const [addNodePrefill, setAddNodePrefill] = useState<Partial<Individual> | undefined>(undefined);
+  const {
+    addNodePrefill,
+    addParentTarget,
+    mateModalPrefillSireId,
+    mateModalPrefillDamId,
+  } = useUIStore();
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
-  const [addParentTarget, setAddParentTarget] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isShortcutOpen, setIsShortcutOpen] = useState<boolean>(false);
   const uploadButtonRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<PedigreeCanvasHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -289,7 +316,7 @@ export default function App(): React.JSX.Element {
       !(e.target instanceof HTMLTextAreaElement)
     ) {
       e.preventDefault();
-      setIsShortcutOpen((prev) => !prev);
+      toggleShortcutOverlay();
       return;
     }
     if (
@@ -306,7 +333,7 @@ export default function App(): React.JSX.Element {
       setSearchQuery('');
       searchInputRef.current?.blur();
     }
-  }, [undo, redo]);
+  }, [undo, redo, toggleShortcutOverlay, setSearchQuery]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -335,24 +362,24 @@ export default function App(): React.JSX.Element {
   // Return focus to the Upload button after the modal closes.
   const prevOpenRef = useRef<boolean>(false);
   useEffect(() => {
-    if (prevOpenRef.current && !isImportOpen) {
+    if (prevOpenRef.current && !showImportModal) {
       uploadButtonRef.current?.focus();
     }
-    prevOpenRef.current = isImportOpen;
-  }, [isImportOpen]);
+    prevOpenRef.current = showImportModal;
+  }, [showImportModal]);
 
   return (
     <div className="bg-surface text-text-primary font-sans h-dvh grid grid-rows-[auto_1fr_auto] overflow-hidden">
       <TopBar
         uploadButtonRef={uploadButtonRef}
-        onUploadClick={() => setIsImportOpen(true)}
+        onUploadClick={() => openImportModal()}
         onExportClick={() => {
           const csv = toCsv(individuals);
           const projName = projects.find((p) => p.id === activeProjectId)?.name ?? 'pedigree';
           const date = new Date().toISOString().slice(0, 10);
           downloadFile(csv, `${projName}-${date}.csv`, 'text/csv');
         }}
-        onAddNodeClick={() => setIsAddNodeOpen(true)}
+        onAddNodeClick={() => openAddModal()}
         language={language}
         setLanguage={setLanguage}
         t={t}
@@ -363,7 +390,7 @@ export default function App(): React.JSX.Element {
         totalCount={individuals.length}
         activeView={activeView}
         setActiveView={setActiveNav}
-        onSettingsClick={() => setIsSettingsOpen(true)}
+        onSettingsClick={() => openSettingsModal()}
         canUndo={canUndo}
         canRedo={canRedo}
         onUndo={() => void undo()}
@@ -409,8 +436,8 @@ export default function App(): React.JSX.Element {
           <ErrorState message={error} onRetry={() => void refresh()} />
         ) : individuals.length === 0 ? (
           <EmptyState
-            onImportClick={() => setIsImportOpen(true)}
-            onAddNodeClick={() => setIsAddNodeOpen(true)}
+            onImportClick={() => openImportModal()}
+            onAddNodeClick={() => openAddModal()}
             t={t}
           />
         ) : (
@@ -454,24 +481,22 @@ export default function App(): React.JSX.Element {
       </div>
 
       <ImportModal
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
+        isOpen={showImportModal}
+        onClose={() => closeImportModal()}
         onImported={(projectName, importedIndividuals) => {
           pushSnapshot(individuals);
-          setIsImportOpen(false);
+          closeImportModal();
           void createProject(projectName, importedIndividuals).then(() => refreshProjects());
         }}
         t={t}
       />
 
       <AddNodeModal
-        isOpen={isAddNodeOpen}
+        isOpen={showAddModal}
         allIndividuals={individuals}
         prefill={addNodePrefill}
         onClose={() => {
-          setIsAddNodeOpen(false);
-          setAddNodePrefill(undefined);
-          setAddParentTarget(null);
+          closeAddModal();
         }}
         onAdd={trackedAddOne}
         onAdded={(id, individual) => {
@@ -480,19 +505,17 @@ export default function App(): React.JSX.Element {
             const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
             const field = isFemale ? 'dam' : 'sire';
             void trackedUpdateOne(addParentTarget, { [field]: id });
-            setAddParentTarget(null);
           }
+          closeAddModal();
           setSelectedId(id);
         }}
         t={t}
       />
 
       <MateModal
-        isOpen={isMateModalOpen}
+        isOpen={showMateModal}
         onClose={() => {
-          setIsMateModalOpen(false);
-          setMateModalPrefillSireId(undefined);
-          setMateModalPrefillDamId(undefined);
+          closeMateModal();
         }}
         onSubmit={(mating) => void addMating(mating)}
         allIndividuals={individuals}
@@ -503,8 +526,8 @@ export default function App(): React.JSX.Element {
       />
 
       <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        isOpen={showSettingsModal}
+        onClose={() => closeSettingsModal()}
         theme={theme}
         setTheme={setTheme}
         language={language}
@@ -533,8 +556,8 @@ export default function App(): React.JSX.Element {
       />
 
       <ShortcutOverlay
-        isOpen={isShortcutOpen}
-        onClose={() => setIsShortcutOpen(false)}
+        isOpen={showShortcutOverlay}
+        onClose={() => toggleShortcutOverlay()}
         t={t}
       />
 
@@ -555,17 +578,13 @@ export default function App(): React.JSX.Element {
                     },
                   onEdit: () => setSelectedId(ctxMenu.id),
                   onAddChild: (prefill) => {
-                    setAddNodePrefill(prefill);
-                    setIsAddNodeOpen(true);
+                    openAddModal(prefill);
                   },
                   onAddSibling: (prefill) => {
-                    setAddNodePrefill(prefill);
-                    setIsAddNodeOpen(true);
+                    openAddModal(prefill);
                   },
                   onAddParent: (prefill) => {
-                    setAddParentTarget(ctxMenu.id);
-                    setAddNodePrefill(prefill);
-                    setIsAddNodeOpen(true);
+                    openAddModal(prefill, ctxMenu.id);
                   },
                   onCopyId: () => {
                     void navigator.clipboard?.writeText(ctxMenu.id).catch(() => {});
@@ -584,14 +603,13 @@ export default function App(): React.JSX.Element {
                       const sexLower = (target.sex ?? '').trim().toLowerCase();
                       const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
                       if (isFemale) {
-                        setMateModalPrefillDamId(ctxMenu.id);
-                        setMateModalPrefillSireId(undefined);
+                        openMateModal(undefined, ctxMenu.id);
                       } else {
-                        setMateModalPrefillSireId(ctxMenu.id);
-                        setMateModalPrefillDamId(undefined);
+                        openMateModal(ctxMenu.id, undefined);
                       }
+                    } else {
+                      openMateModal();
                     }
-                    setIsMateModalOpen(true);
                   },
                   onNote: () => {
                     setSelectedId(ctxMenu.id);
@@ -599,13 +617,12 @@ export default function App(): React.JSX.Element {
                 })
               : buildCanvasMenu({
                   onAddNode: () => {
-                    setAddNodePrefill(undefined);
-                    setIsAddNodeOpen(true);
+                    openAddModal();
                   },
                   onFit: () => canvasRef.current?.fit(),
                   onZoomIn: () => canvasRef.current?.zoomIn(),
                   onZoomOut: () => canvasRef.current?.zoomOut(),
-                  onResetLayout: () => setNodePositionsState({}),
+                  onResetLayout: () => setStoreNodePositions({}),
                 })
         }
       />

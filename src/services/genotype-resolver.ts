@@ -2,18 +2,62 @@ import type { Individual } from '../types/pedigree.types';
 import type { GenotypeStatus } from '../types/breeding.types';
 
 /**
- * Unified genotype field resolution.
- * The real data has TWO distinct columns:
- *   - CD163: KO efficiency (numeric 0-1)
- *   - genotype: bp del/ins pattern (e.g., "3bp del (5/15)")
- * This resolver handles case-insensitive key lookup in the fields bag.
+ * Known locus field patterns — maps locus names to possible field key variations.
+ * Plugins can register additional patterns via registerLocusPattern().
  */
+const locusPatterns: Map<string, string[]> = new Map([
+  ['CD163', ['CD163', 'cd163', 'CD163_KO', 'cd163_ko']],
+  ['genotype', ['genotype', 'Genotype', 'GENOTYPE']],
+]);
+
+/** Register additional locus field patterns (for plugins) */
+export function registerLocusPattern(locus: string, fieldKeys: string[]): void {
+  const existing = locusPatterns.get(locus) ?? [];
+  locusPatterns.set(locus, [...existing, ...fieldKeys]);
+}
+
+/** Remove a registered locus pattern */
+export function unregisterLocusPattern(locus: string): void {
+  locusPatterns.delete(locus);
+}
+
+/** Get all registered locus names */
+export function getRegisteredLoci(): string[] {
+  return Array.from(locusPatterns.keys());
+}
+
+/** Resolve all known locus values from an individual's fields */
 export function resolveGenotype(ind: Individual): GenotypeStatus {
   const fields = ind.fields;
-  const cd163 = fields['CD163'] ?? fields['cd163'] ?? fields['CD163_KO'] ?? fields['cd163_ko'];
-  const genotype = fields['genotype'] ?? fields['Genotype'] ?? fields['GENOTYPE'];
-  return {
-    cd163: cd163 || undefined,
-    genotype: genotype || undefined,
-  };
+  const loci: Record<string, string> = {};
+
+  for (const [locus, keys] of locusPatterns) {
+    for (const key of keys) {
+      const val = fields[key];
+      if (val) {
+        loci[locus] = val;
+        break;
+      }
+    }
+  }
+
+  // Primary = first locus with a value
+  const entries = Object.entries(loci);
+  const [primaryLocus, primaryValue] = entries[0] ?? [undefined, undefined];
+
+  return { loci, primaryLocus, primaryValue };
+}
+
+// --- BACKWARD COMPATIBILITY ---
+// These helpers let existing code that accessed .cd163 / .genotype
+// continue working during migration. Remove after full migration.
+
+/** @deprecated Use resolveGenotype().loci['CD163'] instead */
+export function resolveCD163(ind: Individual): string | undefined {
+  return resolveGenotype(ind).loci['CD163'];
+}
+
+/** @deprecated Use resolveGenotype().loci['genotype'] instead */
+export function resolveGenotypeField(ind: Individual): string | undefined {
+  return resolveGenotype(ind).loci['genotype'];
 }

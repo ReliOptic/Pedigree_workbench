@@ -120,14 +120,14 @@ export function detectMissingData(individuals: readonly Individual[]): MissingDa
       field: 'CD163',
       missing: individuals.filter((i) => {
         const g = resolveGenotype(i);
-        return !g.cd163;
+        return !g.loci['CD163'];
       }).length,
     },
     {
       field: 'genotype',
       missing: individuals.filter((i) => {
         const g = resolveGenotype(i);
-        return !g.genotype;
+        return !g.loci['genotype'];
       }).length,
     },
   ];

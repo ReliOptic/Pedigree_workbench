@@ -45,7 +45,9 @@ export function GenotypeHeatmap({ individuals, onSelectIndividual }: GenotypeHea
   return (
     <div className="flex flex-wrap gap-1">
       {individuals.map((ind) => {
-        const { cd163, genotype } = resolveGenotype(ind);
+        const { loci } = resolveGenotype(ind);
+        const cd163 = loci['CD163'];
+        const genotype = loci['genotype'];
         const eff = cd163 !== undefined ? parseEfficiency(cd163) : null;
         const label = ind.label ?? ind.id;
 

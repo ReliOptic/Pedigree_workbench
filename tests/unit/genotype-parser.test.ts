@@ -4,6 +4,7 @@ import {
   parseCD163Genotype,
   classifyKOStatus,
   resolveAndParseCD163,
+  resolveAndParseLocus,
 } from '../../src/services/genotype-parser';
 import type { Individual } from '../../src/types/pedigree.types';
 
@@ -114,5 +115,36 @@ describe('resolveAndParseCD163', () => {
     const result = resolveAndParseCD163(ind);
     expect(result.koEfficiency).toBeNull();
     expect(result.alleles).toHaveLength(0);
+  });
+});
+
+describe('resolveAndParseLocus', () => {
+  it('resolves and parses a named locus (CD163)', () => {
+    const ind = makeInd({ id: 'A', fields: { CD163: '3bp del' } });
+    const result = resolveAndParseLocus(ind, 'CD163');
+    expect(result.alleles).toHaveLength(1);
+    expect(result.alleles[0]!.type).toBe('del');
+    expect(result.alleles[0]!.bp).toBe(3);
+  });
+
+  it('resolves and parses a named locus (genotype)', () => {
+    const ind = makeInd({ id: 'B', fields: { genotype: '1bp ins/3bp del' } });
+    const result = resolveAndParseLocus(ind, 'genotype');
+    expect(result.alleles).toHaveLength(2);
+    expect(result.koEfficiency).toBe(1);
+  });
+
+  it('returns empty result when locus is not found', () => {
+    const ind = makeInd({ id: 'C', fields: {} });
+    const result = resolveAndParseLocus(ind, 'CD163');
+    expect(result.alleles).toHaveLength(0);
+    expect(result.koEfficiency).toBeNull();
+  });
+
+  it('returns empty result for unknown locus name', () => {
+    const ind = makeInd({ id: 'D', fields: { CD163: '3bp del' } });
+    const result = resolveAndParseLocus(ind, 'NONEXISTENT');
+    expect(result.alleles).toHaveLength(0);
+    expect(result.koEfficiency).toBeNull();
   });
 });

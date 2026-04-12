@@ -41,7 +41,9 @@ export function BreedingCandidateList({
   return (
     <div className="flex flex-col gap-2">
       {candidates.map((ind) => {
-        const { cd163, genotype } = resolveGenotype(ind);
+        const { loci } = resolveGenotype(ind);
+        const cd163 = loci['CD163'];
+        const genotype = loci['genotype'];
         const hasSex = !!ind.sex && ind.sex.trim() !== '';
         const hasGenotype = !!cd163 || !!genotype;
         const ready = hasSex && hasGenotype;

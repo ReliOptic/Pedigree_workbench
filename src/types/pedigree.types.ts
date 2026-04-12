@@ -34,6 +34,20 @@ export const SEQUENCE_SOURCES: readonly SequenceSource[] = [
  */
 export const SEQUENCE_REGEX = /^[ACGTUNRYSWKMBDHVacgtunryswkmbdhv\s\-]*$/;
 
+/** A single locus value — stores raw string + optional parsed data */
+export interface LocusValue {
+  raw: string;
+  /** Plugin-provided parsed result (e.g., KO efficiency, alleles) */
+  parsed?: Record<string, unknown>;
+}
+
+/**
+ * Generic genotype container — replaces CD163-specific fields.
+ * Key is the locus name (e.g., 'CD163', 'ANPEP', 'coat_color').
+ * Values come from the `fields` bag during import resolution.
+ */
+export type GenotypeMap = Record<string, LocusValue>;
+
 export interface Individual {
   readonly id: string;
   readonly sire?: string;
