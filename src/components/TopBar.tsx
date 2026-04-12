@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { Upload, Languages, Plus, Search } from 'lucide-react';
+import { Upload, Download, Languages, Plus, Search } from 'lucide-react';
 
 import type { Language, Translation } from '../types/translation.types';
 
@@ -8,6 +8,7 @@ type ActiveView = 'workbench' | 'paper';
 interface TopBarProps {
   readonly uploadButtonRef: RefObject<HTMLButtonElement | null>;
   readonly onUploadClick: () => void;
+  readonly onExportClick: () => void;
   readonly onAddNodeClick: () => void;
   readonly language: Language;
   readonly setLanguage: (lang: Language) => void;
@@ -27,6 +28,7 @@ interface TopBarProps {
 export function TopBar({
   uploadButtonRef,
   onUploadClick,
+  onExportClick,
   onAddNodeClick,
   language,
   setLanguage,
@@ -116,6 +118,17 @@ export function TopBar({
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           {t.addNode}
+        </button>
+
+        <button
+          type="button"
+          onClick={onExportClick}
+          aria-label={t.exportCsv}
+          data-testid="export-csv-button"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 transition"
+        >
+          <Download className="w-4 h-4" aria-hidden="true" />
+          {t.exportCsv}
         </button>
 
         <button

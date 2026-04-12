@@ -16,6 +16,7 @@ import { AddNodeModal } from './components/AddNodeModal';
 import { ContextMenu, type MenuEntry } from './components/ContextMenu';
 import { Footer } from './components/Footer';
 import { ImportModal } from './components/ImportModal';
+import { toCsv, downloadFile } from './services/pedigree-export';
 import { NodeInspector } from './components/NodeInspector';
 import { PaperView } from './components/PaperView';
 import {
@@ -160,6 +161,11 @@ export default function App(): React.JSX.Element {
       <TopBar
         uploadButtonRef={uploadButtonRef}
         onUploadClick={() => setIsImportOpen(true)}
+        onExportClick={() => {
+          const csv = toCsv(individuals);
+          const date = new Date().toISOString().slice(0, 10);
+          downloadFile(csv, `pedigree-export-${date}.csv`, 'text/csv');
+        }}
         onAddNodeClick={() => setIsAddNodeOpen(true)}
         language={language}
         setLanguage={setLanguage}

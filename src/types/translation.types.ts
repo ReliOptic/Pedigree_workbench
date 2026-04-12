@@ -55,6 +55,7 @@ export interface Translation {
   readonly back: string;
   readonly rowsDetected: string;
   readonly downloadSampleCsv: string;
+  readonly exportCsv: string;
   readonly searchGenotypes: string;
   readonly matches: string;
   readonly paperView: string;
