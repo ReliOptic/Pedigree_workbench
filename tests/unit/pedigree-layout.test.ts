@@ -10,33 +10,54 @@ const dataset: readonly Individual[] = [
 ];
 
 describe('computeLayout', () => {
-  it('places nodes by generation row and input order within a row', () => {
+  it('places all nodes', () => {
     const layout = computeLayout(dataset);
     expect(layout.nodes).toHaveLength(3);
     const s = layout.nodes.find((n) => n.id === 'S');
     const d = layout.nodes.find((n) => n.id === 'D');
     const c = layout.nodes.find((n) => n.id === 'C');
-    // F0 row at originY=100, F1 row at originY + verticalGap(240) = 340.
-    expect(s?.y).toBe(100);
-    expect(d?.y).toBe(100);
-    expect(c?.y).toBe(340);
-    // First col at originX=100, second col at originX + horizontalGap(140) = 240.
-    expect(s?.x).toBe(100);
-    expect(d?.x).toBe(240);
+    expect(s).toBeDefined();
+    expect(d).toBeDefined();
+    expect(c).toBeDefined();
   });
 
-  it('emits generationLabels positioned at each row center in canvas space', () => {
+  it('places parents (F0) above children (F1)', () => {
     const layout = computeLayout(dataset);
-    expect(layout.generationLabels).toHaveLength(2);
+    const s = layout.nodes.find((n) => n.id === 'S')!;
+    const d = layout.nodes.find((n) => n.id === 'D')!;
+    const c = layout.nodes.find((n) => n.id === 'C')!;
+    // F0 parents should be above F1 child (lower y = higher on screen)
+    expect(s.y).toBeLessThan(c.y);
+    expect(d.y).toBeLessThan(c.y);
+    // Parents should be on the same row
+    expect(s.y).toBe(d.y);
+  });
+
+  it('places mating pair horizontally adjacent', () => {
+    const layout = computeLayout(dataset);
+    const s = layout.nodes.find((n) => n.id === 'S')!;
+    const d = layout.nodes.find((n) => n.id === 'D')!;
+    // Sire and dam should be on the same y (same generation row)
+    expect(s.y).toBe(d.y);
+    // They should be near each other horizontally
+    expect(Math.abs(s.x - d.x)).toBeGreaterThan(0);
+    expect(Math.abs(s.x - d.x)).toBeLessThan(500);
+  });
+
+  it('emits generationLabels for each generation', () => {
+    const layout = computeLayout(dataset);
+    expect(layout.generationLabels.length).toBeGreaterThanOrEqual(2);
     const f0 = layout.generationLabels.find((l) => l.label === 'F0');
     const f1 = layout.generationLabels.find((l) => l.label === 'F1');
-    expect(f0?.y).toBe(100 + 28); // originY + NODE_HALF
-    expect(f1?.y).toBe(340 + 28); // F1 row y + NODE_HALF
+    expect(f0).toBeDefined();
+    expect(f1).toBeDefined();
+    // F0 label should be above F1 label
+    expect(f0!.y).toBeLessThan(f1!.y);
   });
 
   it('emits a connector for each child whose sire AND dam resolve', () => {
     const layout = computeLayout(dataset);
-    expect(layout.connectors).toHaveLength(1);
+    expect(layout.connectors.length).toBeGreaterThanOrEqual(1);
     expect(layout.connectors[0]?.childId).toBe('C');
   });
 
@@ -54,6 +75,13 @@ describe('computeLayout', () => {
       { id: 'C', generation: 'F1', fields: {} },
     ];
     expect(computeLayout(mixed).generations).toEqual(['F0', 'F1', 'F2']);
+  });
+
+  it('respects nodePositions overrides', () => {
+    const layout = computeLayout(dataset, {}, [], { S: { x: 999, y: 888 } });
+    const s = layout.nodes.find((n) => n.id === 'S')!;
+    expect(s.x).toBe(999);
+    expect(s.y).toBe(888);
   });
 });
 

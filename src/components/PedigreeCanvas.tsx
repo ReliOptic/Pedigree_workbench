@@ -144,6 +144,13 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
   );
   const inbredIds = useMemo(() => new Set(detectInbreeding(individuals)), [individuals]);
 
+  // Memoized id→individual map for O(1) lookups (used by hover tooltip).
+  const individualsMap = useMemo(() => {
+    const map = new Map<string, Individual>();
+    for (const ind of individuals) map.set(ind.id, ind);
+    return map;
+  }, [individuals]);
+
   // Effective positions: layout positions with nodePositions overrides applied.
   const effectivePositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number }>();
@@ -187,18 +194,36 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     return individuals[0]?.id ?? null;
   }, [individuals, positionById, selectedId]);
 
-  // Global mousemove/mouseup listeners for node dragging.
+  // Global mousemove/mouseup listeners for node dragging, throttled via RAF.
   useEffect(() => {
     if (draggingId === null) return;
+
+    let rafId: number | null = null;
+    let latestX = 0;
+    let latestY = 0;
+
     const handleMouseMove = (e: MouseEvent): void => {
       if (dragStartRef.current === null || onNodeDrag === undefined) return;
       const dx = e.clientX - dragStartRef.current.mouseX;
       const dy = e.clientY - dragStartRef.current.mouseY;
-      const newX = dragStartRef.current.nodeX + dx / zoom;
-      const newY = dragStartRef.current.nodeY + dy / zoom;
-      onNodeDrag(draggingId, newX, newY);
+      latestX = dragStartRef.current.nodeX + dx / zoom;
+      latestY = dragStartRef.current.nodeY + dy / zoom;
+
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          onNodeDrag(draggingId, latestX, latestY);
+          rafId = null;
+        });
+      }
     };
     const handleMouseUp = (): void => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+        if (onNodeDrag !== undefined) {
+          onNodeDrag(draggingId, latestX, latestY);
+        }
+      }
       setDraggingId(null);
       dragStartRef.current = null;
     };
@@ -207,6 +232,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, [draggingId, zoom, onNodeDrag]);
 
@@ -412,7 +438,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
 
       {/* Transformed canvas layer — everything inside tracks pan/zoom together. */}
       <div
-        className="absolute transition-transform duration-75 ease-out"
+        className="absolute"
         style={{
           transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
           transformOrigin: '0 0',
@@ -437,14 +463,31 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
         ))}
 
         {/* Connectors (parent-child). */}
-        <svg className="absolute pointer-events-none" width="5000" height="5000" aria-hidden="true">
-          <g stroke="var(--color-text-secondary)" strokeWidth="1.75" fill="none">
+        {(() => {
+          const allX = layout.nodes.map((n) => n.x);
+          const allY = layout.nodes.map((n) => n.y);
+          const svgMinX = allX.length > 0 ? Math.min(...allX) - 100 : 0;
+          const svgMinY = allY.length > 0 ? Math.min(...allY) - 100 : 0;
+          const svgMaxX = allX.length > 0 ? Math.max(...allX) + 300 : 2000;
+          const svgMaxY = allY.length > 0 ? Math.max(...allY) + 200 : 2000;
+          const svgWidth = Math.max(svgMaxX - svgMinX, 2000);
+          const svgHeight = Math.max(svgMaxY - svgMinY, 2000);
+          return (
+        <svg
+          className="absolute pointer-events-none"
+          width={svgWidth}
+          height={svgHeight}
+          style={{ left: svgMinX, top: svgMinY }}
+          viewBox={`${svgMinX} ${svgMinY} ${svgWidth} ${svgHeight}`}
+          aria-hidden="true"
+        >
+          <g stroke="var(--color-text-secondary)" strokeWidth="1.5" fill="none">
             {layout.connectors.map((c) => {
               const dimConnector = isSearching && !matchingIds.has(c.childId);
               return (
                 <g key={`link-${c.childId}`} opacity={dimConnector ? 0.3 : 1}>
-                  <path d={c.marriageD} strokeDasharray="5 3" />
-                  <path d={c.dropD} />
+                  <path d={c.marriageD} strokeDasharray="5 3" vectorEffect="non-scaling-stroke" />
+                  <path d={c.dropD} vectorEffect="non-scaling-stroke" />
                 </g>
               );
             })}
@@ -465,8 +508,9 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   x2={x2}
                   y2={y2}
                   stroke={color}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
+                  strokeWidth="2"
+                  strokeDasharray="6 3"
+                  vectorEffect="non-scaling-stroke"
                 />
                 {/* Diamond at midpoint */}
                 <rect
@@ -492,6 +536,8 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
             );
           })}
         </svg>
+          );
+        })()}
 
         {/* Row labels — positioned in canvas space so they track with nodes. */}
         {layout.generationLabels.map((gl) => (
@@ -515,7 +561,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
 
         {/* Notes tooltip — rendered inside transform group so it pans/zooms with the canvas. */}
         {showNotesOnHover && hoveredId !== null && hoverPos !== null && (() => {
-          const hoveredInd = individuals.find((i) => i.id === hoveredId);
+          const hoveredInd = individualsMap.get(hoveredId);
           const notes = hoveredInd?.notes;
           if (notes === undefined || notes.trim().length === 0) return null;
           const truncated = notes.length > 200 ? `${notes.slice(0, 200)}...` : notes;
@@ -562,7 +608,6 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
               <motion.button
                 key={ind.id}
                 type="button"
-                layoutId={ind.id}
                 data-testid={`pedigree-node-${ind.id}`}
                 tabIndex={isRoving ? 0 : -1}
                 aria-pressed={isSelected}

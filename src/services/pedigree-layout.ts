@@ -1,3 +1,4 @@
+import dagre from 'dagre';
 import type { Individual, Mating } from '../types/pedigree.types';
 
 /**
@@ -7,9 +8,8 @@ import type { Individual, Mating } from '../types/pedigree.types';
  * The view layer is responsible only for translating these coordinates
  * into SVG/DOM.
  *
- * Generations in PRD v3.1 are free-form strings ("F0", "F1", etc.). We
- * bucket individuals by exact generation string and order buckets by
- * parsed numeric suffix when available, falling back to first-seen order.
+ * Uses dagre's Sugiyama hierarchical layout (rankdir: TB) for clean
+ * generation-separated positioning with parent pairs adjacent to each other.
  */
 
 export interface NodePosition {
@@ -56,20 +56,22 @@ export interface LayoutResult {
 }
 
 export interface LayoutOptions {
-  readonly horizontalGap: number;
-  readonly verticalGap: number;
-  readonly originX: number;
-  readonly originY: number;
+  readonly horizontalGap?: number;
+  readonly verticalGap?: number;
+  readonly originX?: number;
+  readonly originY?: number;
+  readonly nodePositions?: Readonly<Record<string, { x: number; y: number }>>;
 }
 
-const DEFAULT_OPTIONS: LayoutOptions = {
-  horizontalGap: 140,
-  verticalGap: 240,
-  originX: 100,
-  originY: 100,
-};
+/** Node dimensions — must match the w-14 h-14 (56px) shape in PedigreeCanvas. */
+const NODE_WIDTH = 140;
+const NODE_HEIGHT = 60;
 
-/** Half the rendered node size — used to center row labels vertically. */
+/** Bottom edge offset from node top (node shape height = 56px). */
+const NODE_BOTTOM = 56;
+/** How far below the node bottom to draw the horizontal marriage line. */
+const MARRIAGE_OFFSET = 30;
+/** Half the rendered node size — used to center connectors and row labels. */
 const NODE_HALF = 28;
 
 const UNSPECIFIED_GENERATION = '__unspecified__';
@@ -82,67 +84,147 @@ function parseGenerationOrder(label: string): number | null {
 }
 
 /**
- * Computes positions and connectors for a flat list of individuals.
+ * Computes positions and connectors for a flat list of individuals using
+ * dagre's Sugiyama hierarchical layout.
  *
  * Strategy:
- *  - Group by `generation` string (missing → synthetic bucket).
- *  - Order generations by parsed integer suffix, then first-seen order.
- *  - Within a row, place individuals in stable input order.
+ *  - Build a dagre graph with virtual "mating nodes" so sire+dam pairs are
+ *    placed horizontally adjacent and their children are centered below.
+ *  - Generation strings (F0, F1, …) are used to pin individuals to the
+ *    correct rank in the hierarchy.
+ *  - positionOverrides allow per-node manual positions (from drag).
  *  - Emit a marriage/drop connector for each child whose sire AND dam
  *    resolve to nodes in the result.
  */
-/** Bottom edge offset from node top (node height = 56px). */
-const NODE_BOTTOM = 56;
-/** How far below the node bottom to draw the horizontal marriage line. */
-const MARRIAGE_OFFSET = 30;
-
 export function computeLayout(
   individuals: readonly Individual[],
   options: Partial<LayoutOptions> = {},
   matings: readonly Mating[] = [],
   positionOverrides?: Readonly<Record<string, { x: number; y: number }>>,
 ): LayoutResult {
-  const opts: LayoutOptions = { ...DEFAULT_OPTIONS, ...options };
+  const hGap = options.horizontalGap ?? 160;
+  const vGap = options.verticalGap ?? 240;
+  const originX = options.originX ?? 100;
+  const originY = options.originY ?? 100;
 
-  const buckets = new Map<string, Individual[]>();
-  const firstSeen = new Map<string, number>();
-  individuals.forEach((ind, idx) => {
-    const key = ind.generation ?? UNSPECIFIED_GENERATION;
-    let bucket = buckets.get(key);
-    if (bucket === undefined) {
-      bucket = [];
-      buckets.set(key, bucket);
-      firstSeen.set(key, idx);
+  // ── Build dagre graph ────────────────────────────────────────────────────
+  const g = new dagre.graphlib.Graph({ multigraph: false, compound: false });
+  g.setGraph({
+    rankdir: 'TB',
+    nodesep: hGap,
+    ranksep: vGap,
+    marginx: originX,
+    marginy: originY,
+    ranker: 'network-simplex',
+  });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  // Map individual IDs to their parsed generation rank (null = unknown).
+  const individualIds = new Set(individuals.map((i) => i.id));
+
+  // Collect all individuals that have both sire and dam in our dataset.
+  // We'll use virtual mating nodes for these.
+  const matingNodeIds = new Set<string>();
+  const matingToParents = new Map<string, { sireId: string; damId: string }>();
+
+  // Identify unique sire+dam pairs with children in our dataset.
+  const pairKey = (sireId: string, damId: string): string =>
+    `__mating__${sireId}__${damId}__`;
+
+  for (const ind of individuals) {
+    if (ind.sire === undefined || ind.dam === undefined) continue;
+    if (!individualIds.has(ind.sire) || !individualIds.has(ind.dam)) continue;
+    const key = pairKey(ind.sire, ind.dam);
+    if (!matingToParents.has(key)) {
+      matingToParents.set(key, { sireId: ind.sire, damId: ind.dam });
+      matingNodeIds.add(key);
     }
-    bucket.push(ind);
-  });
+  }
 
-  const orderedKeys = Array.from(buckets.keys()).sort((a, b) => {
-    const na = parseGenerationOrder(a);
-    const nb = parseGenerationOrder(b);
-    if (na !== null && nb !== null && na !== nb) return na - nb;
-    if (na !== null && nb === null) return -1;
-    if (na === null && nb !== null) return 1;
-    return (firstSeen.get(a) ?? 0) - (firstSeen.get(b) ?? 0);
-  });
+  // ── Determine generation rank per individual ──────────────────────────────
+  // Parse generation strings to numeric ranks.
+  const generationRank = new Map<string, number>();
+  const genStrings = new Map<string, string>(); // id → raw generation string
 
+  for (const ind of individuals) {
+    if (ind.generation !== undefined) {
+      genStrings.set(ind.id, ind.generation);
+      const rank = parseGenerationOrder(ind.generation);
+      if (rank !== null) {
+        generationRank.set(ind.id, rank);
+      }
+    }
+  }
+
+  // Normalize ranks so minimum is 0.
+  const rankValues = Array.from(generationRank.values());
+  const minRank = rankValues.length > 0 ? Math.min(...rankValues) : 0;
+  for (const [id, rank] of generationRank) {
+    generationRank.set(id, rank - minRank);
+  }
+
+  // ── Add individual nodes ──────────────────────────────────────────────────
+  for (const ind of individuals) {
+    const nodeLabel: dagre.Label = { width: NODE_WIDTH, height: NODE_HEIGHT };
+    const rank = generationRank.get(ind.id);
+    if (rank !== undefined) {
+      (nodeLabel as Record<string, unknown>)['rank'] = rank;
+    }
+    g.setNode(ind.id, nodeLabel);
+  }
+
+  // ── Add virtual mating nodes and edges ───────────────────────────────────
+  for (const [key, { sireId, damId }] of matingToParents) {
+    // Virtual mating node: tiny, sits between sire and dam.
+    g.setNode(key, { width: 1, height: 1 });
+    g.setEdge(sireId, key, {});
+    g.setEdge(damId, key, {});
+  }
+
+  // Connect mating nodes to children.
+  for (const ind of individuals) {
+    if (ind.sire === undefined || ind.dam === undefined) continue;
+    if (!individualIds.has(ind.sire) || !individualIds.has(ind.dam)) continue;
+    const key = pairKey(ind.sire, ind.dam);
+    g.setEdge(key, ind.id, {});
+  }
+
+  // Connect individuals with only one known parent directly.
+  for (const ind of individuals) {
+    const hasBothParents =
+      ind.sire !== undefined &&
+      ind.dam !== undefined &&
+      individualIds.has(ind.sire) &&
+      individualIds.has(ind.dam);
+    if (hasBothParents) continue;
+
+    if (ind.sire !== undefined && individualIds.has(ind.sire)) {
+      g.setEdge(ind.sire, ind.id, {});
+    }
+    if (ind.dam !== undefined && individualIds.has(ind.dam)) {
+      g.setEdge(ind.dam, ind.id, {});
+    }
+  }
+
+  // ── Run dagre layout ──────────────────────────────────────────────────────
+  dagre.layout(g);
+
+  // ── Extract node positions ────────────────────────────────────────────────
+  // dagre centers nodes, so node.x/y are centers. Convert to top-left coords.
   const nodes: NodePosition[] = [];
   const positionById = new Map<string, NodePosition>();
 
-  orderedKeys.forEach((key, rowIdx) => {
-    const bucket = buckets.get(key) ?? [];
-    bucket.forEach((ind, colIdx) => {
-      const node: NodePosition = {
-        id: ind.id,
-        x: colIdx * opts.horizontalGap + opts.originX,
-        y: rowIdx * opts.verticalGap + opts.originY,
-      };
-      nodes.push(node);
-      positionById.set(ind.id, node);
-    });
-  });
+  for (const ind of individuals) {
+    const dagreNode = g.node(ind.id);
+    if (dagreNode === undefined) continue;
+    const x = dagreNode.x - NODE_WIDTH / 2;
+    const y = dagreNode.y - NODE_HEIGHT / 2;
+    const node: NodePosition = { id: ind.id, x, y };
+    nodes.push(node);
+    positionById.set(ind.id, node);
+  }
 
-  // Apply manual position overrides after initial layout is computed.
+  // ── Apply manual position overrides ──────────────────────────────────────
   if (positionOverrides !== undefined) {
     for (const node of nodes) {
       const override = positionOverrides[node.id];
@@ -154,7 +236,9 @@ export function computeLayout(
     }
   }
 
+  // ── Build connectors (parent→child paths) ────────────────────────────────
   const connectors: ConnectorPath[] = [];
+
   for (const ind of individuals) {
     if (ind.sire === undefined || ind.dam === undefined) continue;
     const sirePos = positionById.get(ind.sire);
@@ -166,25 +250,61 @@ export function computeLayout(
     const damX = damPos.x + NODE_HALF;
     const marriageY = Math.max(sirePos.y, damPos.y) + NODE_BOTTOM + MARRIAGE_OFFSET;
 
+    // Marriage line: descend from each parent bottom, then draw horizontal bar.
     const marriageD = `M ${sireX} ${sirePos.y + NODE_BOTTOM} L ${sireX} ${marriageY} L ${damX} ${marriageY} L ${damX} ${damPos.y + NODE_BOTTOM}`;
+
+    // Drop line: from marriage bar midpoint down to child top, using bezier curves.
     const midX = (sireX + damX) / 2;
-    const childX = childPos.x + NODE_HALF;
-    const dropD = `M ${midX} ${marriageY} L ${midX} ${childPos.y - 20} L ${childX} ${childPos.y - 20} L ${childX} ${childPos.y}`;
+    const childCenterX = childPos.x + NODE_HALF;
+    const childTopY = childPos.y;
+
+    const cpOffset = Math.max(20, (childTopY - marriageY) * 0.45);
+    const dropD = `M ${midX} ${marriageY} C ${midX} ${marriageY + cpOffset} ${childCenterX} ${childTopY - cpOffset} ${childCenterX} ${childTopY}`;
+
     connectors.push({ childId: ind.id, marriageD, dropD });
   }
 
-  const generations = orderedKeys.filter((k) => k !== UNSPECIFIED_GENERATION);
+  // ── Compute generation labels from layout y-positions ────────────────────
+  // Group individuals by their generation string and compute a representative
+  // y for each row.
+  const genLabelMap = new Map<string, number[]>(); // gen string → list of node y-values
 
-  const generationLabels: GenerationLabel[] = [];
-  orderedKeys.forEach((key, rowIdx) => {
-    if (key === UNSPECIFIED_GENERATION) return;
-    generationLabels.push({
-      label: key,
-      y: rowIdx * opts.verticalGap + opts.originY + NODE_HALF,
-    });
+  for (const node of nodes) {
+    const ind = individuals.find((i) => i.id === node.id);
+    const gen = ind?.generation;
+    if (gen === undefined) continue;
+    const arr = genLabelMap.get(gen) ?? [];
+    arr.push(node.y);
+    genLabelMap.set(gen, arr);
+  }
+
+  // Order generation labels by parsed rank (same as before).
+  const firstSeen = new Map<string, number>();
+  individuals.forEach((ind, idx) => {
+    const key = ind.generation ?? UNSPECIFIED_GENERATION;
+    if (!firstSeen.has(key)) firstSeen.set(key, idx);
   });
 
+  const orderedGenKeys = Array.from(genLabelMap.keys()).sort((a, b) => {
+    const na = parseGenerationOrder(a);
+    const nb = parseGenerationOrder(b);
+    if (na !== null && nb !== null && na !== nb) return na - nb;
+    if (na !== null && nb === null) return -1;
+    if (na === null && nb !== null) return 1;
+    return (firstSeen.get(a) ?? 0) - (firstSeen.get(b) ?? 0);
+  });
+
+  const generations: string[] = orderedGenKeys;
+
+  const generationLabels: GenerationLabel[] = orderedGenKeys.map((key) => {
+    const ys = genLabelMap.get(key) ?? [];
+    const avgY = ys.length > 0 ? ys.reduce((a, b) => a + b, 0) / ys.length : 0;
+    return { label: key, y: avgY + NODE_HALF };
+  });
+
+  // ── Mating connections (from explicit Mating records) ─────────────────────
   const matingConnections: MatingConnection[] = [];
+
   for (const mating of matings) {
     const sirePos = positionById.get(mating.sireId);
     const damPos = positionById.get(mating.damId);
