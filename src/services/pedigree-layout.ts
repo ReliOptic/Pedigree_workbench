@@ -14,8 +14,8 @@ import type { Individual, Mating } from '../types/pedigree.types';
 
 export interface NodePosition {
   readonly id: string;
-  readonly x: number;
-  readonly y: number;
+  x: number;
+  y: number;
 }
 
 export interface ConnectorPath {
@@ -91,10 +91,16 @@ function parseGenerationOrder(label: string): number | null {
  *  - Emit a marriage/drop connector for each child whose sire AND dam
  *    resolve to nodes in the result.
  */
+/** Bottom edge offset from node top (node height = 56px). */
+const NODE_BOTTOM = 56;
+/** How far below the node bottom to draw the horizontal marriage line. */
+const MARRIAGE_OFFSET = 30;
+
 export function computeLayout(
   individuals: readonly Individual[],
   options: Partial<LayoutOptions> = {},
   matings: readonly Mating[] = [],
+  positionOverrides?: Readonly<Record<string, { x: number; y: number }>>,
 ): LayoutResult {
   const opts: LayoutOptions = { ...DEFAULT_OPTIONS, ...options };
 
@@ -136,6 +142,18 @@ export function computeLayout(
     });
   });
 
+  // Apply manual position overrides after initial layout is computed.
+  if (positionOverrides !== undefined) {
+    for (const node of nodes) {
+      const override = positionOverrides[node.id];
+      if (override !== undefined) {
+        node.x = override.x;
+        node.y = override.y;
+        positionById.set(node.id, node);
+      }
+    }
+  }
+
   const connectors: ConnectorPath[] = [];
   for (const ind of individuals) {
     if (ind.sire === undefined || ind.dam === undefined) continue;
@@ -144,9 +162,14 @@ export function computeLayout(
     const childPos = positionById.get(ind.id);
     if (sirePos === undefined || damPos === undefined || childPos === undefined) continue;
 
-    const marriageD = `M ${sirePos.x + 20} ${sirePos.y + 40} L ${sirePos.x + 20} ${sirePos.y + 60} L ${damPos.x + 20} ${damPos.y + 60} L ${damPos.x + 20} ${damPos.y + 40}`;
-    const midX = (sirePos.x + damPos.x) / 2 + 20;
-    const dropD = `M ${midX} ${sirePos.y + 60} L ${midX} ${childPos.y - 20} L ${childPos.x + 20} ${childPos.y - 20} L ${childPos.x + 20} ${childPos.y}`;
+    const sireX = sirePos.x + NODE_HALF;
+    const damX = damPos.x + NODE_HALF;
+    const marriageY = Math.max(sirePos.y, damPos.y) + NODE_BOTTOM + MARRIAGE_OFFSET;
+
+    const marriageD = `M ${sireX} ${sirePos.y + NODE_BOTTOM} L ${sireX} ${marriageY} L ${damX} ${marriageY} L ${damX} ${damPos.y + NODE_BOTTOM}`;
+    const midX = (sireX + damX) / 2;
+    const childX = childPos.x + NODE_HALF;
+    const dropD = `M ${midX} ${marriageY} L ${midX} ${childPos.y - 20} L ${childX} ${childPos.y - 20} L ${childX} ${childPos.y}`;
     connectors.push({ childId: ind.id, marriageD, dropD });
   }
 

@@ -237,3 +237,35 @@ export function setSpecies(value: Species): void {
 export function getSpeciesGestation(s: Species): number {
   return SPECIES_GESTATION[s];
 }
+
+const KEY_NODE_POSITIONS_PREFIX = 'pdw.nodePos.';
+
+/** Returns the persisted manual node position overrides for a project, or `{}`. */
+export function getNodePositions(projectId: string): Record<string, { x: number; y: number }> {
+  const raw = safeGet(`${KEY_NODE_POSITIONS_PREFIX}${projectId}`);
+  if (raw === null) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, { x: number; y: number }>;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+/** Persists manual node position overrides for a project. */
+export function setNodePositions(projectId: string, pos: Record<string, { x: number; y: number }>): void {
+  if (Object.keys(pos).length === 0) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`${KEY_NODE_POSITIONS_PREFIX}${projectId}`);
+      }
+    } catch (cause) {
+      logger.warn('settings-store.remove-failed', { key: `${KEY_NODE_POSITIONS_PREFIX}${projectId}`, cause: String(cause) });
+    }
+    return;
+  }
+  safeSet(`${KEY_NODE_POSITIONS_PREFIX}${projectId}`, JSON.stringify(pos));
+}

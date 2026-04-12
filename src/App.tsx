@@ -13,6 +13,7 @@ import {
   ZoomOut,
   Heart,
   StickyNote,
+  LayoutGrid,
 } from 'lucide-react';
 
 import { AddNodeModal } from './components/AddNodeModal';
@@ -36,6 +37,7 @@ import { useProjects } from './hooks/use-projects';
 import { useUndo } from './hooks/use-undo';
 import { useSettings } from './hooks/use-settings';
 import { summarize } from './services/pedigree-layout';
+import { getNodePositions, setNodePositions } from './services/settings-store';
 import { TRANSLATIONS } from './translations';
 import type { Individual } from './types/pedigree.types';
 
@@ -155,6 +157,30 @@ export default function App(): React.JSX.Element {
     },
     [pushSnapshot, individuals, deleteOne],
   );
+  const [nodePositions, setNodePositionsState] = useState<Record<string, { x: number; y: number }>>({});
+
+  // Load node positions when the active project changes.
+  useEffect(() => {
+    if (activeProjectId === null) {
+      setNodePositionsState({});
+      return;
+    }
+    setNodePositionsState(getNodePositions(activeProjectId));
+  }, [activeProjectId]);
+
+  // Persist node positions whenever they change.
+  useEffect(() => {
+    if (activeProjectId === null) return;
+    setNodePositions(activeProjectId, nodePositions);
+  }, [nodePositions, activeProjectId]);
+
+  const handleNodeDrag = useCallback(
+    (id: string, x: number, y: number) => {
+      setNodePositionsState((prev) => ({ ...prev, [id]: { x, y } }));
+    },
+    [],
+  );
+
   const activeView = (activeNav === 'paper' ? 'paper' : 'workbench') as 'workbench' | 'paper';
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
   const [isAddNodeOpen, setIsAddNodeOpen] = useState<boolean>(false);
@@ -362,6 +388,8 @@ export default function App(): React.JSX.Element {
             searchQuery={searchQuery}
             showNotesOnHover={showNotesOnHover}
             generationFormat={generationFormat}
+            nodePositions={nodePositions}
+            onNodeDrag={handleNodeDrag}
           />
         )}
 
@@ -539,6 +567,7 @@ export default function App(): React.JSX.Element {
                   onFit: () => canvasRef.current?.fit(),
                   onZoomIn: () => canvasRef.current?.zoomIn(),
                   onZoomOut: () => canvasRef.current?.zoomOut(),
+                  onResetLayout: () => setNodePositionsState({}),
                 })
         }
       />
@@ -635,6 +664,7 @@ function buildCanvasMenu(args: {
   readonly onFit: () => void;
   readonly onZoomIn: () => void;
   readonly onZoomOut: () => void;
+  readonly onResetLayout: () => void;
 }): readonly MenuEntry[] {
   return [
     {
@@ -669,6 +699,14 @@ function buildCanvasMenu(args: {
       icon: ZoomOut,
       shortcut: '−',
       onSelect: args.onZoomOut,
+    },
+    { kind: 'separator', id: 'sep-layout' },
+    {
+      kind: 'item',
+      id: 'reset-layout',
+      label: 'Reset Layout',
+      icon: LayoutGrid,
+      onSelect: args.onResetLayout,
     },
   ];
 }

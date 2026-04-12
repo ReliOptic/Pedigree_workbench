@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -38,6 +39,8 @@ interface PedigreeCanvasProps {
   readonly searchQuery?: string;
   readonly showNotesOnHover?: boolean;
   readonly generationFormat?: GenerationFormat;
+  readonly nodePositions?: Readonly<Record<string, { x: number; y: number }>>;
+  readonly onNodeDrag?: (id: string, x: number, y: number) => void;
 }
 
 function toRoman(n: number): string {
@@ -122,7 +125,7 @@ function describeSex(shape: SexShape): string {
  */
 export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasProps>(
   function PedigreeCanvas(
-    { individuals, matings = [], selectedId, onSelect, onNodeContextMenu, onCanvasContextMenu, t, searchQuery, showNotesOnHover = true, generationFormat = 'F' },
+    { individuals, matings = [], selectedId, onSelect, onNodeContextMenu, onCanvasContextMenu, t, searchQuery, showNotesOnHover = true, generationFormat = 'F', nodePositions, onNodeDrag },
     ref,
   ): React.JSX.Element {
   const [zoom, setZoom] = useState<number>(1);
@@ -131,15 +134,27 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
   const [hasFitOnce, setHasFitOnce] = useState<boolean>(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const dragStartRef = useRef<{ nodeX: number; nodeY: number; mouseX: number; mouseY: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
-  const layout = useMemo(() => computeLayout(individuals, {}, matings), [individuals, matings]);
+  const layout = useMemo(
+    () => computeLayout(individuals, {}, matings, nodePositions),
+    [individuals, matings, nodePositions],
+  );
   const inbredIds = useMemo(() => new Set(detectInbreeding(individuals)), [individuals]);
-  const positionById = useMemo(() => {
+
+  // Effective positions: layout positions with nodePositions overrides applied.
+  const effectivePositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number }>();
-    for (const node of layout.nodes) map.set(node.id, { x: node.x, y: node.y });
+    for (const node of layout.nodes) {
+      const override = nodePositions?.[node.id];
+      map.set(node.id, override ?? { x: node.x, y: node.y });
+    }
     return map;
-  }, [layout.nodes]);
+  }, [layout.nodes, nodePositions]);
+
+  const positionById = effectivePositions;
 
   // Set of individual IDs that match the current search query.
   const isSearching = searchQuery !== undefined && searchQuery.length > 0;
@@ -171,6 +186,29 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     if (selectedId !== null && positionById.has(selectedId)) return selectedId;
     return individuals[0]?.id ?? null;
   }, [individuals, positionById, selectedId]);
+
+  // Global mousemove/mouseup listeners for node dragging.
+  useEffect(() => {
+    if (draggingId === null) return;
+    const handleMouseMove = (e: MouseEvent): void => {
+      if (dragStartRef.current === null || onNodeDrag === undefined) return;
+      const dx = e.clientX - dragStartRef.current.mouseX;
+      const dy = e.clientY - dragStartRef.current.mouseY;
+      const newX = dragStartRef.current.nodeX + dx / zoom;
+      const newY = dragStartRef.current.nodeY + dy / zoom;
+      onNodeDrag(draggingId, newX, newY);
+    };
+    const handleMouseUp = (): void => {
+      setDraggingId(null);
+      dragStartRef.current = null;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingId, zoom, onNodeDrag]);
 
   // Compute fit-to-screen parameters for the current layout + viewport.
   // Anchors the content's top-left (F0 row, first node) to the top-left of
@@ -257,9 +295,9 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     [handleFit, handleZoomIn, handleZoomOut],
   );
 
-  // Mouse drag to pan.
+  // Mouse drag to pan (suppressed when a node drag is in progress).
   const handleMouseDown = (e: React.MouseEvent): void => {
-    if (e.button === 0) setIsDragging(true);
+    if (e.button === 0 && draggingId === null) setIsDragging(true);
   };
   const handleMouseMove = (e: React.MouseEvent): void => {
     if (!isDragging) return;
@@ -538,7 +576,26 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   setHoveredId(null);
                   setHoverPos(null);
                 }}
+                onMouseDown={(e) => {
+                  if (e.button !== 0 || onNodeDrag === undefined) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  dragStartRef.current = {
+                    nodeX: pos.x,
+                    nodeY: pos.y,
+                    mouseX: e.clientX,
+                    mouseY: e.clientY,
+                  };
+                  setDraggingId(ind.id);
+                  // Prevent canvas pan from starting.
+                  setIsDragging(false);
+                }}
                 onClick={(e) => {
+                  // If a drag occurred (moved significantly), skip the click.
+                  if (draggingId !== null) {
+                    e.stopPropagation();
+                    return;
+                  }
                   e.stopPropagation();
                   onSelect(ind.id);
                 }}
@@ -552,8 +609,9 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   onNodeContextMenu(ind.id, { x: e.clientX, y: e.clientY });
                 }}
                 className={cn(
-                  'flex flex-col items-center cursor-pointer group bg-transparent border-none p-0 transition-opacity',
+                  'flex flex-col items-center group bg-transparent border-none p-0 transition-opacity',
                   isDimmed && 'opacity-30',
+                  draggingId === ind.id ? 'cursor-grabbing scale-105' : 'cursor-grab',
                 )}
                 style={{ position: 'absolute', left: pos.x, top: pos.y }}
               >

@@ -138,4 +138,5 @@ export interface Project {
   readonly createdAt: string;
   readonly data: readonly Individual[];
   readonly matings?: readonly Mating[];
+  readonly nodePositions?: Readonly<Record<string, { x: number; y: number }>>;
 }
