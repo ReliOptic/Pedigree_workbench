@@ -14,6 +14,7 @@ import {
   Check,
   Save,
   Loader2,
+  HardDriveDownload,
 } from 'lucide-react';
 
 import type { SaveStatus } from '../hooks/use-pedigree';
@@ -48,6 +49,8 @@ interface TopBarProps {
   readonly onSwitchProject: (id: string) => void;
   readonly onNewProject: () => void;
   readonly onDeleteProject: (id: string) => void;
+  readonly onRenameProject: (id: string, name: string) => void;
+  readonly onBackupProject: () => void;
 }
 
 /**
@@ -79,9 +82,14 @@ export function TopBar({
   onSwitchProject,
   onNewProject,
   onDeleteProject,
+  onRenameProject,
+  onBackupProject,
 }: TopBarProps): React.JSX.Element {
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState<string>('');
   const menuRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
@@ -91,11 +99,26 @@ export function TopBar({
     const handler = (e: MouseEvent): void => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsProjectMenuOpen(false);
+        setRenamingId(null);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [isProjectMenuOpen]);
+
+  // Focus rename input when it appears.
+  useEffect(() => {
+    if (renamingId !== null) {
+      setTimeout(() => renameInputRef.current?.focus(), 0);
+    }
+  }, [renamingId]);
+
+  const commitRename = (): void => {
+    if (renamingId !== null && renameValue.trim().length > 0) {
+      onRenameProject(renamingId, renameValue.trim());
+    }
+    setRenamingId(null);
+  };
 
   return (
     <header
@@ -132,22 +155,44 @@ export function TopBar({
                         proj.id === activeProjectId ? 'bg-blue-50' : ''
                       }`}
                     >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onSwitchProject(proj.id);
-                          setIsProjectMenuOpen(false);
-                        }}
-                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                      >
-                        {proj.id === activeProjectId && (
-                          <Check className="w-3.5 h-3.5 text-brand flex-shrink-0" aria-hidden="true" />
-                        )}
-                        <span className="text-sm truncate">{proj.name}</span>
-                        <span className="text-xs text-slate-400 flex-shrink-0">
-                          {proj.data.length}
-                        </span>
-                      </button>
+                      {renamingId === proj.id ? (
+                        <input
+                          ref={renameInputRef}
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename();
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 px-1 py-0.5 text-sm border border-brand rounded font-mono focus:outline-none"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSwitchProject(proj.id);
+                            setIsProjectMenuOpen(false);
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setRenamingId(proj.id);
+                            setRenameValue(proj.name);
+                          }}
+                          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                          title={t.renameProject}
+                        >
+                          {proj.id === activeProjectId && (
+                            <Check className="w-3.5 h-3.5 text-brand flex-shrink-0" aria-hidden="true" />
+                          )}
+                          <span className="text-sm truncate">{proj.name}</span>
+                          <span className="text-xs text-slate-400 flex-shrink-0">
+                            {proj.data.length}
+                          </span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -295,6 +340,17 @@ export function TopBar({
         >
           <Download className="w-4 h-4" aria-hidden="true" />
           {t.exportCsv}
+        </button>
+
+        <button
+          type="button"
+          onClick={onBackupProject}
+          aria-label={t.backupProject}
+          data-testid="backup-project-button"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 transition"
+        >
+          <HardDriveDownload className="w-4 h-4" aria-hidden="true" />
+          {t.backupProject}
         </button>
 
         <button

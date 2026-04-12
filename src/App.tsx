@@ -11,9 +11,12 @@ import {
   Focus,
   ZoomIn,
   ZoomOut,
+  Heart,
+  StickyNote,
 } from 'lucide-react';
 
 import { AddNodeModal } from './components/AddNodeModal';
+import { MateModal } from './components/MateModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ContextMenu, type MenuEntry } from './components/ContextMenu';
 import { Footer } from './components/Footer';
@@ -28,6 +31,7 @@ import {
 } from './components/PedigreeCanvas';
 import { TopBar } from './components/TopBar';
 import { usePedigree } from './hooks/use-pedigree';
+import { useMatings } from './hooks/use-matings';
 import { useProjects } from './hooks/use-projects';
 import { useUndo } from './hooks/use-undo';
 import { useSettings } from './hooks/use-settings';
@@ -94,6 +98,7 @@ function buildAddSiblingPrefill(target: Individual): Partial<Individual> {
 export default function App(): React.JSX.Element {
   const { individuals, isLoading, error, saveStatus, refresh, replaceAll, updateOne, deleteOne, addOne } = usePedigree();
   const { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId, theme, setTheme } = useSettings();
+  const { matings, addMating, updateMating, deleteMating, replaceAllMatings } = useMatings();
 
   const {
     projects,
@@ -101,9 +106,10 @@ export default function App(): React.JSX.Element {
     switchProject,
     createProject,
     removeProject,
+    renameProject,
     refreshProjects,
     saveCurrentProject,
-  } = useProjects(refresh);
+  } = useProjects(refresh, replaceAllMatings);
 
   // Stable ref so undo/redo can read current individuals without stale closures.
   const individualsRef = useRef<readonly Individual[]>(individuals);
@@ -138,6 +144,9 @@ export default function App(): React.JSX.Element {
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
   const [isAddNodeOpen, setIsAddNodeOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isMateModalOpen, setIsMateModalOpen] = useState<boolean>(false);
+  const [mateModalPrefillSireId, setMateModalPrefillSireId] = useState<string | undefined>(undefined);
+  const [mateModalPrefillDamId, setMateModalPrefillDamId] = useState<string | undefined>(undefined);
   const [addNodePrefill, setAddNodePrefill] = useState<Partial<Individual> | undefined>(undefined);
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [addParentTarget, setAddParentTarget] = useState<string | null>(null);
@@ -303,6 +312,13 @@ export default function App(): React.JSX.Element {
           void createProject(t.untitledProject, []);
         }}
         onDeleteProject={(id) => void removeProject(id)}
+        onRenameProject={(id, name) => void renameProject(id, name)}
+        onBackupProject={() => {
+          const projName = projects.find((p) => p.id === activeProjectId)?.name ?? 'pedigree';
+          const date = new Date().toISOString().slice(0, 10);
+          const backup = JSON.stringify({ name: projName, data: individuals, matings }, null, 2);
+          downloadFile(backup, `${projName}-backup-${date}.json`, 'application/json');
+        }}
       />
 
       <main className="grid grid-cols-[1fr_auto] min-h-0 overflow-hidden relative">
@@ -339,6 +355,9 @@ export default function App(): React.JSX.Element {
             onUpdate={trackedUpdateOne}
             onDelete={trackedDeleteOne}
             t={t}
+            matings={matings}
+            onDeleteMating={(id) => void deleteMating(id)}
+            onUpdateMating={(m) => void updateMating(m)}
           />
         )}
       </main>
@@ -381,6 +400,20 @@ export default function App(): React.JSX.Element {
           }
           setSelectedId(id);
         }}
+        t={t}
+      />
+
+      <MateModal
+        isOpen={isMateModalOpen}
+        onClose={() => {
+          setIsMateModalOpen(false);
+          setMateModalPrefillSireId(undefined);
+          setMateModalPrefillDamId(undefined);
+        }}
+        onSubmit={(mating) => void addMating(mating)}
+        allIndividuals={individuals}
+        prefillSireId={mateModalPrefillSireId}
+        prefillDamId={mateModalPrefillDamId}
         t={t}
       />
 
@@ -440,6 +473,24 @@ export default function App(): React.JSX.Element {
                       // Errors are surfaced in the inspector the next time it opens.
                     }
                   },
+                  onAddMate: () => {
+                    const target = individuals.find((i) => i.id === ctxMenu.id);
+                    if (target !== undefined) {
+                      const sexLower = (target.sex ?? '').trim().toLowerCase();
+                      const isFemale = sexLower === '암컷' || sexLower === 'f' || sexLower === 'female';
+                      if (isFemale) {
+                        setMateModalPrefillDamId(ctxMenu.id);
+                        setMateModalPrefillSireId(undefined);
+                      } else {
+                        setMateModalPrefillSireId(ctxMenu.id);
+                        setMateModalPrefillDamId(undefined);
+                      }
+                    }
+                    setIsMateModalOpen(true);
+                  },
+                  onNote: () => {
+                    setSelectedId(ctxMenu.id);
+                  },
                 })
               : buildCanvasMenu({
                   onAddNode: () => {
@@ -464,6 +515,8 @@ function buildNodeMenu(args: {
   readonly onAddParent: (prefill: Partial<Individual>) => void;
   readonly onCopyId: () => void;
   readonly onDelete: () => void;
+  readonly onAddMate: () => void;
+  readonly onNote: () => void;
 }): readonly MenuEntry[] {
   return [
     {
@@ -498,6 +551,23 @@ function buildNodeMenu(args: {
       icon: UserPlus,
       shortcut: 'P',
       onSelect: () => args.onAddParent(buildAddParentPrefill(args.target)),
+    },
+    { kind: 'separator', id: 'sep-mate' },
+    {
+      kind: 'item',
+      id: 'add-mate',
+      label: 'Add Mate',
+      icon: Heart,
+      shortcut: 'M',
+      onSelect: args.onAddMate,
+    },
+    {
+      kind: 'item',
+      id: 'note',
+      label: 'Note',
+      icon: StickyNote,
+      shortcut: 'N',
+      onSelect: args.onNote,
     },
     { kind: 'separator', id: 'sep-add' },
     {

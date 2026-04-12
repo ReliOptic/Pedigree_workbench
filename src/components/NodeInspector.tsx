@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { X, Pencil, Check, Trash2, Copy as CopyIcon, FlaskConical } from 'lucide-react';
+import { X, Pencil, Check, Trash2, Copy as CopyIcon, FlaskConical, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { StructureViewer } from './StructureViewer';
@@ -8,6 +8,7 @@ import {
   SEQUENCE_REGEX,
   SEQUENCE_SOURCES,
   type Individual,
+  type Mating,
   type SequenceSource,
 } from '../types/pedigree.types';
 import type { Translation } from '../types/translation.types';
@@ -19,6 +20,9 @@ interface NodeInspectorProps {
   readonly onUpdate: (id: string, patch: Partial<Individual>) => Promise<void>;
   readonly onDelete: (id: string) => Promise<void>;
   readonly t: Translation;
+  readonly matings: readonly Mating[];
+  readonly onDeleteMating: (id: string) => void;
+  readonly onUpdateMating: (mating: Mating) => void;
 }
 
 interface FormState {
@@ -90,6 +94,9 @@ export function NodeInspector({
   onUpdate,
   onDelete,
   t,
+  matings,
+  onDeleteMating,
+  onUpdateMating,
 }: NodeInspectorProps): React.JSX.Element {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [form, setForm] = useState<FormState | null>(null);
@@ -98,6 +105,9 @@ export function NodeInspector({
   const [copiedAt, setCopiedAt] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [showStructureViewer, setShowStructureViewer] = useState<boolean>(false);
+  const [notesOpen, setNotesOpen] = useState<boolean>(false);
+  const [notesValue, setNotesValue] = useState<string>('');
+  const [matingsOpen, setMatingsOpen] = useState<boolean>(false);
 
   // Reset edit state whenever the selection changes.
   useEffect(() => {
@@ -106,7 +116,9 @@ export function NodeInspector({
     setFormError(null);
     setConfirmingDelete(false);
     setShowStructureViewer(false);
-  }, [individual?.id]);
+    setNotesOpen(false);
+    setNotesValue(individual?.notes ?? '');
+  }, [individual?.id, individual?.notes]);
 
   const parentOptions = useMemo(
     () => allIndividuals.filter((i) => i.id !== individual?.id).map((i) => i.id),
@@ -275,6 +287,52 @@ export function NodeInspector({
             ) : (
               <ReadRows ind={individual} />
             )}
+
+            {/* Notes section */}
+            <section aria-labelledby="notes-heading" className="pt-2 border-t border-border">
+              <button
+                type="button"
+                id="notes-heading"
+                onClick={() => setNotesOpen((prev) => !prev)}
+                className="flex items-center gap-1.5 w-full text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 hover:text-brand transition-colors"
+                aria-expanded={notesOpen}
+              >
+                {notesOpen ? (
+                  <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+                {t.notes}
+              </button>
+              {notesOpen && (
+                <textarea
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  onBlur={() => {
+                    if (individual !== null) {
+                      void onUpdate(individual.id, {
+                        notes: notesValue.trim().length > 0 ? notesValue : undefined,
+                      });
+                    }
+                  }}
+                  placeholder={t.noNotes}
+                  rows={4}
+                  className="w-full p-2 text-xs bg-white border border-border rounded resize-y font-mono"
+                />
+              )}
+            </section>
+
+            {/* Matings section */}
+            <IndividualMatings
+              individual={individual}
+              allIndividuals={allIndividuals}
+              matings={matings}
+              isOpen={matingsOpen}
+              onToggle={() => setMatingsOpen((prev) => !prev)}
+              onDeleteMating={onDeleteMating}
+              onUpdateMating={onUpdateMating}
+              t={t}
+            />
 
             {/* Sequence section */}
             <section aria-labelledby="sequence-heading" className="pt-2 border-t border-border">
@@ -575,5 +633,127 @@ function Field({
       <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">{label}</span>
       {children}
     </label>
+  );
+}
+
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  planned: 'bg-slate-100 text-slate-600',
+  mated: 'bg-blue-100 text-blue-700',
+  pregnant: 'bg-pink-100 text-pink-700',
+  delivered: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-600',
+};
+
+function IndividualMatings({
+  individual,
+  allIndividuals,
+  matings,
+  isOpen,
+  onToggle,
+  onDeleteMating,
+  onUpdateMating,
+  t,
+}: {
+  readonly individual: Individual | null;
+  readonly allIndividuals: readonly Individual[];
+  readonly matings: readonly Mating[];
+  readonly isOpen: boolean;
+  readonly onToggle: () => void;
+  readonly onDeleteMating: (id: string) => void;
+  readonly onUpdateMating: (mating: Mating) => void;
+  readonly t: Translation;
+}): React.JSX.Element | null {
+  if (individual === null) return null;
+
+  const myMatings = matings.filter(
+    (m) => m.sireId === individual.id || m.damId === individual.id,
+  );
+
+  const getPartnerName = (m: Mating): string => {
+    const partnerId = m.sireId === individual.id ? m.damId : m.sireId;
+    const partner = allIndividuals.find((i) => i.id === partnerId);
+    return partner?.label ?? partner?.id ?? partnerId;
+  };
+
+  return (
+    <section aria-labelledby="matings-heading" className="pt-2 border-t border-border">
+      <button
+        type="button"
+        id="matings-heading"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 w-full text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 hover:text-brand transition-colors"
+        aria-expanded={isOpen}
+      >
+        {isOpen ? (
+          <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+        )}
+        {t.matings}
+        {myMatings.length > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-200 text-slate-600 rounded-full font-mono">
+            {myMatings.length}
+          </span>
+        )}
+      </button>
+      {isOpen && (
+        <div className="space-y-2">
+          {myMatings.length === 0 ? (
+            <p className="text-xs text-text-muted italic">— {t.noMatings} —</p>
+          ) : (
+            myMatings.map((m) => (
+              <div
+                key={m.id}
+                className="p-2 bg-white border border-border rounded text-xs space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-medium text-slate-700 truncate">
+                    {getPartnerName(m)}
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${STATUS_BADGE_CLASSES[m.status] ?? 'bg-slate-100 text-slate-600'}`}
+                  >
+                    {t[m.status]}
+                  </span>
+                </div>
+                {m.matingDate !== undefined && (
+                  <p className="text-slate-500 font-mono">{m.matingDate}</p>
+                )}
+                {m.dueDate !== undefined && (
+                  <p className="text-slate-500 font-mono">{t.dueDate}: {m.dueDate}</p>
+                )}
+                {m.notes !== undefined && (
+                  <p className="text-slate-500 italic">{m.notes}</p>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <select
+                    value={m.status}
+                    onChange={(e) =>
+                      onUpdateMating({ ...m, status: e.target.value as Mating['status'] })
+                    }
+                    className="flex-1 p-1 text-[11px] bg-white border border-border rounded font-mono"
+                    aria-label={t.matingStatus}
+                  >
+                    {(['planned', 'mated', 'pregnant', 'delivered', 'failed'] as const).map((s) => (
+                      <option key={s} value={s}>
+                        {t[s]}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteMating(m.id)}
+                    className="p-1 text-red-500 hover:text-red-700 transition"
+                    aria-label={`${t.delete} mating`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </section>
   );
 }

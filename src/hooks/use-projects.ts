@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 import {
   bulkImport,
+  bulkImportMatings,
   deleteProject as storeDeleteProject,
   getProject,
   listAll,
+  listMatings,
   listProjects,
   saveProject,
 } from '../services/pedigree-store';
@@ -13,7 +15,7 @@ import {
   setActiveProjectId,
 } from '../services/settings-store';
 import { logger } from '../services/logger';
-import type { Individual, Project } from '../types/pedigree.types';
+import type { Individual, Mating, Project } from '../types/pedigree.types';
 
 interface UseProjectsResult {
   readonly projects: readonly Project[];
@@ -22,7 +24,7 @@ interface UseProjectsResult {
   /** Switch to a different project. Saves the current workspace first. */
   readonly switchProject: (id: string) => Promise<void>;
   /** Create a new project from imported individuals and switch to it. */
-  readonly createProject: (name: string, individuals: readonly Individual[]) => Promise<string>;
+  readonly createProject: (name: string, individuals: readonly Individual[], matings?: readonly Mating[]) => Promise<string>;
   /** Delete a project. If it was active, switches to another or clears workspace. */
   readonly removeProject: (id: string) => Promise<void>;
   /** Rename a project. */
@@ -47,6 +49,7 @@ function generateId(): string {
  */
 export function useProjects(
   onWorkspaceChanged: () => Promise<void>,
+  onMatingsChanged?: (matings: readonly Mating[]) => Promise<void>,
 ): UseProjectsResult {
   const [projects, setProjects] = useState<readonly Project[]>([]);
   const [activeProjectId, setActiveState] = useState<string | null>(
@@ -97,8 +100,15 @@ export function useProjects(
               if (fallback !== null) {
                 const proj = await getProject(fallback);
                 if (proj !== undefined) {
-                  await bulkImport(proj.data);
+                  const fallbackMatings = proj.matings ?? [];
+                  await Promise.all([
+                    bulkImport(proj.data),
+                    bulkImportMatings(fallbackMatings),
+                  ]);
                   await onWorkspaceChanged();
+                  if (onMatingsChanged !== undefined) {
+                    await onMatingsChanged(fallbackMatings);
+                  }
                 }
               }
             }
@@ -119,8 +129,8 @@ export function useProjects(
     if (activeProjectId === null) return;
     const current = await getProject(activeProjectId);
     if (current === undefined) return;
-    const individuals = await listAll();
-    await saveProject({ ...current, data: individuals });
+    const [individuals, matings] = await Promise.all([listAll(), listMatings()]);
+    await saveProject({ ...current, data: individuals, matings });
   }, [activeProjectId]);
 
   const switchProject = useCallback(
@@ -132,17 +142,24 @@ export function useProjects(
       // Load target project data.
       const target = await getProject(id);
       if (target === undefined) return;
-      await bulkImport(target.data);
+      const targetMatings = target.matings ?? [];
+      await Promise.all([
+        bulkImport(target.data),
+        bulkImportMatings(targetMatings),
+      ]);
       setActiveProjectId(id);
       setActiveState(id);
       await onWorkspaceChanged();
+      if (onMatingsChanged !== undefined) {
+        await onMatingsChanged(targetMatings);
+      }
       logger.info('use-projects.switch', { from: activeProjectId, to: id });
     },
-    [activeProjectId, saveCurrentProject, onWorkspaceChanged],
+    [activeProjectId, saveCurrentProject, onWorkspaceChanged, onMatingsChanged],
   );
 
   const createProject = useCallback(
-    async (name: string, individuals: readonly Individual[]): Promise<string> => {
+    async (name: string, individuals: readonly Individual[], matings: readonly Mating[] = []): Promise<string> => {
       // Save current workspace before switching.
       if (activeProjectId !== null) {
         await saveCurrentProject();
@@ -153,18 +170,22 @@ export function useProjects(
         name,
         createdAt: new Date().toISOString(),
         data: individuals,
+        matings,
       };
       await saveProject(project);
       // Load the new project's data into workspace.
-      await bulkImport(individuals);
+      await Promise.all([bulkImport(individuals), bulkImportMatings(matings)]);
       setActiveProjectId(id);
       setActiveState(id);
       await refreshProjects();
       await onWorkspaceChanged();
+      if (onMatingsChanged !== undefined) {
+        await onMatingsChanged(matings);
+      }
       logger.info('use-projects.create', { id, name, count: individuals.length });
       return id;
     },
-    [activeProjectId, saveCurrentProject, refreshProjects, onWorkspaceChanged],
+    [activeProjectId, saveCurrentProject, refreshProjects, onWorkspaceChanged, onMatingsChanged],
   );
 
   const removeProject = useCallback(
@@ -176,19 +197,26 @@ export function useProjects(
       if (activeProjectId === id) {
         if (remaining.length > 0) {
           const next = remaining[0]!;
-          await bulkImport(next.data);
+          const nextMatings = next.matings ?? [];
+          await Promise.all([bulkImport(next.data), bulkImportMatings(nextMatings)]);
           setActiveProjectId(next.id);
           setActiveState(next.id);
+          if (onMatingsChanged !== undefined) {
+            await onMatingsChanged(nextMatings);
+          }
         } else {
-          await bulkImport([]);
+          await Promise.all([bulkImport([]), bulkImportMatings([])]);
           setActiveProjectId(null);
           setActiveState(null);
+          if (onMatingsChanged !== undefined) {
+            await onMatingsChanged([]);
+          }
         }
         await onWorkspaceChanged();
       }
       logger.info('use-projects.delete', { id });
     },
-    [activeProjectId, onWorkspaceChanged],
+    [activeProjectId, onWorkspaceChanged, onMatingsChanged],
   );
 
   const renameProject = useCallback(

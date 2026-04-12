@@ -88,6 +88,25 @@ export interface Translation {
   readonly saving: string;
   readonly allChangesSaved: string;
   readonly noProjects: string;
+  readonly notes: string;
+  readonly addNote: string;
+  readonly noNotes: string;
+  readonly backupProject: string;
+  readonly restoreBackup: string;
+  readonly mating: string;
+  readonly addMate: string;
+  readonly matingDate: string;
+  readonly dueDate: string;
+  readonly gestationDays: string;
+  readonly matingStatus: string;
+  readonly planned: string;
+  readonly mated: string;
+  readonly pregnant: string;
+  readonly delivered: string;
+  readonly failed: string;
+  readonly selectMate: string;
+  readonly noMatings: string;
+  readonly matings: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

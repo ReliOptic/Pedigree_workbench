@@ -99,6 +99,7 @@ const RESERVED_TO_PROP: Record<ReservedColumn, keyof Omit<Individual, 'fields'>>
   label: 'label',
   sequence: 'sequence',
   sequence_source: 'sequenceSource',
+  notes: 'notes',
 };
 
 /** Apply a column mapping to raw rows, producing Individual records. */

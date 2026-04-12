@@ -1,20 +1,22 @@
 import { type IDBPDatabase, openDB } from 'idb';
 
 import { PedigreeStoreError } from '../types/error.types';
-import type { Individual, Project } from '../types/pedigree.types';
+import type { Individual, Mating, Project } from '../types/pedigree.types';
 import { logger } from './logger';
 
 /**
- * IndexedDB-backed data access layer for pedigree individuals and projects.
+ * IndexedDB-backed data access layer for pedigree individuals, projects, and matings.
  *
  * v1: single `individuals` object store.
  * v2: added `projects` object store for multi-project support.
+ * v3: added `matings` object store for breeding records.
  */
 
 const DB_NAME = 'pedigree-workbench';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_INDIVIDUALS = 'individuals';
 const STORE_PROJECTS = 'projects';
+const STORE_MATINGS = 'matings';
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 let openedDb: IDBPDatabase | null = null;
@@ -34,6 +36,9 @@ function getDb(): Promise<IDBPDatabase> {
         }
         if (oldVersion < 2) {
           db.createObjectStore(STORE_PROJECTS, { keyPath: 'id' });
+        }
+        if (oldVersion < 3) {
+          db.createObjectStore(STORE_MATINGS, { keyPath: 'id' });
         }
       },
     })
@@ -181,6 +186,63 @@ export async function deleteProject(id: string): Promise<void> {
   } catch (cause) {
     logger.error('pedigree-store.delete-project-failed', { id, cause: String(cause) });
     throw new PedigreeStoreError('db-write-failed', `Failed to delete project ${id}.`, cause);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Matings
+// ---------------------------------------------------------------------------
+
+/** Returns all mating records. */
+export async function listMatings(): Promise<Mating[]> {
+  try {
+    const db = await getDb();
+    return (await db.getAll(STORE_MATINGS)) as Mating[];
+  } catch (cause) {
+    if (cause instanceof PedigreeStoreError) throw cause;
+    logger.error('pedigree-store.list-matings-failed', { cause: String(cause) });
+    throw new PedigreeStoreError('db-read-failed', 'Failed to list matings.', cause);
+  }
+}
+
+/** Inserts or replaces a mating record. */
+export async function upsertMating(mating: Mating): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.put(STORE_MATINGS, mating);
+    logger.debug('pedigree-store.upsert-mating', { id: mating.id });
+  } catch (cause) {
+    logger.error('pedigree-store.upsert-mating-failed', { id: mating.id, cause: String(cause) });
+    throw new PedigreeStoreError('db-write-failed', `Failed to upsert mating ${mating.id}.`, cause);
+  }
+}
+
+/** Removes a mating record by id. */
+export async function removeMating(id: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.delete(STORE_MATINGS, id);
+    logger.debug('pedigree-store.remove-mating', { id });
+  } catch (cause) {
+    logger.error('pedigree-store.remove-mating-failed', { id, cause: String(cause) });
+    throw new PedigreeStoreError('db-write-failed', `Failed to remove mating ${id}.`, cause);
+  }
+}
+
+/** Replaces all matings (used when switching projects). */
+export async function bulkImportMatings(matings: readonly Mating[]): Promise<void> {
+  try {
+    const db = await getDb();
+    const tx = db.transaction(STORE_MATINGS, 'readwrite');
+    await tx.store.clear();
+    for (const mating of matings) {
+      await tx.store.put(mating);
+    }
+    await tx.done;
+    logger.info('pedigree-store.bulk-import-matings', { count: matings.length });
+  } catch (cause) {
+    logger.error('pedigree-store.bulk-import-matings-failed', { count: matings.length, cause: String(cause) });
+    throw new PedigreeStoreError('db-write-failed', 'Failed to bulk-import matings.', cause);
   }
 }
 

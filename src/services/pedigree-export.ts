@@ -21,6 +21,7 @@ export function toCsv(individuals: readonly Individual[]): string {
     'status',
     'sequence',
     'sequence_source',
+    'notes',
   ] as const;
 
   // Collect every unique free-form key.
@@ -64,6 +65,8 @@ export function toCsv(individuals: readonly Individual[]): string {
         return ind.sequence;
       case 'sequence_source':
         return ind.sequenceSource;
+      case 'notes':
+        return ind.notes;
       default:
         return undefined;
     }

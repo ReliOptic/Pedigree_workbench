@@ -49,6 +49,8 @@ export interface Individual {
   readonly sequence?: string;
   /** Provenance label for {@link Individual.sequence}. */
   readonly sequenceSource?: SequenceSource;
+  /** Researcher notes / remarks. Free-form text. */
+  readonly notes?: string;
   readonly fields: Readonly<Record<string, string>>;
 }
 
@@ -65,7 +67,8 @@ export type ReservedColumn =
   | 'status'
   | 'label'
   | 'sequence'
-  | 'sequence_source';
+  | 'sequence_source'
+  | 'notes';
 
 export const RESERVED_COLUMNS: readonly ReservedColumn[] = [
   'id',
@@ -80,6 +83,7 @@ export const RESERVED_COLUMNS: readonly ReservedColumn[] = [
   'label',
   'sequence',
   'sequence_source',
+  'notes',
 ] as const;
 
 /**
@@ -92,6 +96,38 @@ export interface PedigreeSummary {
 }
 
 /**
+ * Mating/breeding status for a pair of individuals.
+ */
+export type MatingStatus = 'planned' | 'mated' | 'pregnant' | 'delivered' | 'failed';
+
+export const MATING_STATUSES: readonly MatingStatus[] = [
+  'planned',
+  'mated',
+  'pregnant',
+  'delivered',
+  'failed',
+] as const;
+
+/**
+ * A mating record linking two individuals.
+ * Tracks breeding events, pregnancy status, and gestation.
+ */
+export interface Mating {
+  readonly id: string;
+  readonly sireId: string;
+  readonly damId: string;
+  readonly status: MatingStatus;
+  /** Date the mating occurred or was planned (YYYY-MM-DD). */
+  readonly matingDate?: string;
+  /** Expected due date (YYYY-MM-DD). */
+  readonly dueDate?: string;
+  /** Gestation period in days. */
+  readonly gestationDays?: number;
+  /** Free-form researcher notes about this mating. */
+  readonly notes?: string;
+}
+
+/**
  * A named project containing a snapshot of pedigree data.
  * Projects are stored in IndexedDB and allow users to maintain
  * multiple independent datasets (one per CSV import, for example).
@@ -101,4 +137,5 @@ export interface Project {
   readonly name: string;
   readonly createdAt: string;
   readonly data: readonly Individual[];
+  readonly matings?: readonly Mating[];
 }
