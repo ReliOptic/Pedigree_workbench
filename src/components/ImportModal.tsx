@@ -38,14 +38,50 @@ const PLACEHOLDER = `[
  * Includes both English and Korean column headers (the column-mapper
  * auto-detects both), reserved fields, and free-form fields.
  */
+/**
+ * Sample CSV template. Contains:
+ *  - Comment header block explaining each column and formatting rules
+ *  - Column headers only (no real data)
+ *  - Two example placeholder rows showing the expected format
+ *
+ * Lines starting with # are comments — PapaParse skips them automatically
+ * because they produce rows with no valid 'id', which applyMapping filters out.
+ */
 const SAMPLE_CSV = [
-  'id,label,sex,generation,sire,dam,group,surrogate,birth_date,status,CD163,Germline',
-  'SNUDB #1-1,1-1,수컷,F0,,,G1,14-84,2025-07-13,교배예정돈,100.00%,─',
-  'SNUDB #1-2,1-2,수컷,F0,,,G1,14-84,2025-07-13,,100.00%,',
-  'SNUDB #2-1,2-1,암컷,F0,,,G2,06-31,2025-07-20,,80.00%,',
-  'SNUDB #2-2,2-2,수컷,F0,,,G2,06-31,2025-07-20,폐사,80.00%,',
-  'F1-1,F1-1,M,F1,SNUDB #1-1,SNUDB #2-1,,,,,,',
-  'F1-2,F1-2,F,F1,SNUDB #1-1,SNUDB #2-1,,,,,,',
+  '# Pedigree Workbench - Sample CSV Template',
+  '# =========================================',
+  '#',
+  '# Required columns:',
+  '#   id          - Unique identifier for each individual (required)',
+  '#',
+  '# Optional reserved columns (auto-detected by the column mapper):',
+  '#   label       - Display name shown on the canvas node',
+  '#   sex         - Sex of the individual (M / F / 수컷 / 암컷 / male / female)',
+  '#   generation  - Generation label (F0, F1, F2, ...)',
+  '#   sire        - Father\'s id (must match an existing id in this file)',
+  '#   dam         - Mother\'s id (must match an existing id in this file)',
+  '#   group       - Litter or group identifier',
+  '#   surrogate   - Surrogate mother identifier',
+  '#   birth_date  - Birth date (YYYY-MM-DD recommended)',
+  '#   status      - Current status (e.g. 교배예정돈, 폐사, active)',
+  '#   sequence    - DNA sequence (IUPAC nucleotide codes: ACGTUN...)',
+  '#   sequence_source - Sequence method (PCR / Sanger / NGS / Other)',
+  '#',
+  '# Custom columns:',
+  '#   Any additional columns (e.g. CD163, Germline, notes) will be',
+  '#   imported as free-form fields and displayed in the node inspector.',
+  '#',
+  '# Notes:',
+  '#   - Save as UTF-8 CSV for Korean characters',
+  '#   - sire/dam values must reference an id that exists in this file,',
+  '#     otherwise a warning will appear during import',
+  '#   - Empty cells are OK — all columns except id are optional',
+  '#   - Column headers can be in English or Korean (auto-detected)',
+  '#',
+  'id,label,sex,generation,sire,dam,group,surrogate,birth_date,status',
+  'EXAMPLE-001,Sample Parent 1,M,F0,,,,surrogate-id,2025-01-01,active',
+  'EXAMPLE-002,Sample Parent 2,F,F0,,,,,2025-01-01,',
+  'EXAMPLE-003,Sample Child,M,F1,EXAMPLE-001,EXAMPLE-002,,,,',
 ].join('\n');
 
 function downloadSampleCsv(): void {
