@@ -400,6 +400,7 @@ export default function App(): React.JSX.Element {
               missingAlerts={missingAlerts}
               t={t}
               projectName={projects.find((p) => p.id === activeProjectId)?.name}
+              individuals={individuals}
             />
           )
         ) : isLoading ? (

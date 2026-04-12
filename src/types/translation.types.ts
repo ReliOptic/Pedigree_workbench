@@ -155,6 +155,16 @@ export interface Translation {
   readonly nextSteps: string;
   readonly noDataYet: string;
   readonly importToStart: string;
+  readonly litterGroup: string;
+  readonly surrogate: string;
+  readonly koEfficiency: string;
+  readonly readyForMating: string;
+  readonly needsData: string;
+  readonly completeData: string;
+  readonly fixSuggestion: string;
+  readonly statusSummary: string;
+  readonly genotypeHeatmap: string;
+  readonly breedingCandidates2: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

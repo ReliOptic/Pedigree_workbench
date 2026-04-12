@@ -35,3 +35,10 @@ export interface GenotypeStatus {
   readonly cd163?: string; // KO efficiency (0-1 numeric)
   readonly genotype?: string; // raw bp del/ins pattern
 }
+
+export type KOEfficiency = number | null;
+
+export interface NextStep {
+  readonly label: string;
+  readonly done: boolean;
+}
