@@ -43,8 +43,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (this.props.fallback !== undefined) return this.props.fallback;
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-slate-50 p-8 text-slate-700">
-        <div className="max-w-md space-y-3 rounded border border-slate-200 bg-white p-6 shadow-lg">
-          <h1 className="text-base font-bold text-[#003b5a]">Pedigree Workbench encountered an error.</h1>
+        <div className="max-w-md space-y-3 rounded border border-border bg-white p-6 shadow-lg">
+          <h1 className="text-base font-bold text-brand">Pedigree Workbench encountered an error.</h1>
           <p className="font-mono text-xs text-slate-500">{this.state.message}</p>
           <p className="text-xs text-slate-400">
             Reload the application to recover. If the problem persists, export your dataset and

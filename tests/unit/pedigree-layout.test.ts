@@ -16,11 +16,22 @@ describe('computeLayout', () => {
     const s = layout.nodes.find((n) => n.id === 'S');
     const d = layout.nodes.find((n) => n.id === 'D');
     const c = layout.nodes.find((n) => n.id === 'C');
+    // F0 row at originY=100, F1 row at originY + verticalGap(240) = 340.
     expect(s?.y).toBe(100);
     expect(d?.y).toBe(100);
-    expect(c?.y).toBe(300);
+    expect(c?.y).toBe(340);
+    // First col at originX=100, second col at originX + horizontalGap(140) = 240.
     expect(s?.x).toBe(100);
-    expect(d?.x).toBe(220);
+    expect(d?.x).toBe(240);
+  });
+
+  it('emits generationLabels positioned at each row center in canvas space', () => {
+    const layout = computeLayout(dataset);
+    expect(layout.generationLabels).toHaveLength(2);
+    const f0 = layout.generationLabels.find((l) => l.label === 'F0');
+    const f1 = layout.generationLabels.find((l) => l.label === 'F1');
+    expect(f0?.y).toBe(100 + 28); // originY + NODE_HALF
+    expect(f1?.y).toBe(340 + 28); // F1 row y + NODE_HALF
   });
 
   it('emits a connector for each child whose sire AND dam resolve', () => {

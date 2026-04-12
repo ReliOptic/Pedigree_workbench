@@ -18,6 +18,22 @@
  * `fields` holds every non-reserved column from the source file so the
  * drawer can display them without losing information.
  */
+/** Source of a DNA/RNA sequence attached to an individual. */
+export type SequenceSource = 'PCR' | 'Sanger' | 'NGS' | 'Other';
+
+export const SEQUENCE_SOURCES: readonly SequenceSource[] = [
+  'PCR',
+  'Sanger',
+  'NGS',
+  'Other',
+] as const;
+
+/**
+ * IUPAC nucleotide regex (IUPAC codes + gap + whitespace for wrapping).
+ * Accepts A/C/G/T/U/N plus degenerate codes R Y S W K M B D H V, case-insensitive.
+ */
+export const SEQUENCE_REGEX = /^[ACGTUNRYSWKMBDHVacgtunryswkmbdhv\s\-]*$/;
+
 export interface Individual {
   readonly id: string;
   readonly sire?: string;
@@ -29,6 +45,10 @@ export interface Individual {
   readonly birthDate?: string;
   readonly status?: string;
   readonly label?: string;
+  /** Raw nucleotide sequence (e.g. PCR result). IUPAC codes allowed. */
+  readonly sequence?: string;
+  /** Provenance label for {@link Individual.sequence}. */
+  readonly sequenceSource?: SequenceSource;
   readonly fields: Readonly<Record<string, string>>;
 }
 
@@ -43,7 +63,9 @@ export type ReservedColumn =
   | 'surrogate'
   | 'birth_date'
   | 'status'
-  | 'label';
+  | 'label'
+  | 'sequence'
+  | 'sequence_source';
 
 export const RESERVED_COLUMNS: readonly ReservedColumn[] = [
   'id',
@@ -56,6 +78,8 @@ export const RESERVED_COLUMNS: readonly ReservedColumn[] = [
   'birth_date',
   'status',
   'label',
+  'sequence',
+  'sequence_source',
 ] as const;
 
 /**

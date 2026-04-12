@@ -24,11 +24,23 @@ export interface ConnectorPath {
   readonly /** Drop line from the marriage to the child. */ dropD: string;
 }
 
+export interface GenerationLabel {
+  /** Raw generation string from the data, e.g. "F0". */
+  readonly label: string;
+  /** Absolute y-coordinate (in canvas space) where the row is centered. */
+  readonly y: number;
+}
+
 export interface LayoutResult {
   readonly nodes: readonly NodePosition[];
   readonly connectors: readonly ConnectorPath[];
   /** Ordered generation labels (strings from the data). */
   readonly generations: readonly string[];
+  /**
+   * Positioned row labels that live inside canvas space — render these
+   * inside the transformed layer so they track pan/zoom with their row.
+   */
+  readonly generationLabels: readonly GenerationLabel[];
 }
 
 export interface LayoutOptions {
@@ -39,11 +51,14 @@ export interface LayoutOptions {
 }
 
 const DEFAULT_OPTIONS: LayoutOptions = {
-  horizontalGap: 120,
-  verticalGap: 200,
+  horizontalGap: 140,
+  verticalGap: 240,
   originX: 100,
   originY: 100,
 };
+
+/** Half the rendered node size — used to center row labels vertically. */
+const NODE_HALF = 28;
 
 const UNSPECIFIED_GENERATION = '__unspecified__';
 
@@ -124,7 +139,16 @@ export function computeLayout(
 
   const generations = orderedKeys.filter((k) => k !== UNSPECIFIED_GENERATION);
 
-  return { nodes, connectors, generations };
+  const generationLabels: GenerationLabel[] = [];
+  orderedKeys.forEach((key, rowIdx) => {
+    if (key === UNSPECIFIED_GENERATION) return;
+    generationLabels.push({
+      label: key,
+      y: rowIdx * opts.verticalGap + opts.originY + NODE_HALF,
+    });
+  });
+
+  return { nodes, connectors, generations, generationLabels };
 }
 
 /** Aggregate counts surfaced by the footer status bar. */

@@ -1,120 +1,132 @@
-import { Search, PlusSquare, Upload, Settings, HelpCircle, Languages } from 'lucide-react';
+import type { RefObject } from 'react';
+import { Upload, Languages, Plus, Search } from 'lucide-react';
 
-import { cn } from '../lib/utils';
 import type { Language, Translation } from '../types/translation.types';
 
+type ActiveView = 'workbench' | 'paper';
+
 interface TopBarProps {
+  readonly uploadButtonRef: RefObject<HTMLButtonElement | null>;
   readonly onUploadClick: () => void;
+  readonly onAddNodeClick: () => void;
   readonly language: Language;
   readonly setLanguage: (lang: Language) => void;
-  readonly activeNav: string;
-  readonly setActiveNav: (nav: string) => void;
   readonly t: Translation;
+  readonly searchQuery: string;
+  readonly setSearchQuery: (q: string) => void;
+  readonly searchInputRef: RefObject<HTMLInputElement | null>;
+  readonly matchCount: number;
+  readonly totalCount: number;
+  readonly activeView: ActiveView;
+  readonly setActiveView: (v: ActiveView) => void;
 }
 
 /**
- * Application header: brand, top-level nav, search, language toggle, upload.
- * Pure presentation — all state mutation is delegated to props.
+ * Application header: brand, add-node, language toggle, upload.
  */
 export function TopBar({
+  uploadButtonRef,
   onUploadClick,
+  onAddNodeClick,
   language,
   setLanguage,
-  activeNav,
-  setActiveNav,
   t,
+  searchQuery,
+  setSearchQuery,
+  searchInputRef,
+  matchCount,
+  totalCount,
+  activeView,
+  setActiveView,
 }: TopBarProps): React.JSX.Element {
   return (
-    <header className="flex justify-between items-center w-full px-6 h-16 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 z-50">
+    <header
+      role="banner"
+      className="flex justify-between items-center w-full px-6 h-16 border-b border-border bg-surface"
+    >
       <div className="flex items-center gap-4">
-        <span className="text-xl font-bold text-[#003b5a] dark:text-white tracking-tight">
-          {t.appName}
-        </span>
-        <nav className="hidden md:flex gap-6 ml-8">
+        <span className="text-xl font-bold text-brand tracking-tight">{t.appName}</span>
+        <nav className="hidden md:flex items-center gap-1 ml-4" aria-label="View switcher">
           <button
             type="button"
-            onClick={() => setActiveNav('workbench')}
-            className={cn(
-              'text-sm font-semibold px-2 py-1 transition-colors',
-              activeNav === 'workbench'
-                ? 'text-[#003b5a] dark:text-[#9bccf6]'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800',
-            )}
+            onClick={() => setActiveView('workbench')}
+            className={`px-3 py-1 text-sm font-medium border-b-2 transition ${
+              activeView === 'workbench'
+                ? 'text-brand font-bold border-brand'
+                : 'text-slate-500 border-transparent hover:text-brand'
+            }`}
           >
             {t.workbench}
           </button>
           <button
             type="button"
-            onClick={() => setActiveNav('cohort')}
-            className={cn(
-              'text-sm font-semibold px-2 py-1 transition-colors',
-              activeNav === 'cohort'
-                ? 'text-[#003b5a] dark:text-[#9bccf6]'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800',
-            )}
+            onClick={() => setActiveView('paper')}
+            className={`px-3 py-1 text-sm font-medium border-b-2 transition ${
+              activeView === 'paper'
+                ? 'text-brand font-bold border-brand'
+                : 'text-slate-500 border-transparent hover:text-brand'
+            }`}
           >
-            {t.cohortAnalysis}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveNav('reporting')}
-            className={cn(
-              'text-sm font-semibold px-2 py-1 transition-colors',
-              activeNav === 'reporting'
-                ? 'text-[#003b5a] dark:text-[#9bccf6]'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800',
-            )}
-          >
-            {t.reporting}
+            {t.paperView}
           </button>
         </nav>
+
+        {/* Search input */}
+        <div className="relative ml-4 hidden md:flex items-center">
+          <Search
+            className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none"
+            aria-hidden="true"
+          />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t.searchGenotypes}
+            data-testid="search-input"
+            className="bg-slate-200 border-none h-9 pl-10 pr-4 text-xs font-mono w-64 rounded focus:outline-none focus:ring-2 focus:ring-brand/40"
+          />
+          {searchQuery.length > 0 && (
+            <span
+              className="ml-2 px-2 py-0.5 text-xs font-mono bg-yellow-100 text-yellow-800 border border-yellow-300 rounded whitespace-nowrap"
+              data-testid="search-match-count"
+            >
+              {matchCount} / {totalCount}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-3">
-        <div className="relative mr-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-          <input
-            className="bg-slate-200 dark:bg-slate-800 border-none h-9 pl-10 pr-4 text-xs font-mono w-64 focus:ring-2 focus:ring-[#003b5a] rounded"
-            placeholder={t.searchGenotypes}
-            type="text"
-          />
-        </div>
-
         <button
           type="button"
           onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
-          className="flex items-center gap-2 px-3 h-9 text-xs font-medium border border-slate-200 dark:border-slate-800 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+          aria-label={`Language: ${language === 'en' ? 'English' : 'Korean'}. Click to switch.`}
+          className="flex items-center gap-2 px-3 h-9 text-xs font-medium border border-border rounded hover:bg-slate-100 transition"
         >
-          <Languages className="w-4 h-4" />
+          <Languages className="w-4 h-4" aria-hidden="true" />
           {language === 'en' ? 'KO' : 'EN'}
         </button>
 
         <button
           type="button"
-          className="bg-slate-200 dark:bg-slate-800 text-[#1A5276] px-4 h-9 text-sm font-medium transition-all active:scale-95 flex items-center gap-2 rounded"
+          onClick={onAddNodeClick}
+          aria-label={t.addNode}
+          data-testid="add-node-button"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-brand text-brand bg-white rounded hover:bg-slate-100 transition"
         >
-          <PlusSquare className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
           {t.addNode}
         </button>
+
         <button
+          ref={uploadButtonRef}
           type="button"
           onClick={onUploadClick}
-          className="bg-[#003b5a] text-white px-4 h-9 text-sm font-medium transition-all active:scale-95 flex items-center gap-2 rounded"
+          aria-label={t.upload}
+          className="bg-brand text-white px-4 h-9 text-sm font-medium transition active:scale-95 flex items-center gap-2 rounded hover:brightness-110"
         >
-          <Upload className="w-4 h-4" />
+          <Upload className="w-4 h-4" aria-hidden="true" />
           {t.upload}
-        </button>
-        <div className="h-6 w-[1px] bg-slate-200 mx-2" />
-        <button
-          type="button"
-          className="text-slate-500 hover:bg-slate-200 p-2 rounded transition-colors"
-        >
-          <Settings className="w-5 h-5" />
-        </button>
-        <button
-          type="button"
-          className="text-slate-500 hover:bg-slate-200 p-2 rounded transition-colors"
-        >
-          <HelpCircle className="w-5 h-5" />
         </button>
       </div>
     </header>

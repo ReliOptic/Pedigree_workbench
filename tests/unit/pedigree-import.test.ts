@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePedigreeImport } from '../../src/services/pedigree-import';
+import {
+  analyzePedigreeWarnings,
+  parsePedigreeImport,
+} from '../../src/services/pedigree-import';
 import { PedigreeImportError } from '../../src/types/error.types';
+import type { Individual } from '../../src/types/pedigree.types';
 
 const validPayload = JSON.stringify([
   { id: 'A', sex: 'M', generation: 'F0', label: '01' },
@@ -70,5 +74,58 @@ describe('parsePedigreeImport', () => {
     } catch (err) {
       expect((err as PedigreeImportError).kind).toBe('too-large');
     }
+  });
+});
+
+describe('analyzePedigreeWarnings', () => {
+  const row = (id: string, extra: Partial<Individual> = {}): Individual => ({
+    id,
+    fields: {},
+    ...extra,
+  });
+
+  it('returns no warnings for a clean dataset', () => {
+    expect(
+      analyzePedigreeWarnings([
+        row('A', { sex: 'M' }),
+        row('B', { sex: 'F' }),
+        row('C', { sire: 'A', dam: 'B' }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('flags orphan sire references', () => {
+    const warnings = analyzePedigreeWarnings([
+      row('A'),
+      row('B', { sire: 'missing-dad' }),
+    ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.kind).toBe('orphan-sire');
+    expect(warnings[0]?.id).toBe('B');
+    expect(warnings[0]?.detail).toBe('missing-dad');
+  });
+
+  it('flags orphan dam references', () => {
+    const warnings = analyzePedigreeWarnings([
+      row('A'),
+      row('B', { dam: 'missing-mom' }),
+    ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.kind).toBe('orphan-dam');
+    expect(warnings[0]?.detail).toBe('missing-mom');
+  });
+
+  it('flags duplicate ids exactly once', () => {
+    const warnings = analyzePedigreeWarnings([row('X'), row('X'), row('X')]);
+    const dup = warnings.filter((w) => w.kind === 'duplicate-id');
+    expect(dup).toHaveLength(1);
+    expect(dup[0]?.id).toBe('X');
+  });
+
+  it('flags self-references instead of treating them as orphans', () => {
+    const warnings = analyzePedigreeWarnings([row('A', { sire: 'A' })]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.kind).toBe('self-reference');
+    expect(warnings[0]?.detail).toBe('sire');
   });
 });
