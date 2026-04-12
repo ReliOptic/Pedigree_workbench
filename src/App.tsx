@@ -97,7 +97,20 @@ function buildAddSiblingPrefill(target: Individual): Partial<Individual> {
 
 export default function App(): React.JSX.Element {
   const { individuals, isLoading, error, saveStatus, refresh, replaceAll, updateOne, deleteOne, addOne } = usePedigree();
-  const { language, setLanguage, activeNav, setActiveNav, selectedId, setSelectedId, theme, setTheme } = useSettings();
+  const {
+    language, setLanguage,
+    activeNav, setActiveNav,
+    selectedId, setSelectedId,
+    theme, setTheme,
+    nodeSize, setNodeSize,
+    showStatusBadges, setShowStatusBadges,
+    showGenerationLabels, setShowGenerationLabels,
+    autoFitOnImport, setAutoFitOnImport,
+    defaultGestationDays, setDefaultGestationDays,
+    autoBackupInterval, setAutoBackupInterval,
+    showNotesOnHover, setShowNotesOnHover,
+    connectorLineStyle, setConnectorLineStyle,
+  } = useSettings();
   const { matings, addMating, updateMating, deleteMating, replaceAllMatings } = useMatings();
 
   const {
@@ -344,6 +357,7 @@ export default function App(): React.JSX.Element {
             onCanvasContextMenu={(pos) => setCtxMenu({ kind: 'canvas', x: pos.x, y: pos.y })}
             t={t}
             searchQuery={searchQuery}
+            showNotesOnHover={showNotesOnHover}
           />
         )}
 
@@ -414,6 +428,7 @@ export default function App(): React.JSX.Element {
         allIndividuals={individuals}
         prefillSireId={mateModalPrefillSireId}
         prefillDamId={mateModalPrefillDamId}
+        defaultGestationDays={defaultGestationDays}
         t={t}
       />
 
@@ -425,6 +440,22 @@ export default function App(): React.JSX.Element {
         language={language}
         setLanguage={setLanguage}
         t={t}
+        nodeSize={nodeSize}
+        setNodeSize={setNodeSize}
+        showStatusBadges={showStatusBadges}
+        setShowStatusBadges={setShowStatusBadges}
+        showGenerationLabels={showGenerationLabels}
+        setShowGenerationLabels={setShowGenerationLabels}
+        autoFitOnImport={autoFitOnImport}
+        setAutoFitOnImport={setAutoFitOnImport}
+        defaultGestationDays={defaultGestationDays}
+        setDefaultGestationDays={setDefaultGestationDays}
+        autoBackupInterval={autoBackupInterval}
+        setAutoBackupInterval={setAutoBackupInterval}
+        showNotesOnHover={showNotesOnHover}
+        setShowNotesOnHover={setShowNotesOnHover}
+        connectorLineStyle={connectorLineStyle}
+        setConnectorLineStyle={setConnectorLineStyle}
       />
 
       <ShortcutOverlay

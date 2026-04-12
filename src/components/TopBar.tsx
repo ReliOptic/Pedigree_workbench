@@ -15,6 +15,7 @@ import {
   Save,
   Loader2,
   HardDriveDownload,
+  Pencil,
 } from 'lucide-react';
 
 import type { SaveStatus } from '../hooks/use-pedigree';
@@ -193,18 +194,32 @@ export function TopBar({
                           </span>
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteProject(proj.id);
-                          if (projects.length <= 1) setIsProjectMenuOpen(false);
-                        }}
-                        className="p-1 rounded hover:bg-red-100 opacity-0 group-hover:opacity-100 transition"
-                        aria-label={`${t.deleteProject}: ${proj.name}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
-                      </button>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenamingId(proj.id);
+                            setRenameValue(proj.name);
+                          }}
+                          className="p-1 rounded hover:bg-blue-100 transition"
+                          aria-label={`${t.renameProject}: ${proj.name}`}
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteProject(proj.id);
+                            if (projects.length <= 1) setIsProjectMenuOpen(false);
+                          }}
+                          className="p-1 rounded hover:bg-red-100 transition"
+                          aria-label={`${t.deleteProject}: ${proj.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

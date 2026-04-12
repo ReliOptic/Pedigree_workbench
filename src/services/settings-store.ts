@@ -15,6 +15,14 @@ const KEY_LAST_SELECTED = 'pdw.lastSelectedId';
 const KEY_ACTIVE_NAV = 'pdw.activeNav';
 const KEY_THEME = 'pdw.theme';
 const KEY_ACTIVE_PROJECT = 'pdw.activeProjectId';
+const KEY_NODE_SIZE = 'pdw.nodeSize';
+const KEY_SHOW_STATUS_BADGES = 'pdw.showStatusBadges';
+const KEY_SHOW_GENERATION_LABELS = 'pdw.showGenerationLabels';
+const KEY_AUTO_FIT_ON_IMPORT = 'pdw.autoFitOnImport';
+const KEY_DEFAULT_GESTATION_DAYS = 'pdw.defaultGestationDays';
+const KEY_AUTO_BACKUP_INTERVAL = 'pdw.autoBackupInterval';
+const KEY_SHOW_NOTES_ON_HOVER = 'pdw.showNotesOnHover';
+const KEY_CONNECTOR_LINE_STYLE = 'pdw.connectorLineStyle';
 
 const DEFAULT_LANGUAGE: Language = 'en';
 
@@ -100,4 +108,90 @@ export function setActiveProjectId(id: string | null): void {
     return;
   }
   safeSet(KEY_ACTIVE_PROJECT, id);
+}
+
+export type NodeSize = 'small' | 'medium' | 'large';
+export type AutoBackupInterval = 'off' | '5min' | '15min' | '30min';
+export type ConnectorLineStyle = 'straight' | 'curved';
+
+/** Returns the persisted node size, or `'medium'`. */
+export function getNodeSize(): NodeSize {
+  const raw = safeGet(KEY_NODE_SIZE);
+  return raw === 'small' || raw === 'medium' || raw === 'large' ? raw : 'medium';
+}
+
+export function setNodeSize(value: NodeSize): void {
+  safeSet(KEY_NODE_SIZE, value);
+}
+
+/** Returns the persisted showStatusBadges setting, or `true`. */
+export function getShowStatusBadges(): boolean {
+  const raw = safeGet(KEY_SHOW_STATUS_BADGES);
+  return raw === null ? true : raw === 'true';
+}
+
+export function setShowStatusBadges(value: boolean): void {
+  safeSet(KEY_SHOW_STATUS_BADGES, String(value));
+}
+
+/** Returns the persisted showGenerationLabels setting, or `true`. */
+export function getShowGenerationLabels(): boolean {
+  const raw = safeGet(KEY_SHOW_GENERATION_LABELS);
+  return raw === null ? true : raw === 'true';
+}
+
+export function setShowGenerationLabels(value: boolean): void {
+  safeSet(KEY_SHOW_GENERATION_LABELS, String(value));
+}
+
+/** Returns the persisted autoFitOnImport setting, or `true`. */
+export function getAutoFitOnImport(): boolean {
+  const raw = safeGet(KEY_AUTO_FIT_ON_IMPORT);
+  return raw === null ? true : raw === 'true';
+}
+
+export function setAutoFitOnImport(value: boolean): void {
+  safeSet(KEY_AUTO_FIT_ON_IMPORT, String(value));
+}
+
+/** Returns the persisted default gestation days, or `114`. */
+export function getDefaultGestationDays(): number {
+  const raw = safeGet(KEY_DEFAULT_GESTATION_DAYS);
+  if (raw === null) return 114;
+  const n = Number.parseInt(raw, 10);
+  return Number.isNaN(n) || n <= 0 ? 114 : n;
+}
+
+export function setDefaultGestationDays(value: number): void {
+  safeSet(KEY_DEFAULT_GESTATION_DAYS, String(value));
+}
+
+/** Returns the persisted auto-backup interval, or `'off'`. */
+export function getAutoBackupInterval(): AutoBackupInterval {
+  const raw = safeGet(KEY_AUTO_BACKUP_INTERVAL);
+  return raw === '5min' || raw === '15min' || raw === '30min' ? raw : 'off';
+}
+
+export function setAutoBackupInterval(value: AutoBackupInterval): void {
+  safeSet(KEY_AUTO_BACKUP_INTERVAL, value);
+}
+
+/** Returns the persisted showNotesOnHover setting, or `true`. */
+export function getShowNotesOnHover(): boolean {
+  const raw = safeGet(KEY_SHOW_NOTES_ON_HOVER);
+  return raw === null ? true : raw === 'true';
+}
+
+export function setShowNotesOnHover(value: boolean): void {
+  safeSet(KEY_SHOW_NOTES_ON_HOVER, String(value));
+}
+
+/** Returns the persisted connector line style, or `'straight'`. */
+export function getConnectorLineStyle(): ConnectorLineStyle {
+  const raw = safeGet(KEY_CONNECTOR_LINE_STYLE);
+  return raw === 'curved' ? 'curved' : 'straight';
+}
+
+export function setConnectorLineStyle(value: ConnectorLineStyle): void {
+  safeSet(KEY_CONNECTOR_LINE_STYLE, value);
 }

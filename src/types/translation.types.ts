@@ -107,6 +107,26 @@ export interface Translation {
   readonly selectMate: string;
   readonly noMatings: string;
   readonly matings: string;
+  readonly canvasSettings: string;
+  readonly nodeSize: string;
+  readonly nodeSizeSmall: string;
+  readonly nodeSizeMedium: string;
+  readonly nodeSizeLarge: string;
+  readonly showStatusBadges: string;
+  readonly showGenerationLabels: string;
+  readonly autoFitOnImport: string;
+  readonly dataSettings: string;
+  readonly defaultGestationDays: string;
+  readonly autoBackupInterval: string;
+  readonly autoBackupOff: string;
+  readonly autoBackup5min: string;
+  readonly autoBackup15min: string;
+  readonly autoBackup30min: string;
+  readonly displaySettings: string;
+  readonly showNotesOnHover: string;
+  readonly connectorLineStyle: string;
+  readonly connectorStraight: string;
+  readonly connectorCurved: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import type { Theme } from '../services/settings-store';
+import type { AutoBackupInterval, ConnectorLineStyle, NodeSize, Theme } from '../services/settings-store';
 import type { Language, Translation } from '../types/translation.types';
 
 interface SettingsModalProps {
@@ -13,6 +13,22 @@ interface SettingsModalProps {
   readonly language: Language;
   readonly setLanguage: (l: Language) => void;
   readonly t: Translation;
+  readonly nodeSize: NodeSize;
+  readonly setNodeSize: (v: NodeSize) => void;
+  readonly showStatusBadges: boolean;
+  readonly setShowStatusBadges: (v: boolean) => void;
+  readonly showGenerationLabels: boolean;
+  readonly setShowGenerationLabels: (v: boolean) => void;
+  readonly autoFitOnImport: boolean;
+  readonly setAutoFitOnImport: (v: boolean) => void;
+  readonly defaultGestationDays: number;
+  readonly setDefaultGestationDays: (v: number) => void;
+  readonly autoBackupInterval: AutoBackupInterval;
+  readonly setAutoBackupInterval: (v: AutoBackupInterval) => void;
+  readonly showNotesOnHover: boolean;
+  readonly setShowNotesOnHover: (v: boolean) => void;
+  readonly connectorLineStyle: ConnectorLineStyle;
+  readonly setConnectorLineStyle: (v: ConnectorLineStyle) => void;
 }
 
 /**
@@ -27,6 +43,22 @@ export function SettingsModal({
   language,
   setLanguage,
   t,
+  nodeSize,
+  setNodeSize,
+  showStatusBadges,
+  setShowStatusBadges,
+  showGenerationLabels,
+  setShowGenerationLabels,
+  autoFitOnImport,
+  setAutoFitOnImport,
+  defaultGestationDays,
+  setDefaultGestationDays,
+  autoBackupInterval,
+  setAutoBackupInterval,
+  showNotesOnHover,
+  setShowNotesOnHover,
+  connectorLineStyle,
+  setConnectorLineStyle,
 }: SettingsModalProps): React.JSX.Element | null {
   useEffect(() => {
     if (!isOpen) return;
@@ -62,7 +94,7 @@ export function SettingsModal({
             role="dialog"
             aria-modal="true"
             aria-label={t.settings}
-            className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface-raised shadow-xl"
+            className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface-raised shadow-xl max-h-[90vh] flex flex-col"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
@@ -82,7 +114,7 @@ export function SettingsModal({
             </div>
 
             {/* Body */}
-            <div className="px-6 py-5 space-y-6">
+            <div className="px-6 py-5 space-y-6 overflow-y-auto flex-1">
               {/* Theme section */}
               <fieldset>
                 <legend className="text-sm font-medium text-text-primary mb-3">{t.theme}</legend>
@@ -145,6 +177,211 @@ export function SettingsModal({
                       </label>
                     );
                   })}
+                </div>
+              </fieldset>
+
+              {/* Canvas settings section */}
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium text-text-primary mb-3">{t.canvasSettings}</legend>
+
+                {/* Node size */}
+                <div>
+                  <p className="text-xs text-text-secondary mb-2">{t.nodeSize}</p>
+                  <div className="flex gap-3">
+                    {(['small', 'medium', 'large'] as const).map((value) => {
+                      const label = value === 'small' ? t.nodeSizeSmall : value === 'medium' ? t.nodeSizeMedium : t.nodeSizeLarge;
+                      return (
+                        <label
+                          key={value}
+                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                            nodeSize === value
+                              ? 'border-brand bg-brand/10 text-brand font-medium'
+                              : 'border-border text-text-secondary hover:border-border-strong'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="nodeSize"
+                            value={value}
+                            checked={nodeSize === value}
+                            onChange={() => setNodeSize(value)}
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Show status badges toggle */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">{t.showStatusBadges}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showStatusBadges}
+                    onClick={() => setShowStatusBadges(!showStatusBadges)}
+                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
+                      showStatusBadges ? 'bg-brand border-brand' : 'bg-surface border-border'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        showStatusBadges ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Show generation labels toggle */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">{t.showGenerationLabels}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showGenerationLabels}
+                    onClick={() => setShowGenerationLabels(!showGenerationLabels)}
+                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
+                      showGenerationLabels ? 'bg-brand border-brand' : 'bg-surface border-border'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        showGenerationLabels ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Auto-fit on import toggle */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">{t.autoFitOnImport}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={autoFitOnImport}
+                    onClick={() => setAutoFitOnImport(!autoFitOnImport)}
+                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
+                      autoFitOnImport ? 'bg-brand border-brand' : 'bg-surface border-border'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        autoFitOnImport ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </fieldset>
+
+              {/* Data settings section */}
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium text-text-primary mb-3">{t.dataSettings}</legend>
+
+                {/* Default gestation days */}
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-text-secondary">{t.defaultGestationDays}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={defaultGestationDays}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      if (!Number.isNaN(n) && n > 0) setDefaultGestationDays(n);
+                    }}
+                    className="w-20 px-2 py-1 text-sm text-right border border-border rounded bg-surface font-mono"
+                  />
+                </div>
+
+                {/* Auto-backup interval */}
+                <div>
+                  <p className="text-xs text-text-secondary mb-2">{t.autoBackupInterval}</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {(['off', '5min', '15min', '30min'] as const).map((value) => {
+                      const label =
+                        value === 'off' ? t.autoBackupOff :
+                        value === '5min' ? t.autoBackup5min :
+                        value === '15min' ? t.autoBackup15min :
+                        t.autoBackup30min;
+                      return (
+                        <label
+                          key={value}
+                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                            autoBackupInterval === value
+                              ? 'border-brand bg-brand/10 text-brand font-medium'
+                              : 'border-border text-text-secondary hover:border-border-strong'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="autoBackupInterval"
+                            value={value}
+                            checked={autoBackupInterval === value}
+                            onChange={() => setAutoBackupInterval(value)}
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </fieldset>
+
+              {/* Display settings section */}
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium text-text-primary mb-3">{t.displaySettings}</legend>
+
+                {/* Show notes on hover toggle */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">{t.showNotesOnHover}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showNotesOnHover}
+                    onClick={() => setShowNotesOnHover(!showNotesOnHover)}
+                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
+                      showNotesOnHover ? 'bg-brand border-brand' : 'bg-surface border-border'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        showNotesOnHover ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Connector line style */}
+                <div>
+                  <p className="text-xs text-text-secondary mb-2">{t.connectorLineStyle}</p>
+                  <div className="flex gap-3">
+                    {(['straight', 'curved'] as const).map((value) => {
+                      const label = value === 'straight' ? t.connectorStraight : t.connectorCurved;
+                      return (
+                        <label
+                          key={value}
+                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                            connectorLineStyle === value
+                              ? 'border-brand bg-brand/10 text-brand font-medium'
+                              : 'border-border text-text-secondary hover:border-border-strong'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="connectorLineStyle"
+                            value={value}
+                            checked={connectorLineStyle === value}
+                            onChange={() => setConnectorLineStyle(value)}
+                            className="sr-only"
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </fieldset>
             </div>

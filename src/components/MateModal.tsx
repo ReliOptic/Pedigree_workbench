@@ -12,6 +12,7 @@ interface MateModalProps {
   readonly allIndividuals: readonly Individual[];
   readonly prefillSireId?: string;
   readonly prefillDamId?: string;
+  readonly defaultGestationDays?: number;
   readonly t: Translation;
 }
 
@@ -25,14 +26,14 @@ interface FormState {
   notes: string;
 }
 
-function initialForm(prefillSireId?: string, prefillDamId?: string): FormState {
+function initialForm(prefillSireId?: string, prefillDamId?: string, defaultGestationDays?: number): FormState {
   return {
     sireId: prefillSireId ?? '',
     damId: prefillDamId ?? '',
     status: 'planned',
     matingDate: '',
     dueDate: '',
-    gestationDays: '',
+    gestationDays: defaultGestationDays !== undefined ? String(defaultGestationDays) : '',
     notes: '',
   };
 }
@@ -53,19 +54,20 @@ export function MateModal({
   allIndividuals,
   prefillSireId,
   prefillDamId,
+  defaultGestationDays,
   t,
 }: MateModalProps): React.JSX.Element | null {
-  const [form, setForm] = useState<FormState>(() => initialForm(prefillSireId, prefillDamId));
+  const [form, setForm] = useState<FormState>(() => initialForm(prefillSireId, prefillDamId, defaultGestationDays));
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setForm(initialForm(prefillSireId, prefillDamId));
+      setForm(initialForm(prefillSireId, prefillDamId, defaultGestationDays));
       setError(null);
       setTimeout(() => firstFieldRef.current?.focus(), 0);
     }
-  }, [isOpen, prefillSireId, prefillDamId]);
+  }, [isOpen, prefillSireId, prefillDamId, defaultGestationDays]);
 
   useEffect(() => {
     if (!isOpen) return;

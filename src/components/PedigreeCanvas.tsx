@@ -34,6 +34,7 @@ interface PedigreeCanvasProps {
   readonly onCanvasContextMenu?: (position: { x: number; y: number }) => void;
   readonly t: Translation;
   readonly searchQuery?: string;
+  readonly showNotesOnHover?: boolean;
 }
 
 const ZOOM_MIN = 0.25;
@@ -86,13 +87,15 @@ function describeSex(shape: SexShape): string {
  */
 export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasProps>(
   function PedigreeCanvas(
-    { individuals, selectedId, onSelect, onNodeContextMenu, onCanvasContextMenu, t, searchQuery },
+    { individuals, selectedId, onSelect, onNodeContextMenu, onCanvasContextMenu, t, searchQuery, showNotesOnHover = true },
     ref,
   ): React.JSX.Element {
   const [zoom, setZoom] = useState<number>(1);
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [hasFitOnce, setHasFitOnce] = useState<boolean>(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const layout = useMemo(() => computeLayout(individuals), [individuals]);
@@ -371,6 +374,36 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           </div>
         ))}
 
+        {/* Notes tooltip — rendered inside transform group so it pans/zooms with the canvas. */}
+        {showNotesOnHover && hoveredId !== null && hoverPos !== null && (() => {
+          const hoveredInd = individuals.find((i) => i.id === hoveredId);
+          const notes = hoveredInd?.notes;
+          if (notes === undefined || notes.trim().length === 0) return null;
+          const truncated = notes.length > 200 ? `${notes.slice(0, 200)}...` : notes;
+          return (
+            <div
+              className="absolute z-50 max-w-64 bg-slate-800 text-white text-xs rounded shadow-lg p-2 pointer-events-none whitespace-pre-wrap break-words"
+              style={{
+                left: hoverPos.x + NODE_SIZE / 2,
+                top: hoverPos.y - 60,
+                transform: 'translateX(-50%)',
+              }}
+              aria-hidden="true"
+            >
+              {truncated}
+              {/* Caret pointing down */}
+              <span
+                className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0"
+                style={{
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid rgb(30 41 59)', // slate-800
+                }}
+              />
+            </div>
+          );
+        })()}
+
         <div className="relative p-16">
           {individuals.map((ind) => {
             const pos = positionById.get(ind.id);
@@ -395,6 +428,14 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                 aria-pressed={isSelected}
                 aria-label={ariaLabel}
                 title={ind.id}
+                onMouseEnter={() => {
+                  setHoveredId(ind.id);
+                  setHoverPos({ x: pos.x, y: pos.y });
+                }}
+                onMouseLeave={() => {
+                  setHoveredId(null);
+                  setHoverPos(null);
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelect(ind.id);
