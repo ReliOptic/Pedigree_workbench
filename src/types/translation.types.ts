@@ -145,6 +145,16 @@ export interface Translation {
   readonly selectSheet: string;
   readonly sheetsFound: string;
   readonly excelImport: string;
+  readonly dashboard: string;
+  readonly founderCohort: string;
+  readonly individuals: string;
+  readonly litterGroups: string;
+  readonly breedingCandidates: string;
+  readonly missingData: string;
+  readonly dataCompleteness: string;
+  readonly nextSteps: string;
+  readonly noDataYet: string;
+  readonly importToStart: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

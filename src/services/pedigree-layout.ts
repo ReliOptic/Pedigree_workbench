@@ -211,7 +211,7 @@ export function computeLayout(
  * (simple 2-generation check).
  */
 export function detectInbreeding(individuals: readonly Individual[]): string[] {
-  const warnings: string[] = [];
+  const sharedAncestryIds: string[] = [];
   const parentMap = new Map<string, { sire?: string; dam?: string }>();
   for (const ind of individuals) {
     parentMap.set(ind.id, { sire: ind.sire, dam: ind.dam });
@@ -225,12 +225,12 @@ export function detectInbreeding(individuals: readonly Individual[]): string[] {
     const damAncestors = new Set([damParents.sire, damParents.dam].filter(Boolean));
     for (const a of sireAncestors) {
       if (damAncestors.has(a)) {
-        warnings.push(ind.id);
+        sharedAncestryIds.push(ind.id);
         break;
       }
     }
   }
-  return warnings;
+  return sharedAncestryIds;
 }
 
 /** Aggregate counts surfaced by the footer status bar. */

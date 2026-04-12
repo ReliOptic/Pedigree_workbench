@@ -22,7 +22,7 @@ import type { SaveStatus } from '../hooks/use-pedigree';
 import type { Project } from '../types/pedigree.types';
 import type { Language, Translation } from '../types/translation.types';
 
-type ActiveView = 'workbench' | 'paper';
+type ActiveView = 'dashboard' | 'workbench' | 'paper';
 
 interface TopBarProps {
   readonly uploadButtonRef: RefObject<HTMLButtonElement | null>;
@@ -52,6 +52,7 @@ interface TopBarProps {
   readonly onDeleteProject: (id: string) => void;
   readonly onRenameProject: (id: string, name: string) => void;
   readonly onBackupProject: () => void;
+  readonly hasMissingDataAlerts?: boolean;
 }
 
 /**
@@ -85,6 +86,7 @@ export function TopBar({
   onDeleteProject,
   onRenameProject,
   onBackupProject,
+  hasMissingDataAlerts = false,
 }: TopBarProps): React.JSX.Element {
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -242,6 +244,20 @@ export function TopBar({
         </div>
 
         <nav className="hidden md:flex items-center gap-1 ml-2" aria-label="View switcher">
+          <button
+            type="button"
+            onClick={() => setActiveView('dashboard')}
+            className={`relative px-3 py-1 text-sm font-medium border-b-2 transition ${
+              activeView === 'dashboard'
+                ? 'text-brand font-bold border-brand'
+                : 'text-slate-500 border-transparent hover:text-brand'
+            }`}
+          >
+            {t.dashboard}
+            {hasMissingDataAlerts && activeView !== 'dashboard' && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400" aria-hidden="true" />
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setActiveView('workbench')}

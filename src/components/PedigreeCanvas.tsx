@@ -626,7 +626,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                         'bg-node-unknown-bg border-node-unknown-border [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]',
                       isSelected && 'ring-4 ring-yellow-400 ring-offset-2',
                       isMatch && !isSelected && 'ring-2 ring-yellow-500/70',
-                      isInbred && !isSelected && 'ring-2 ring-orange-400 ring-offset-1',
+                      isInbred && !isSelected && 'ring-2 ring-indigo-400 ring-offset-1',
                     )}
                   />
                   <span
@@ -642,11 +642,11 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   </span>
                   {isInbred && (
                     <span
-                      className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-orange-400 flex items-center justify-center text-[9px] text-white font-bold shadow-sm"
-                      aria-label="Inbreeding warning"
-                      title="Inbreeding detected"
+                      className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-indigo-400 flex items-center justify-center text-[9px] text-white font-bold shadow-sm"
+                      aria-label="Shared ancestry"
+                      title="Shared ancestry detected"
                     >
-                      ⚠
+                      i
                     </span>
                   )}
                 </div>

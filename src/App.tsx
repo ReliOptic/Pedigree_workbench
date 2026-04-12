@@ -31,6 +31,8 @@ import {
   type PedigreeCanvasHandle,
 } from './components/PedigreeCanvas';
 import { TopBar } from './components/TopBar';
+import { Dashboard } from './components/Dashboard';
+import { hasF1Data, computeCohortStats, detectMissingData } from './services/cohort-analyzer';
 import { usePedigree } from './hooks/use-pedigree';
 import { useMatings } from './hooks/use-matings';
 import { useProjects } from './hooks/use-projects';
@@ -181,7 +183,9 @@ export default function App(): React.JSX.Element {
     [],
   );
 
-  const activeView = (activeNav === 'paper' ? 'paper' : 'workbench') as 'workbench' | 'paper';
+  type ActiveView = 'dashboard' | 'workbench' | 'paper';
+  const VALID_VIEWS: readonly ActiveView[] = ['dashboard', 'workbench', 'paper'];
+  const activeView: ActiveView = VALID_VIEWS.includes(activeNav as ActiveView) ? (activeNav as ActiveView) : 'workbench';
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
   const [isAddNodeOpen, setIsAddNodeOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -199,6 +203,25 @@ export default function App(): React.JSX.Element {
 
   const t = TRANSLATIONS[language];
   const summary = useMemo(() => summarize(individuals), [individuals]);
+  const cohortStats = useMemo(() => computeCohortStats(individuals), [individuals]);
+  const missingAlerts = useMemo(() => detectMissingData(individuals), [individuals]);
+
+  // Smart view switching: on new import, auto-switch to dashboard if no F1 data,
+  // or workbench if F1 data exists. Track previous individuals length to detect imports.
+  const prevIndividualsLengthRef = useRef<number>(individuals.length);
+  useEffect(() => {
+    const prev = prevIndividualsLengthRef.current;
+    prevIndividualsLengthRef.current = individuals.length;
+    // Only trigger on meaningful data change (import), not on initial zero-length load
+    if (prev === individuals.length || individuals.length === 0) return;
+    if (!hasF1Data(individuals)) {
+      setActiveNav('dashboard');
+    } else {
+      setActiveNav('workbench');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [individuals]);
+
   const selected = useMemo(
     () => individuals.find((i) => i.id === selectedId) ?? null,
     [individuals, selectedId],
@@ -360,11 +383,25 @@ export default function App(): React.JSX.Element {
           const backup = JSON.stringify({ name: projName, data: individuals, matings }, null, 2);
           downloadFile(backup, `${projName}-backup-${date}.json`, 'application/json');
         }}
+        hasMissingDataAlerts={missingAlerts.length > 0}
       />
 
       <main className="grid grid-cols-[1fr_auto] min-h-0 overflow-hidden relative">
         {activeView === 'paper' ? (
           <PaperView individuals={individuals} t={t} />
+        ) : activeView === 'dashboard' ? (
+          isLoading ? (
+            <LoadingState />
+          ) : error !== null ? (
+            <ErrorState message={error} onRetry={() => void refresh()} />
+          ) : (
+            <Dashboard
+              stats={cohortStats}
+              missingAlerts={missingAlerts}
+              t={t}
+              projectName={projects.find((p) => p.id === activeProjectId)?.name}
+            />
+          )
         ) : isLoading ? (
           <LoadingState />
         ) : error !== null ? (
