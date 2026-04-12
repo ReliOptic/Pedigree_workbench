@@ -72,6 +72,13 @@ export interface Translation {
   readonly language: string;
   readonly undo: string;
   readonly redo: string;
+  readonly keyboardShortcuts: string;
+  readonly shortcutCanvas: string;
+  readonly shortcutSearch: string;
+  readonly shortcutEdit: string;
+  readonly shortcutContextMenu: string;
+  readonly shortcutGeneral: string;
+  readonly pressQuestionForHelp: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

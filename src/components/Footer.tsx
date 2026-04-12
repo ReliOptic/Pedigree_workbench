@@ -34,6 +34,9 @@ export function Footer({ t, summary }: FooterProps): React.JSX.Element {
           {t.liveCanvasSync}
         </span>
       </div>
+      <span className="font-mono text-xs text-text-secondary">
+        {t.pressQuestionForHelp}
+      </span>
     </footer>
   );
 }

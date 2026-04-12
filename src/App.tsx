@@ -20,6 +20,7 @@ import { Footer } from './components/Footer';
 import { ImportModal } from './components/ImportModal';
 import { toCsv, downloadFile } from './services/pedigree-export';
 import { NodeInspector } from './components/NodeInspector';
+import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { PaperView } from './components/PaperView';
 import {
   PedigreeCanvas,
@@ -153,6 +154,7 @@ export default function App(): React.JSX.Element {
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [addParentTarget, setAddParentTarget] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isShortcutOpen, setIsShortcutOpen] = useState<boolean>(false);
   const uploadButtonRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<PedigreeCanvasHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -206,6 +208,16 @@ export default function App(): React.JSX.Element {
     ) {
       e.preventDefault();
       void redo();
+      return;
+    }
+    // "?" toggles keyboard shortcuts overlay — skip if inside input/textarea.
+    if (
+      e.key === '?' &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement)
+    ) {
+      e.preventDefault();
+      setIsShortcutOpen((prev) => !prev);
       return;
     }
     // "/" focuses search (like GitHub/Slack) — skip if already in an input/textarea.
@@ -373,6 +385,12 @@ export default function App(): React.JSX.Element {
         setTheme={setTheme}
         language={language}
         setLanguage={setLanguage}
+        t={t}
+      />
+
+      <ShortcutOverlay
+        isOpen={isShortcutOpen}
+        onClose={() => setIsShortcutOpen(false)}
         t={t}
       />
 
