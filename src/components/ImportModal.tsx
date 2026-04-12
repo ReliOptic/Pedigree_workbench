@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Upload, AlertTriangle, FileUp } from 'lucide-react';
+import { X, Upload, AlertTriangle, FileUp, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { usePedigree } from '../hooks/use-pedigree';
@@ -32,6 +32,31 @@ const PLACEHOLDER = `[
   { "id": "SNUDB #2-1", "sex": "암컷", "generation": "F0", "label": "2-1" },
   { "id": "F1-1", "sex": "M", "generation": "F1", "sire": "SNUDB #1-1", "dam": "SNUDB #2-1", "label": "F1-1" }
 ]`;
+
+/**
+ * Sample CSV that users can download as a formatting reference.
+ * Includes both English and Korean column headers (the column-mapper
+ * auto-detects both), reserved fields, and free-form fields.
+ */
+const SAMPLE_CSV = [
+  'id,label,sex,generation,sire,dam,group,surrogate,birth_date,status,CD163,Germline',
+  'SNUDB #1-1,1-1,수컷,F0,,,G1,14-84,2025-07-13,교배예정돈,100.00%,─',
+  'SNUDB #1-2,1-2,수컷,F0,,,G1,14-84,2025-07-13,,100.00%,',
+  'SNUDB #2-1,2-1,암컷,F0,,,G2,06-31,2025-07-20,,80.00%,',
+  'SNUDB #2-2,2-2,수컷,F0,,,G2,06-31,2025-07-20,폐사,80.00%,',
+  'F1-1,F1-1,M,F1,SNUDB #1-1,SNUDB #2-1,,,,,,',
+  'F1-2,F1-2,F,F1,SNUDB #1-1,SNUDB #2-1,,,,,,',
+].join('\n');
+
+function downloadSampleCsv(): void {
+  const blob = new Blob([SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'pedigree-sample.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 interface PendingImport {
   readonly individuals: readonly Individual[];
@@ -295,6 +320,15 @@ export function ImportModal({
                 </button>
                 <span className="text-xs text-slate-400">.json, .csv, .tsv</span>
               </div>
+              <button
+                type="button"
+                onClick={downloadSampleCsv}
+                data-testid="download-sample-csv"
+                className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline transition"
+              >
+                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                {t.downloadSampleCsv}
+              </button>
             </>
           )}
           <input
