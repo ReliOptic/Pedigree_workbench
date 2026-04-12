@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { X, Pencil, Check, Trash2, Copy as CopyIcon, FlaskConical } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { StructureViewer } from './StructureViewer';
+
 import {
   SEQUENCE_REGEX,
   SEQUENCE_SOURCES,
@@ -95,6 +97,7 @@ export function NodeInspector({
   const [confirmingDelete, setConfirmingDelete] = useState<boolean>(false);
   const [copiedAt, setCopiedAt] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [showStructureViewer, setShowStructureViewer] = useState<boolean>(false);
 
   // Reset edit state whenever the selection changes.
   useEffect(() => {
@@ -102,6 +105,7 @@ export function NodeInspector({
     setForm(null);
     setFormError(null);
     setConfirmingDelete(false);
+    setShowStructureViewer(false);
   }, [individual?.id]);
 
   const parentOptions = useMemo(
@@ -333,13 +337,12 @@ export function NodeInspector({
                     </button>
                     <button
                       type="button"
-                      disabled
-                      data-testid="alphafold-stub"
-                      title={t.alphafoldComingSoon}
-                      className="inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium text-slate-400 border border-border rounded cursor-not-allowed"
+                      data-testid="predict-structure"
+                      onClick={() => setShowStructureViewer(true)}
+                      className="inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium text-slate-700 border border-border rounded hover:bg-slate-100 transition"
                     >
                       <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
-                      {t.viewInAlphafold}
+                      {t.predictStructure}
                     </button>
                   </div>
                 </div>
@@ -353,6 +356,16 @@ export function NodeInspector({
           <div className="p-3 border-t border-border bg-white text-[11px] font-mono text-text-muted text-center">
             {t.individualId}: {individual.id}
           </div>
+
+          {/* Structure viewer modal */}
+          {individual.sequence !== undefined && individual.sequence.length > 0 && (
+            <StructureViewer
+              isOpen={showStructureViewer}
+              dnaSequence={individual.sequence}
+              onClose={() => setShowStructureViewer(false)}
+              t={t}
+            />
+          )}
 
           {/* Delete confirmation overlay */}
           {confirmingDelete && (

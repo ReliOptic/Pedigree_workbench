@@ -33,6 +33,16 @@ export interface Translation {
   readonly copied: string;
   readonly viewInAlphafold: string;
   readonly alphafoldComingSoon: string;
+  readonly predictStructure: string;
+  readonly translatingDna: string;
+  readonly foldingProtein: string;
+  readonly proteinLength: string;
+  readonly readingFrame: string;
+  readonly downloadPdb: string;
+  readonly structureError: string;
+  readonly retryFold: string;
+  readonly noSequence: string;
+  readonly residues: string;
   readonly none: string;
   readonly csvImport: string;
   readonly dropFileHere: string;

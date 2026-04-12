@@ -68,9 +68,9 @@ describe('node edit flow', () => {
     await waitFor(() => {
       expect(within(inspector).getByText(/Length: 9 bp/i)).toBeInTheDocument();
     });
-    // AlphaFold stub is present and disabled.
-    const stub = within(inspector).getByTestId('alphafold-stub');
-    expect(stub).toBeDisabled();
+    // Predict Structure button is present and enabled.
+    const predictBtn = within(inspector).getByTestId('predict-structure');
+    expect(predictBtn).toBeEnabled();
   }, 20000);
 
   it('deletes a node after confirming, removing it from the canvas', async () => {
