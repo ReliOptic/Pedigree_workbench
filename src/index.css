@@ -51,6 +51,13 @@
   --color-surface-band: var(--canvas-generation-band);
 }
 
+/*
+ * Remap the `dark:` Tailwind variant to match the app's [data-theme] system.
+ * Dark is the default (no attribute); light is opt-in via [data-theme="light"].
+ * Without this, `dark:` would use the OS media query and ignore the in-app toggle.
+ */
+@custom-variant dark (&:where(:root:not([data-theme="light"]) *));
+
 @layer base {
   html {
     font-family: var(--font-family);

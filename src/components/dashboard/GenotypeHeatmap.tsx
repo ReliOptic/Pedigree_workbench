@@ -51,15 +51,15 @@ export function GenotypeHeatmap({ individuals, onSelectIndividual }: GenotypeHea
         const eff = cd163 !== undefined ? parseEfficiency(cd163) : null;
         const label = ind.label ?? ind.id;
 
-        let bgColor = '#e2e8f0'; // slate-200 for N/A
+        let bgColor = 'var(--surface-overlay)'; // N/A
         let title = `${label}\nCD163: N/A`;
-        let textColor = '#64748b';
+        let textColor = 'var(--text-muted)';
 
         if (eff !== null) {
           bgColor = efficiencyToColor(eff);
           title = `${label}\nCD163 KO efficiency: ${(eff * 100).toFixed(0)}%`;
           if (genotype) title += `\nGenotype: ${genotype}`;
-          textColor = eff < 0.5 ? '#fff' : '#1e293b';
+          textColor = 'var(--text-primary)';
         }
 
         return (

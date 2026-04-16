@@ -179,7 +179,7 @@ export function ExportPanel({
                       className="flex-1 py-1.5 text-xs font-medium transition"
                       style={{
                         background: format === fmt ? 'var(--color-brand)' : 'transparent',
-                        color: format === fmt ? '#fff' : 'var(--color-text-secondary)',
+                        color: format === fmt ? 'var(--text-primary)' : 'var(--color-text-secondary)',
                         borderRight: fmt === 'csv' ? '1px solid var(--color-border)' : undefined,
                       }}
                       aria-pressed={format === fmt}

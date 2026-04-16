@@ -15,9 +15,9 @@ interface DataQualityScoreProps {
 // ---------------------------------------------------------------------------
 
 function ringColor(overall: number): string {
-  if (overall >= 75) return '#22c55e'; // green-500
-  if (overall >= 50) return '#f59e0b'; // amber-500
-  return '#ef4444'; // red-500
+  if (overall >= 75) return 'var(--status-ok)';
+  if (overall >= 50) return 'var(--status-warn)';
+  return 'var(--status-error)';
 }
 
 function ScoreRing({ overall }: { readonly overall: number }): React.JSX.Element {

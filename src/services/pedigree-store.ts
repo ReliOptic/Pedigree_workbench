@@ -62,11 +62,24 @@ function getDb(): Promise<IDBPDatabase> {
 /**
  * Returns every individual currently persisted, ordered by `id` ascending.
  */
+/**
+ * Ensures backward-compatible `fields` object on rows written before the field
+ * was introduced. Old IndexedDB entries may have `fields: undefined`.
+ */
+function ensureFields(row: Individual): Individual {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if ((row as any).fields == null) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { ...(row as any), fields: {} } as Individual;
+  }
+  return row;
+}
+
 export async function listAll(): Promise<Individual[]> {
   try {
     const db = await getDb();
     const rows = (await db.getAll(STORE_INDIVIDUALS)) as Individual[];
-    return rows.slice().sort((a, b) => a.id.localeCompare(b.id));
+    return rows.map(ensureFields).sort((a, b) => a.id.localeCompare(b.id));
   } catch (cause) {
     if (cause instanceof PedigreeStoreError) throw cause;
     logger.error('pedigree-store.list-failed', { cause: String(cause) });
