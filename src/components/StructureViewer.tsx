@@ -278,25 +278,27 @@ export function InlineStructureViewer({
   useEffect(() => {
     if (containerRef.current === null) return;
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const initViewer = async (): Promise<void> => {
-      // Wait for the container to have non-zero dimensions before initializing.
-      // 3Dmol needs a mounted element with explicit width/height.
+    const initViewer = async (attempt: number): Promise<void> => {
       const el = containerRef.current;
-      if (el === null) return;
+      if (el === null || cancelled) return;
 
+      // Force explicit dimensions if the container has none.
+      // This happens when the viewer is inside an accordion section
+      // that just expanded — layout hasn't settled yet.
       if (el.offsetWidth === 0 || el.offsetHeight === 0) {
-        // Retry after a short delay to allow layout to complete.
-        await new Promise<void>((resolve) => setTimeout(resolve, 100));
-        if (cancelled) return;
-      }
-
-      // Second check after delay — if still 0, bail out with helpful message.
-      if (el.offsetWidth === 0 || el.offsetHeight === 0) {
-        if (!cancelled) {
-          setViewerError('3D viewer container has no dimensions. Try resizing the panel.');
+        if (attempt < 5) {
+          retryTimer = setTimeout(() => void initViewer(attempt + 1), 200);
+          return;
         }
-        return;
+        // Last resort: force dimensions via style
+        el.style.width = '100%';
+        el.style.minWidth = '280px';
+        el.style.height = `${height}px`;
+        // Give browser one more frame to apply
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+        if (cancelled) return;
       }
 
       try {
@@ -324,14 +326,15 @@ export function InlineStructureViewer({
 
     // Use requestAnimationFrame to ensure the DOM has been painted before init.
     const rafId = requestAnimationFrame(() => {
-      void initViewer();
+      void initViewer(0);
     });
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
+      if (retryTimer !== null) clearTimeout(retryTimer);
     };
-  }, [pdbData]);
+  }, [pdbData, height]);
 
   const handleDownloadPdb = (): void => {
     const blob = new Blob([pdbData], { type: 'chemical/x-pdb' });
@@ -363,7 +366,7 @@ export function InlineStructureViewer({
         <div
           ref={containerRef}
           className="w-full h-full"
-          style={{ display: ready ? 'block' : 'none' }}
+          style={{ visibility: ready ? 'visible' : 'hidden' }}
         />
         {/* Controls hint overlay */}
         {ready && (
