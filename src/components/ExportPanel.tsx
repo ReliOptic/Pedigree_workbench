@@ -214,7 +214,7 @@ export function ExportPanel({
                       className="flex-1 py-1.5 text-xs font-medium transition"
                       style={{
                         background: scope === key ? 'var(--color-brand)' : 'transparent',
-                        color: scope === key ? '#fff' : 'var(--color-text-secondary)',
+                        color: scope === key ? 'var(--text-primary)' : 'var(--color-text-secondary)',
                         borderRight: idx < 2 ? '1px solid var(--color-border)' : undefined,
                       }}
                       aria-pressed={scope === key}
