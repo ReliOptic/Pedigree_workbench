@@ -850,48 +850,60 @@ function FigurePreview({ individuals, options, includeTables, t }: FigurePreview
     [individuals, layout, options, coiMap],
   );
 
+  // Derive table width from the figure SVG to keep figure and tables aligned.
+  // The figure SVG width is: (content span * nodeScale) + BAND_LABEL_WIDTH + PAPER_MARGIN*2 + legend width.
+  // We use a simpler proxy: convert preset figureWidth (mm) to screen px at 96dpi,
+  // clamped to a sensible min/max for the preview pane.
+  const tableWidth = useMemo(() => {
+    const px = Math.round((options.preset.figureWidth / 25.4) * 96);
+    return Math.max(360, Math.min(px, 1200));
+  }, [options.preset.figureWidth]);
+
   const populationTableSvg = useMemo(() => {
     if (!includeTables.population) return null;
     const tbl = generatePopulationTable(individuals, t);
-    return renderTableSvg(tbl, { width: 480, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
-  }, [individuals, t, includeTables.population, options.preset]);
+    return renderTableSvg(tbl, { width: tableWidth, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
+  }, [individuals, t, includeTables.population, options.preset, tableWidth]);
 
   const coiTableSvg = useMemo(() => {
     if (!includeTables.coi) return null;
     const tbl = generateInbreedingTable(individuals, t);
-    return renderTableSvg(tbl, { width: 480, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
-  }, [individuals, t, includeTables.coi, options.preset]);
+    return renderTableSvg(tbl, { width: tableWidth, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
+  }, [individuals, t, includeTables.coi, options.preset, tableWidth]);
 
   const genotypeTableSvg = useMemo(() => {
     if (!includeTables.genotype) return null;
     const tbl = generateGenotypeTable(individuals, t);
-    return renderTableSvg(tbl, { width: 480, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
-  }, [individuals, t, includeTables.genotype, options.preset]);
+    return renderTableSvg(tbl, { width: tableWidth, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
+  }, [individuals, t, includeTables.genotype, options.preset, tableWidth]);
 
   return (
-    <div className="flex flex-col gap-4 w-full max-w-fit">
-      {/* Figure */}
+    <div className="flex flex-col gap-6 w-full" style={{ maxWidth: Math.max(tableWidth + 32, 400) }}>
+      {/* Figure — scrollable if wider than container */}
       <div
         className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
         dangerouslySetInnerHTML={{ __html: figureSvg }}
       />
 
-      {/* Tables */}
+      {/* Tables — same max-width as figure, consistent padding */}
       {populationTableSvg && (
         <div
-          className="rounded-xl border border-border bg-white shadow-sm overflow-auto p-4"
+          className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+          style={{ padding: '16px' }}
           dangerouslySetInnerHTML={{ __html: populationTableSvg }}
         />
       )}
       {coiTableSvg && (
         <div
-          className="rounded-xl border border-border bg-white shadow-sm overflow-auto p-4"
+          className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+          style={{ padding: '16px' }}
           dangerouslySetInnerHTML={{ __html: coiTableSvg }}
         />
       )}
       {genotypeTableSvg && (
         <div
-          className="rounded-xl border border-border bg-white shadow-sm overflow-auto p-4"
+          className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+          style={{ padding: '16px' }}
           dangerouslySetInnerHTML={{ __html: genotypeTableSvg }}
         />
       )}
@@ -997,7 +1009,7 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
               variant="secondary"
               size="sm"
               onClick={handleDownloadFigureSvg}
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
             >
               <Download className="w-3.5 h-3.5" aria-hidden="true" />
               SVG
@@ -1006,7 +1018,7 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
               variant="secondary"
               size="sm"
               onClick={() => handleDownloadFigurePng(300)}
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
             >
               <Download className="w-3.5 h-3.5" aria-hidden="true" />
               PNG 300 dpi
@@ -1015,7 +1027,7 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
               variant="secondary"
               size="sm"
               onClick={() => handleDownloadFigurePng(600)}
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
             >
               <Download className="w-3.5 h-3.5" aria-hidden="true" />
               TIFF 600 dpi
@@ -1024,26 +1036,28 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
 
           {/* Preview */}
           <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
-            <FigurePreview
-              individuals={individuals}
-              options={figureOptions}
-              includeTables={includeTables}
-              t={t}
-            />
+            <div className="flex flex-col gap-6 w-full items-center">
+              <FigurePreview
+                individuals={individuals}
+                options={figureOptions}
+                includeTables={includeTables}
+                t={t}
+              />
 
-            {/* Protein Structures section */}
-            {predictedStructures !== undefined && predictedStructures.length > 0 && (
-              <div className="rounded-xl border border-border bg-white shadow-sm p-6 mt-6">
-                <h2 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">
-                  {t.proteinStructures}
-                </h2>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {predictedStructures.map((entry) => (
-                    <StructureSummaryCard key={entry.individualId} entry={entry} />
-                  ))}
+              {/* Protein Structures section */}
+              {predictedStructures !== undefined && predictedStructures.length > 0 && (
+                <div className="rounded-xl border border-border bg-white shadow-sm p-6 w-full max-w-4xl">
+                  <h2 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">
+                    {t.proteinStructures}
+                  </h2>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {predictedStructures.map((entry) => (
+                      <StructureSummaryCard key={entry.individualId} entry={entry} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </>
       ) : (

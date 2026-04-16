@@ -138,25 +138,63 @@ export function renderTableSvg(table: StatsTable, options: TableRenderOptions): 
   const { width, fontSize: fs, fontFamily } = options;
   const rowH = fs * 2.4;
   const headerH = rowH + 4;
-  const titleH = fs * 2;
+  // Title uses header tier: fs + 2
+  const titleFs = fs + 2;
+  const titleH = titleFs * 2.2;
   const ruleW = 0.8;
   const colPad = 8;
 
   const nCols = table.headers.length;
-  const firstColW = Math.round(width * 0.4);
-  const restColW = nCols > 1 ? Math.round((width - firstColW) / (nCols - 1)) : 0;
-  const colWidths = [firstColW, ...Array<number>(nCols - 1).fill(restColW)];
-  const colX: number[] = [];
-  let cx = 0;
-  for (const w of colWidths) { colX.push(cx); cx += w; }
+
+  // Assign proportional column widths:
+  // - Column 0 (text/label): wider share of total width
+  // - Remaining columns: narrower if they are numeric, wider if text
+  // Minimum widths: numeric cols ≥ fs*6, text cols ≥ fs*10
+  const MIN_NUM_COL = fs * 6;
+  const MIN_TEXT_COL = fs * 10;
 
   const isNumericCol = (colIdx: number) => {
     if (colIdx === 0) return false;
     return table.rows.some(row => /^-?[\d.,]+%?$/.test((row[colIdx] ?? '').trim()));
   };
 
+  // Count numeric vs text non-first columns
+  const nonFirstNumeric = Array.from({ length: nCols - 1 }, (_, i) => isNumericCol(i + 1));
+  const numericCount = nonFirstNumeric.filter(Boolean).length;
+  const textCount = (nCols - 1) - numericCount;
+
+  // First col gets 40% of width, remaining is distributed proportionally
+  // Numeric cols get 1 unit weight, text cols get 1.8 unit weight
+  const firstColW = Math.round(width * 0.4);
+  const remaining = width - firstColW;
+  const totalUnits = numericCount * 1 + textCount * 1.8;
+  const unitW = totalUnits > 0 ? remaining / totalUnits : remaining / Math.max(nCols - 1, 1);
+
+  const colWidths: number[] = [firstColW];
+  for (let i = 1; i < nCols; i++) {
+    const rawW = isNumericCol(i) ? unitW * 1 : unitW * 1.8;
+    const minW = isNumericCol(i) ? MIN_NUM_COL : MIN_TEXT_COL;
+    colWidths.push(Math.round(Math.max(rawW, minW)));
+  }
+
+  // If computed total exceeds width, scale back proportionally (keep first col fixed)
+  const computedTotal = colWidths.reduce((a, b) => a + b, 0);
+  if (computedTotal > width && nCols > 1) {
+    const excess = computedTotal - width;
+    const scaleFactor = (computedTotal - firstColW - excess) / (computedTotal - firstColW);
+    for (let i = 1; i < nCols; i++) {
+      colWidths[i] = Math.round((colWidths[i] ?? 0) * scaleFactor);
+    }
+  }
+
+  const colX: number[] = [];
+  let cx = 0;
+  for (const w of colWidths) { colX.push(cx); cx += w; }
+
   const footnoteLines = table.footnotes ?? [];
-  const footnoteH = footnoteLines.length * (fs * 1.6 + 2) + (footnoteLines.length ? 6 : 0);
+  // Footnote text: fs - 1 (caption/footnote tier)
+  const footnoteFs = Math.max(fs - 1, 6);
+  const footnoteH = footnoteLines.length * (footnoteFs * 1.8 + 2) + (footnoteLines.length ? 8 : 0);
   const svgH = titleH + headerH + table.rows.length * rowH + footnoteH + fs * 2;
 
   const parts: string[] = [];
@@ -173,8 +211,8 @@ export function renderTableSvg(table: StatsTable, options: TableRenderOptions): 
   }
   parts.push(`<defs>${clipDefs.join('')}</defs>`);
 
-  // Title
-  parts.push(`<text x="0" y="${fs * 1.2}" font-size="${fs + 1}" font-family="${fontFamily}" fill="#111" font-weight="600">${escapeXml(table.title)}</text>`);
+  // Title — uses header tier font size (fs + 2)
+  parts.push(`<text x="0" y="${titleFs * 1.2}" font-size="${titleFs}" font-family="${fontFamily}" fill="#111" font-weight="600">${escapeXml(table.title)}</text>`);
 
   const tableTop = titleH;
 
@@ -211,10 +249,10 @@ export function renderTableSvg(table: StatsTable, options: TableRenderOptions): 
   const bottomRuleY = headerRuleY + table.rows.length * rowH;
   parts.push(`<line x1="0" y1="${bottomRuleY}" x2="${width}" y2="${bottomRuleY}" stroke="#111" stroke-width="${(ruleW * 1.5).toFixed(1)}"/>`);
 
-  // Footnotes
+  // Footnotes — caption/footnote tier (fs - 1), consistent with figure caption
   for (let fi = 0; fi < footnoteLines.length; fi++) {
-    const fy = bottomRuleY + 6 + fi * (fs * 1.6 + 2) + fs * 1.2;
-    parts.push(`<text x="0" y="${fy}" font-size="${Math.max(fs - 1, 6)}" font-family="${fontFamily}" fill="#666" font-style="italic">${escapeXml(footnoteLines[fi] ?? '')}</text>`);
+    const fy = bottomRuleY + 8 + fi * (footnoteFs * 1.8 + 2) + footnoteFs * 1.2;
+    parts.push(`<text x="0" y="${fy}" font-size="${footnoteFs}" font-family="${fontFamily}" fill="#666" font-style="italic">${escapeXml(footnoteLines[fi] ?? '')}</text>`);
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${svgH}" viewBox="0 0 ${width} ${svgH}" style="background:#fff">\n${parts.join('\n')}\n</svg>`;

@@ -114,23 +114,26 @@ export function renderFigureSvg(
   const indMap = new Map<string, Individual>();
   for (const ind of individuals) indMap.set(ind.id, ind);
 
-  // Compute canvas bounds from layout
+  // Compute canvas bounds from layout (node positions are in unscaled layout space)
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const n of layout.nodes) {
     minX = Math.min(minX, n.x);
     minY = Math.min(minY, n.y);
+    // Use unscaled NODE dimensions here; scaling is applied via scaleX/scaleY below
     maxX = Math.max(maxX, n.x + NODE.WIDTH);
     maxY = Math.max(maxY, n.y + NODE.HEIGHT);
   }
   if (layout.nodes.length === 0) { minX = 0; minY = 0; maxX = 400; maxY = 200; }
 
-  // Scale all positions uniformly
+  // Scale all positions uniformly — right/bottom padding included in chartWidth/Height
   const scaleX = (x: number) => BAND_LABEL_WIDTH + PAPER_MARGIN + (x - minX) * scale;
   const scaleY = (y: number) => PAPER_MARGIN + (y - minY) * scale;
 
+  // Add PAPER_MARGIN on both left (via BAND_LABEL_WIDTH + PAPER_MARGIN) and right
   const chartWidth = (maxX - minX) * scale + BAND_LABEL_WIDTH + PAPER_MARGIN * 2;
   const coiExtra = showCoi ? COI_OFFSET + fs + 4 : 0;
   const legendExtra = legendPosition === 'bottom' ? LEGEND_HEIGHT : 0;
+  // Caption uses (fs - 1) line height with a full CAPTION_HEIGHT slot for padding
   const captionExtra = caption.trim() ? CAPTION_HEIGHT : 0;
   const chartHeight = (maxY - minY) * scale + PAPER_MARGIN * 2 + coiExtra + legendExtra + captionExtra;
 
@@ -161,10 +164,11 @@ export function renderFigureSvg(
     parts.push(`<rect x="${BAND_LABEL_WIDTH}" y="${bandTop}" width="${chartWidth - BAND_LABEL_WIDTH}" height="${Math.max(0, bandBot - bandTop)}" fill="${i % 2 === 0 ? '#f9fafb' : '#fff'}" opacity="0.6"/>`);
   });
 
-  // Generation labels (left column)
+  // Generation labels (left column) — vertically centered within the scaled node row
   for (const gl of genLabels) {
     const label = formatGenerationLabel(gl.label, generationStyle);
-    const y = scaleY(gl.y + NODE.HEIGHT / 2);
+    // gl.y is in layout space; add half the scaled node height to centre the label
+    const y = scaleY(gl.y) + (nodeH / 2);
     parts.push(`<text x="${BAND_LABEL_WIDTH / 2}" y="${y}" font-size="${fs}" font-family="${font}" fill="#999" text-anchor="middle" dominant-baseline="middle" font-weight="500">${label}</text>`);
   }
 
@@ -284,10 +288,11 @@ export function renderFigureSvg(
     parts.push(`</g>`);
   }
 
-  // Caption
+  // Caption — uses preset fontSize - 1 (caption/footnote tier), min 6pt
   if (caption.trim()) {
     const capY = legendPosition === 'bottom' ? legendY + LEGEND_HEIGHT : legendY + 4;
-    parts.push(`<text x="${BAND_LABEL_WIDTH + PAPER_MARGIN}" y="${capY}" font-size="${Math.max(fs, 7)}" font-family="${font}" fill="#333" font-style="italic">${escapeXml(caption)}</text>`);
+    const capFs = Math.max(fs - 1, 6);
+    parts.push(`<text x="${BAND_LABEL_WIDTH + PAPER_MARGIN}" y="${capY}" font-size="${capFs}" font-family="${font}" fill="#333" font-style="italic">${escapeXml(caption)}</text>`);
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="background:#fff;font-family:${font}">${halfFillDefs}\n${parts.join('\n')}\n</svg>`;
