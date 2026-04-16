@@ -1,160 +1,378 @@
+@import "./design-tokens.css";
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #003b5a;
-  --color-brand-light: #1a5276;
-  --color-surface: #f8fafc;
-  --color-surface-raised: #ffffff;
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
-  --color-node-male-bg: #dbeafe;
-  --color-node-male-border: #1d4ed8;
-  --color-node-female-bg: #fce7f3;
-  --color-node-female-border: #be185d;
-  --color-node-unknown-bg: #f1f5f9;
-  --color-node-unknown-border: #475569;
-  --color-accent-warning: #f59e0b;
-  --color-accent-success: #059669;
-  --color-accent-danger: #dc2626;
-  --color-dot-grid: rgba(0, 59, 90, 0.22);
-  --color-surface-band: rgba(248, 250, 252, 0.5);
-}
+  /* Map design tokens → Tailwind color utilities.
+   * Tailwind v4 generates classes from --color-* variables in @theme.
+   * e.g. --color-surface-base → bg-surface-base, text-surface-base, etc.
+   *
+   * Legacy aliases (--color-surface, --color-brand, etc.) are kept
+   * for backward compat until Phase 1 migration removes them.
+   */
 
-/* Dark overrides when .dark class is on <html> */
-.dark {
-  --color-brand: #8dc7ea;
-  --color-brand-light: #b7dbf2;
-  --color-surface: #05070b;
-  --color-surface-raised: #0d1117;
-  --color-border: #273142;
-  --color-border-strong: #3a4960;
-  --color-text-primary: #f5f7fb;
-  --color-text-secondary: #c9d4e1;
-  --color-text-muted: #93a1b5;
-  --color-node-male-bg: #10233d;
-  --color-node-male-border: #71a9dd;
-  --color-node-female-bg: #311227;
-  --color-node-female-border: #d889b2;
-  --color-node-unknown-bg: #1a2330;
-  --color-node-unknown-border: #b7c2d0;
-  --color-dot-grid: rgba(151, 165, 184, 0.22);
-  --color-surface-band: rgba(13, 17, 23, 0.82);
+  /* Surfaces */
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  /* Legacy alias */
+  --color-surface: var(--surface-base);
+
+  /* Borders */
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  /* Text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  /* Status */
+  --color-status-ok: var(--status-ok);
+  --color-status-warn: var(--status-warn);
+  --color-status-error: var(--status-error);
+  --color-status-active: var(--status-active);
+  /* Legacy aliases */
+  --color-accent-success: var(--status-ok);
+  --color-accent-warning: var(--status-warn);
+  --color-accent-danger: var(--status-error);
+  --color-brand: var(--status-active);
+  --color-brand-light: var(--status-active);
+
+  /* Node colors */
+  --color-node-male-bg: var(--node-male-bg);
+  --color-node-male-border: var(--node-male-border);
+  --color-node-female-bg: var(--node-female-bg);
+  --color-node-female-border: var(--node-female-border);
+  --color-node-unknown-bg: var(--node-unknown-bg);
+  --color-node-unknown-border: var(--node-unknown-border);
+
+  /* Canvas */
+  --color-dot-grid: var(--canvas-dot-grid);
+  --color-surface-band: var(--canvas-generation-band);
 }
 
 @layer base {
+  html {
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   html,
   body,
   #root {
-    background: var(--color-surface);
-    color: var(--color-text-primary);
+    background: var(--surface-base);
+    color: var(--text-primary);
   }
+
   *:focus {
     outline: none;
   }
+
   *:focus-visible {
-    outline: 2px solid var(--color-brand);
+    outline: 2px solid var(--status-active);
     outline-offset: 2px;
     border-radius: 2px;
   }
 }
 
 @layer components {
-  .panel-button {
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
+  /* ── Button ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
     transition:
-      background-color 140ms ease,
-      border-color 140ms ease,
-      color 140ms ease,
-      box-shadow 140ms ease,
-      transform 140ms ease;
+      transform var(--transition-fast),
+      background var(--transition-base),
+      border-color var(--transition-base),
+      color var(--transition-base);
+    min-height: var(--min-click-target);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-secondary {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+
+  .btn-primary {
+    background: var(--status-active);
+    border: 1px solid transparent;
+    color: #ffffff;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #4d94f7;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--surface-raised);
+    color: var(--text-primary);
+  }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--status-error);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--status-error) 12%, transparent);
+    border-color: var(--status-error);
+  }
+
+  .btn-sm {
+    min-height: 32px;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  .btn-lg {
+    min-height: 40px;
+    padding: var(--space-3) var(--space-6);
+  }
+
+  /* ── ListItem ── */
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-left: 2px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+      border-color var(--transition-base),
+      background var(--transition-base),
+      color var(--transition-base);
+    min-height: var(--min-click-target);
+  }
+
+  .list-item:hover {
+    background: var(--surface-raised);
+    color: var(--text-primary);
+  }
+
+  .list-item[data-selected="true"] {
+    border-left-color: var(--status-active);
+    background: var(--surface-raised);
+    color: var(--text-primary);
+  }
+
+  /* ── Panel ── */
+  .panel-slide-right {
+    transform: translateX(100%);
+    transition: transform var(--transition-slow);
+  }
+
+  .panel-slide-right[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  .panel-slide-left {
+    transform: translateX(-100%);
+    transition: transform var(--transition-slow);
+  }
+
+  .panel-slide-left[data-open="true"] {
+    transform: translateX(0);
+  }
+
+  /* ── Context Menu ── */
+  .ctx-menu {
+    background: var(--surface-overlay);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+    padding: var(--space-1) 0;
+    min-width: 200px;
+  }
+
+  .ctx-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-4);
+    height: 40px;
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .ctx-menu-item:hover {
+    background: var(--surface-raised);
+  }
+
+  .ctx-menu-item[data-disabled="true"] {
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+
+  .ctx-menu-item[data-danger="true"] {
+    color: var(--status-error);
+  }
+
+  .ctx-menu-divider {
+    height: 1px;
+    background: var(--border);
+    margin: var(--space-1) 0;
+  }
+
+  .ctx-menu-header {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+  }
+
+  /* ── Status Dot ── */
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-dot-ok { background: var(--status-ok); }
+  .status-dot-warn { background: var(--status-warn); }
+  .status-dot-error { background: var(--status-error); }
+  .status-dot-muted { background: var(--text-muted); }
+
+  /* ── Legacy compat (remove during Phase 1 full migration) ── */
+  .panel-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    min-height: 32px;
+    padding: var(--space-1) var(--space-3);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    transition:
+      transform var(--transition-fast),
+      background-color var(--transition-base),
+      border-color var(--transition-base),
+      color var(--transition-base),
+      box-shadow var(--transition-base);
+  }
+
+  .panel-button:active {
+    transform: scale(0.97);
   }
 
   .panel-button:hover {
-    background: color-mix(in srgb, var(--color-surface-raised) 82%, white 18%);
-    border-color: var(--color-border-strong);
-    color: var(--color-text-primary);
-  }
-
-  .dark .panel-button:hover {
-    background: color-mix(in srgb, var(--color-surface-raised) 92%, white 8%);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
   }
 
   .panel-button-primary {
-    background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised) 88%);
-    border: 1px solid color-mix(in srgb, var(--color-brand) 36%, var(--color-border) 64%);
-    color: var(--color-brand);
+    background: color-mix(in srgb, var(--status-active) 12%, var(--surface-raised) 88%);
+    border: 1px solid color-mix(in srgb, var(--status-active) 36%, var(--border) 64%);
+    color: var(--status-active);
   }
 
   .panel-button-primary:hover {
-    background: color-mix(in srgb, var(--color-brand) 18%, var(--color-surface-raised) 82%);
-    color: var(--color-brand-light);
+    background: color-mix(in srgb, var(--status-active) 18%, var(--surface-raised) 82%);
   }
 
   .panel-choice {
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
     transition:
-      background-color 140ms ease,
-      border-color 140ms ease,
-      color 140ms ease,
-      box-shadow 140ms ease;
+      background-color var(--transition-base),
+      border-color var(--transition-base),
+      color var(--transition-base),
+      box-shadow var(--transition-base);
   }
 
   .panel-choice:hover {
-    border-color: var(--color-border-strong);
-    color: var(--color-text-primary);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
   }
 
   .panel-choice-active {
-    background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised) 88%);
-    border-color: color-mix(in srgb, var(--color-brand) 36%, var(--color-border) 64%);
-    color: var(--color-brand);
+    background: color-mix(in srgb, var(--status-active) 12%, var(--surface-raised) 88%);
+    border-color: color-mix(in srgb, var(--status-active) 36%, var(--border) 64%);
+    color: var(--status-active);
   }
 
   .panel-field {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-primary);
+    background: var(--surface-base);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     transition:
-      border-color 140ms ease,
-      box-shadow 140ms ease,
-      background-color 140ms ease;
+      border-color var(--transition-base),
+      box-shadow var(--transition-base),
+      background-color var(--transition-base);
   }
 
   .panel-field::placeholder {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
   }
 
   .panel-field:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--border-strong);
   }
 
   .panel-field:focus {
-    border-color: color-mix(in srgb, var(--color-brand) 50%, var(--color-border) 50%);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 18%, transparent);
+    border-color: color-mix(in srgb, var(--status-active) 50%, var(--border) 50%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-active) 18%, transparent);
   }
 
   .panel-switch {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    background: var(--surface-base);
+    border: 1px solid var(--border);
     transition:
-      background-color 140ms ease,
-      border-color 140ms ease;
+      background-color var(--transition-base),
+      border-color var(--transition-base);
   }
 
   .panel-switch[data-state='on'] {
-    background: color-mix(in srgb, var(--color-brand) 18%, var(--color-surface-raised) 82%);
-    border-color: color-mix(in srgb, var(--color-brand) 38%, var(--color-border) 62%);
+    background: color-mix(in srgb, var(--status-active) 18%, var(--surface-raised) 82%);
+    border-color: color-mix(in srgb, var(--status-active) 38%, var(--border) 62%);
   }
 
   .panel-switch-thumb {
-    background: var(--color-surface-raised);
+    background: var(--surface-raised);
     box-shadow:
       0 1px 1px rgba(15, 23, 42, 0.08),
       0 1px 4px rgba(15, 23, 42, 0.12);

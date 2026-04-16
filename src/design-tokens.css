@@ -1,0 +1,145 @@
+/* design-tokens.css
+ * Single source of truth for all visual tokens.
+ * Dark mode is default. Light mode is opt-in via [data-theme="light"].
+ *
+ * Contrast targets (WCAG AA):
+ *   --text-primary on --surface-base:     ≥4.5:1
+ *   --text-secondary on --surface-base:   ≥4.5:1
+ *   --text-muted on --surface-base:       ≥3.0:1
+ */
+
+:root {
+  /* ── Surfaces ── */
+  --surface-base: #0f1117;
+  --surface-raised: #1a1d27;
+  --surface-overlay: #252836;
+
+  /* ── Borders ── */
+  --border: #2e3244;
+  --border-strong: #3d4458;
+
+  /* ── Text ── */
+  --text-primary: #e2e4e9;
+  --text-secondary: #9ba1b0;
+  --text-muted: #636980;
+
+  /* ── Status (color = meaning only) ── */
+  --status-ok: #34d399;
+  --status-warn: #fbbf24;
+  --status-error: #f87171;
+  --status-active: #60a5fa;
+
+  /* ── Node colors ── */
+  --node-male-bg: #10233d;
+  --node-male-border: #71a9dd;
+  --node-female-bg: #311227;
+  --node-female-border: #d889b2;
+  --node-unknown-bg: #1a2330;
+  --node-unknown-border: #b7c2d0;
+
+  /* ── Canvas ── */
+  --canvas-dot-grid: rgba(151, 165, 184, 0.22);
+  --canvas-generation-band: rgba(13, 17, 23, 0.82);
+  --canvas-hover-overlay: rgba(0, 0, 0, 0.4);
+  --connector-default: #4a5568;
+  --connector-sire: #60a5fa;
+  --connector-dam: #f472b6;
+
+  /* ── Typography ── */
+  --font-family: 'Inter', system-ui, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* ── Spacing (4px base) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Rounding ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-none: 0px;
+
+  /* ── Shadows ── */
+  --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  /* ── Transitions ── */
+  --transition-fast: 100ms ease;
+  --transition-base: 150ms ease;
+  --transition-slow: 200ms ease-out;
+  --transition-layout: 300ms ease-out;
+
+  /* ── Desktop ── */
+  --titlebar-height: 40px;
+  --min-click-target: 36px;
+}
+
+[data-theme="light"] {
+  --surface-base: #ffffff;
+  --surface-raised: #f8f9fa;
+  --surface-overlay: #f0f1f3;
+
+  --border: #e2e4e9;
+  --border-strong: #cbd0d8;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+
+  --node-male-bg: #dbeafe;
+  --node-male-border: #1d4ed8;
+  --node-female-bg: #fce7f3;
+  --node-female-border: #be185d;
+  --node-unknown-bg: #f1f5f9;
+  --node-unknown-border: #475569;
+
+  --canvas-dot-grid: rgba(0, 59, 90, 0.22);
+  --canvas-generation-band: rgba(248, 250, 252, 0.5);
+  --canvas-hover-overlay: rgba(0, 0, 0, 0.15);
+  --connector-default: #94a3b8;
+  --connector-sire: #2563eb;
+  --connector-dam: #db2777;
+
+  --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Font face (bundled Inter) ── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-SemiBold.woff2') format('woff2');
+}

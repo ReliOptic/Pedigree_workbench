@@ -13,13 +13,14 @@
     "windows": [
       {
         "title": "Pedigree Workbench",
-        "width": 1440,
-        "height": 900,
+        "width": 1280,
+        "height": 800,
         "minWidth": 1024,
-        "minHeight": 720,
+        "minHeight": 768,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "decorations": false
       }
     ],
     "security": {

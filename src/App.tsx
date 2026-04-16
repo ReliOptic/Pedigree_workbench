@@ -42,7 +42,7 @@ import { useMatings } from './hooks/use-matings';
 import { useProjects } from './hooks/use-projects';
 import { useUndo } from './hooks/use-undo';
 import { useSettings } from './hooks/use-settings';
-import { summarize } from './services/pedigree-layout';
+import { isFounderCohortLayoutCandidate, summarize } from './services/pedigree-layout';
 import { getNodePositions, setNodePositions } from './services/settings-store';
 import type { Species } from './services/settings-store';
 import { TRANSLATIONS } from './translations';
@@ -128,6 +128,7 @@ export default function App(): React.JSX.Element {
     connectorLineStyle, setConnectorLineStyle,
     generationFormat, setGenerationFormat,
     species, setSpecies,
+    workbenchMode, setWorkbenchMode,
   } = useSettings();
   const { matings, addMating, updateMating, deleteMating, replaceAllMatings } = useMatings();
 
@@ -249,6 +250,21 @@ export default function App(): React.JSX.Element {
   const populationStats = useMemo(() => computePopulationStats(individuals), [individuals]);
   const validation = useMemo(() => validatePedigree(individuals), [individuals]);
   const speciesProfile = useMemo(() => getSpeciesProfile(species), [species]);
+  const hasPedigreeStructure = useMemo(
+    () => individuals.some((individual) => (individual.sire?.trim() ?? '') !== '' || (individual.dam?.trim() ?? '') !== '') || matings.length > 0,
+    [individuals, matings.length],
+  );
+  const founderCohortCandidate = useMemo(
+    () => isFounderCohortLayoutCandidate(individuals),
+    [individuals],
+  );
+  const effectiveWorkbenchMode = useMemo<'cohort' | 'pedigree'>(() => {
+    if (workbenchMode === 'pedigree') return 'pedigree';
+    if (workbenchMode === 'cohort') {
+      return founderCohortCandidate && !hasPedigreeStructure ? 'cohort' : 'pedigree';
+    }
+    return founderCohortCandidate && !hasPedigreeStructure ? 'cohort' : 'pedigree';
+  }, [founderCohortCandidate, hasPedigreeStructure, workbenchMode]);
 
   const selected = useMemo(
     () => individuals.find((i) => i.id === selectedId) ?? null,
@@ -431,12 +447,18 @@ export default function App(): React.JSX.Element {
   const showWorkbenchChrome =
     activeView === 'workbench' && !isLoading && error === null && individuals.length > 0;
 
-  // Apply dark mode class to <html> based on theme preference.
+  // Apply theme: dark is default (no data-theme attr). Light is opt-in.
+  // .dark class kept for backward compat until Phase 1 migration.
   useEffect(() => {
     const apply = (prefersDark: boolean): void => {
       const shouldBeDark =
         theme === 'dark' || (theme === 'system' && prefersDark);
       document.documentElement.classList.toggle('dark', shouldBeDark);
+      if (shouldBeDark) {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
     };
 
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -594,7 +616,9 @@ export default function App(): React.JSX.Element {
                   }
                   canvasRef.current?.focusGroup(groupId);
                 }}
-                onCollapse={() => setShowWorkbenchSidebar(false)}
+                preferredWorkbenchMode={workbenchMode}
+                effectiveWorkbenchMode={effectiveWorkbenchMode}
+                onWorkbenchModeChange={setWorkbenchMode}
               />
             ) : null}
             <PedigreeCanvas
@@ -614,6 +638,7 @@ export default function App(): React.JSX.Element {
               relationshipSourceId={relationshipSource?.id ?? null}
               interactionHint={relationshipHint}
               activeGroupId={activeGroupId}
+              layoutMode={effectiveWorkbenchMode}
             />
             <button
               type="button"
