@@ -32,7 +32,7 @@ describe('CSV import flow integration', () => {
 
     // Wait for initial seed to render.
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNU-B001')).toBeInTheDocument();
     });
 
     // Open the import modal.
@@ -54,12 +54,16 @@ describe('CSV import flow integration', () => {
     // Click import without adjusting.
     await user.click(screen.getByTestId('column-mapper-submit'));
 
+    // Dismiss ImportSummary overlay if it appears
+    const dismissBtn = await screen.findByText('Start in Workbench', {}, { timeout: 5000 }).catch(() => null);
+    if (dismissBtn) await user.click(dismissBtn);
+
     // After import, new nodes should render and old seed should be gone.
     await waitFor(() => {
       expect(screen.getByTestId('pedigree-node-CSV-A')).toBeInTheDocument();
       expect(screen.getByTestId('pedigree-node-CSV-B')).toBeInTheDocument();
       expect(screen.getByTestId('pedigree-node-CSV-C')).toBeInTheDocument();
-      expect(screen.queryByTestId('pedigree-node-SNUDB #1-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pedigree-node-SNU-B001')).not.toBeInTheDocument();
     });
   }, 20000);
 
@@ -68,7 +72,7 @@ describe('CSV import flow integration', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNU-B001')).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole('button', { name: /upload/i }));
@@ -94,7 +98,7 @@ describe('CSV import flow integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('pedigree-node-JSON-A')).toBeInTheDocument();
       expect(screen.getByTestId('pedigree-node-JSON-B')).toBeInTheDocument();
-      expect(screen.queryByTestId('pedigree-node-SNUDB #1-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pedigree-node-SNU-B001')).not.toBeInTheDocument();
     });
   }, 20000);
 });

@@ -324,6 +324,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
         ind.group,
         ind.status,
         ind.sequence,
+        ind.notes,
         ...Object.values(ind.fields),
       ];
       if (haystack.some((v) => v !== undefined && v.toLowerCase().includes(q))) {
@@ -942,6 +943,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   'flex flex-col items-center group bg-transparent border-none p-0 transition-opacity',
                   isDimmed && !isPickModeDimmed && 'opacity-20',
                   isPickModeDimmed && 'opacity-30',
+                  isMatch && 'ring-2 ring-[var(--color-status-active,#6366f1)] ring-offset-2 rounded',
                   isPickModeCandidate && 'ring-2 ring-brand/60 ring-offset-1 rounded',
                   isDropTarget && 'scale-105 ring-2 ring-green-400/80 ring-offset-1 rounded',
                   draggingId === ind.id ? 'cursor-grabbing scale-105' : isPickModeActive ? (isPickModeCandidate ? 'cursor-pointer' : 'cursor-not-allowed') : 'cursor-pointer',

@@ -146,7 +146,23 @@ export default function App(): React.JSX.Element {
     renameProject,
     refreshProjects,
     saveCurrentProject,
-  } = useProjects(refresh, replaceAllMatings);
+    saveProjectSpecies,
+  } = useProjects(refresh, replaceAllMatings, (projSpecies) => {
+    // Sync the UI species state whenever the active project changes.
+    const valid: Species[] = ['pig', 'dog', 'cattle', 'horse', 'sheep', 'goat', 'cat', 'rabbit', 'custom'];
+    if (projSpecies !== undefined && valid.includes(projSpecies as Species)) {
+      setSpecies(projSpecies as Species);
+    }
+  });
+
+  // Species setter that keeps both UI state and the active project in sync.
+  const setSpeciesForProject = useCallback(
+    (next: Species): void => {
+      setSpecies(next);
+      void saveProjectSpecies(next);
+    },
+    [setSpecies, saveProjectSpecies],
+  );
 
   // Stable ref so undo/redo can read current individuals without stale closures.
   const individualsRef = useRef<readonly Individual[]>(individuals);
@@ -567,7 +583,7 @@ export default function App(): React.JSX.Element {
         totalCount={individuals.length}
         activeView={activeView}
         setActiveView={setActiveNav}
-        onSettingsClick={() => openSettingsModal()}
+        onSettingsClick={() => { setImportSummary(null); openSettingsModal(); }}
         canUndo={canUndo}
         canRedo={canRedo}
         onUndo={() => void undo()}
@@ -786,7 +802,7 @@ export default function App(): React.JSX.Element {
           setActiveNav('workbench');
           const analysis = analyzeStructure(importedIndividuals);
           setWorkbenchMode(analysis.recommendedMode);
-          setImportSummary(analysis);
+          closeSettingsModal(); setImportSummary(analysis);
           if (mode === 'merge') {
             await replaceAll(importedIndividuals);
             await saveCurrentProject();
@@ -819,12 +835,10 @@ export default function App(): React.JSX.Element {
               parsed.project.name,
               parsed.project.individuals,
               parsed.project.matings,
+              parsed.project.species,
             );
             setNodePositions(projectId, parsed.project.nodePositions);
             setStoreNodePositions(parsed.project.nodePositions);
-            if (parsed.project.species !== undefined) {
-              setSpecies(parsed.project.species as Species);
-            }
             setActiveNav('workbench');
             await refreshProjects();
           }).catch((cause) => {
@@ -896,7 +910,7 @@ export default function App(): React.JSX.Element {
         generationFormat={generationFormat}
         setGenerationFormat={setGenerationFormat}
         species={species}
-        setSpecies={setSpecies}
+        setSpecies={setSpeciesForProject}
       />
 
       <ShortcutOverlay

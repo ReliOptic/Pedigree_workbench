@@ -26,7 +26,7 @@ describe('node edit flow', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    const node = await screen.findByTestId('pedigree-node-SNU-B001');
     await user.click(node);
 
     // Inspector opens.
@@ -55,13 +55,14 @@ describe('node edit flow', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const node = await screen.findByTestId('pedigree-node-SNUDB #2-1');
+    const node = await screen.findByTestId('pedigree-node-SNU-S011');
     await user.click(node);
 
     const inspector = await screen.findByRole('complementary', { name: /inspector/i });
     await user.click(within(inspector).getByTestId('inspector-edit'));
 
     const seqBox = within(inspector).getByTestId('inspector-sequence');
+    await user.clear(seqBox);
     await user.type(seqBox, 'ATGCGTACG');
 
     await user.click(within(inspector).getByTestId('inspector-save'));
@@ -79,7 +80,7 @@ describe('node edit flow', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-2');
+    const node = await screen.findByTestId('pedigree-node-SNU-B002');
     await user.click(node);
 
     const inspector = await screen.findByRole('complementary', { name: /inspector/i });
@@ -87,7 +88,7 @@ describe('node edit flow', () => {
     await user.click(within(inspector).getByTestId('inspector-confirm-delete'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('pedigree-node-SNUDB #1-2')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pedigree-node-SNU-B002')).not.toBeInTheDocument();
     });
   }, 20000);
 });
@@ -98,7 +99,7 @@ describe('add node flow', () => {
     render(<App />);
 
     // Wait for seed to land.
-    await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    await screen.findByTestId('pedigree-node-SNU-B001');
 
     await user.click(screen.getByTestId('add-node-button'));
     const dialog = await screen.findByRole('dialog', { name: /add node/i });
@@ -116,12 +117,12 @@ describe('add node flow', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    await screen.findByTestId('pedigree-node-SNU-B001');
 
     await user.click(screen.getByTestId('add-node-button'));
     const dialog = await screen.findByRole('dialog', { name: /add node/i });
 
-    await user.type(within(dialog).getByTestId('add-node-id'), 'SNUDB #1-1');
+    await user.type(within(dialog).getByTestId('add-node-id'), 'SNU-B001');
     await user.click(within(dialog).getByTestId('add-node-submit'));
 
     await waitFor(() => {

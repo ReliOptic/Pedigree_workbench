@@ -153,4 +153,6 @@ export interface Project {
   readonly data: readonly Individual[];
   readonly matings?: readonly Mating[];
   readonly nodePositions?: Readonly<Record<string, { x: number; y: number }>>;
+  /** Species for this project (e.g. 'pig', 'dog'). Defaults to 'pig' when absent. */
+  readonly species?: string;
 }

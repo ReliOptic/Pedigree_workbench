@@ -97,7 +97,7 @@ const FIELD_ALIASES: Record<InternalField, readonly string[]> = {
   label: ['name', 'animal_name', 'individual_name', 'tag', '이름', '라벨'],
   sequence: ['seq', 'dna_sequence', '염기서열'],
   sequence_source: ['seq_source', 'sequence_src'],
-  notes: ['note', 'comment', 'comments', 'remarks'],
+  notes: ['note', 'memo', 'remark', 'remarks', 'comment', 'comments'],
 };
 
 // Build a reverse lookup: normalised alias → internal field name

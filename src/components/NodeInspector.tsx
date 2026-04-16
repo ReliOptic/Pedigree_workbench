@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeInbreedingCoefficient } from '../services/kinship';
 import { pluginRegistry } from '../plugins/plugin-registry';
 import { X, Pencil, Check, Trash2, Copy as CopyIcon, FlaskConical, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { StructureViewer } from './StructureViewer';
+import { StructureViewer, InlineStructureViewer } from './StructureViewer';
 import { Button } from './ui';
+
+/** Module-level cache: amino-acid sequence → PDB text. Persists for the session. */
+const structureCache = new Map<string, string>();
 
 import {
   SEQUENCE_REGEX,
@@ -17,6 +20,7 @@ import {
 import type { Language, Translation } from '../types/translation.types';
 import { generateCertificate } from '../services/pedigree-certificate';
 import { downloadFile } from '../services/pedigree-export';
+import { classifySex } from '../lib/sex-utils';
 
 interface NodeInspectorProps {
   readonly individual: Individual | null;
@@ -114,6 +118,9 @@ export function NodeInspector({
   const [copiedAt, setCopiedAt] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [showStructureViewer, setShowStructureViewer] = useState<boolean>(false);
+  const [inlinePdb, setInlinePdb] = useState<string | null>(null);
+  const [isPredicting, setIsPredicting] = useState<boolean>(false);
+  const [predictError, setPredictError] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState<boolean>(false);
   const [notesValue, setNotesValue] = useState<string>('');
   const [matingsOpen, setMatingsOpen] = useState<boolean>(false);
@@ -126,12 +133,34 @@ export function NodeInspector({
     setFormError(null);
     setConfirmingDelete(false);
     setShowStructureViewer(false);
+    setInlinePdb(null);
+    setIsPredicting(false);
+    setPredictError(null);
     setNotesOpen(false);
     setNotesValue(individual?.notes ?? '');
   }, [individual?.id, individual?.notes]);
 
-  const parentOptions = useMemo(
-    () => allIndividuals.filter((i) => i.id !== individual?.id).map((i) => i.id),
+  const sireOptions = useMemo(
+    () =>
+      allIndividuals
+        .filter((i) => {
+          if (i.id === individual?.id) return false;
+          const sex = classifySex(i.sex);
+          return sex === 'male' || sex === 'unknown';
+        })
+        .map((i) => i.id),
+    [allIndividuals, individual?.id],
+  );
+
+  const damOptions = useMemo(
+    () =>
+      allIndividuals
+        .filter((i) => {
+          if (i.id === individual?.id) return false;
+          const sex = classifySex(i.sex);
+          return sex === 'female' || sex === 'unknown';
+        })
+        .map((i) => i.id),
     [allIndividuals, individual?.id],
   );
 
@@ -209,6 +238,54 @@ export function NodeInspector({
       // Clipboard may be unavailable in some contexts (iframe, old browsers).
     }
   };
+
+  /**
+   * Predict protein structure inline using the ESMFold API.
+   * Translates DNA → ORF → amino-acid sequence, then calls ESMFold.
+   * Results are cached by amino-acid sequence for the session.
+   */
+  const handlePredictInline = useCallback(async (): Promise<void> => {
+    if (individual?.sequence === undefined) return;
+
+    try {
+      const { cleanDna, findLongestOrf } = await import('../services/sequence-utils');
+      const cleaned = cleanDna(individual.sequence);
+      const orf = findLongestOrf(cleaned);
+      if (orf === null || orf.protein.length === 0) {
+        setPredictError('Could not find a translatable protein in this DNA sequence.');
+        return;
+      }
+
+      // Check module-level cache first.
+      const cached = structureCache.get(orf.protein);
+      if (cached !== undefined) {
+        setInlinePdb(cached);
+        setPredictError(null);
+        return;
+      }
+
+      setIsPredicting(true);
+      setPredictError(null);
+      setInlinePdb(null);
+
+      const { foldProtein } = await import('../services/esmfold-api');
+      const result = await foldProtein(orf.protein);
+      structureCache.set(orf.protein, result.pdbData);
+      setInlinePdb(result.pdbData);
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : 'Unknown error.';
+      // Distinguish network failures with a clearer user message.
+      const isNetworkError =
+        msg.toLowerCase().includes('fetch') ||
+        msg.toLowerCase().includes('network') ||
+        msg.toLowerCase().includes('failed to fetch');
+      setPredictError(
+        isNetworkError ? t.structureOffline : msg,
+      );
+    } finally {
+      setIsPredicting(false);
+    }
+  }, [individual?.sequence, t.structureOffline]);
 
   return (
     <AnimatePresence>
@@ -311,7 +388,9 @@ export function NodeInspector({
               <EditForm
                 form={form}
                 setForm={setForm}
-                parentOptions={parentOptions}
+                sireOptions={sireOptions}
+                damOptions={damOptions}
+                allIndividuals={allIndividuals}
               />
             ) : (
               <ReadRows ind={individual} />
@@ -535,13 +614,35 @@ export function NodeInspector({
                       variant="secondary"
                       size="sm"
                       data-testid="predict-structure"
-                      onClick={() => setShowStructureViewer(true)}
+                      onClick={() => void handlePredictInline()}
+                      disabled={isPredicting}
                       className="inline-flex items-center gap-1.5"
                     >
                       <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
-                      {t.predictStructure}
+                      {isPredicting ? t.foldingProtein : t.predictStructure}
                     </Button>
                   </div>
+
+                  {/* Inline prediction error */}
+                  {predictError !== null && (
+                    <div
+                      role="alert"
+                      className="mt-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
+                    >
+                      {predictError}
+                    </div>
+                  )}
+
+                  {/* Inline 3D structure viewer */}
+                  {inlinePdb !== null && (
+                    <div className="mt-2">
+                      <InlineStructureViewer
+                        pdbData={inlinePdb}
+                        label={individual.id}
+                        height={300}
+                      />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-text-muted italic">— {t.none} —</p>
@@ -655,11 +756,15 @@ function ReadRows({ ind }: { readonly ind: Individual }): React.JSX.Element {
 function EditForm({
   form,
   setForm,
-  parentOptions,
+  sireOptions,
+  damOptions,
+  allIndividuals,
 }: {
   readonly form: FormState;
   readonly setForm: (updater: (prev: FormState | null) => FormState | null) => void;
-  readonly parentOptions: readonly string[];
+  readonly sireOptions: readonly string[];
+  readonly damOptions: readonly string[];
+  readonly allIndividuals: readonly Individual[];
 }): React.JSX.Element {
   const patch =
     (key: keyof FormState) =>
@@ -667,6 +772,19 @@ function EditForm({
       const value = e.target.value;
       setForm((f) => (f === null ? f : { ...f, [key]: value }));
     };
+
+  const existingGenerations = useMemo(() => {
+    const seen = new Set<string>();
+    for (const ind of allIndividuals) {
+      if (ind.generation !== undefined && ind.generation.trim() !== '') {
+        seen.add(ind.generation.trim());
+      }
+    }
+    return Array.from(seen).sort();
+  }, [allIndividuals]);
+
+  const [addingNewGeneration, setAddingNewGeneration] = useState(false);
+
   return (
     <div className="grid grid-cols-1 gap-3">
       <Field label="label">
@@ -678,22 +796,59 @@ function EditForm({
         />
       </Field>
       <Field label="sex">
-        <input
-          type="text"
+        <select
           value={form.sex}
           onChange={patch('sex')}
-          placeholder="수컷 / 암컷 / M / F"
           className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
-        />
+        >
+          <option value="">— none —</option>
+          <option value="M">♂ Male (M) / 수컷</option>
+          <option value="F">♀ Female (F) / 암컷</option>
+          <option value="Unknown">? Unknown / 불명</option>
+        </select>
       </Field>
       <Field label="generation">
-        <input
-          type="text"
-          value={form.generation}
-          onChange={patch('generation')}
-          placeholder="F0 / F1 / F2 ..."
-          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
-        />
+        {addingNewGeneration ? (
+          <div className="flex gap-1">
+            <input
+              type="text"
+              autoFocus
+              value={form.generation}
+              onChange={patch('generation')}
+              placeholder="e.g. F2"
+              className="flex-1 p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setAddingNewGeneration(false)}
+              className="px-2 py-1 text-xs border border-border rounded bg-surface-raised text-text-muted hover:text-text-primary"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <select
+            value={form.generation}
+            onChange={(e) => {
+              if (e.target.value === '__add_new__') {
+                setAddingNewGeneration(true);
+                setForm((f) => (f === null ? f : { ...f, generation: '' }));
+              } else {
+                patch('generation')(e);
+              }
+            }}
+            className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
+          >
+            <option value="">— none —</option>
+            {existingGenerations.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+            {form.generation !== '' && !existingGenerations.includes(form.generation) && (
+              <option value={form.generation}>{form.generation}</option>
+            )}
+            <option value="__add_new__">+ Add new generation…</option>
+          </select>
+        )}
       </Field>
       <Field label="sire">
         <select
@@ -702,7 +857,7 @@ function EditForm({
           className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         >
           <option value="">— none —</option>
-          {parentOptions.map((id) => (
+          {sireOptions.map((id) => (
             <option key={id} value={id}>
               {id}
             </option>
@@ -716,7 +871,7 @@ function EditForm({
           className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         >
           <option value="">— none —</option>
-          {parentOptions.map((id) => (
+          {damOptions.map((id) => (
             <option key={id} value={id}>
               {id}
             </option>
@@ -741,10 +896,9 @@ function EditForm({
       </Field>
       <Field label="birth_date">
         <input
-          type="text"
+          type="date"
           value={form.birthDate}
           onChange={patch('birthDate')}
-          placeholder="YYYY-MM-DD"
           className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>

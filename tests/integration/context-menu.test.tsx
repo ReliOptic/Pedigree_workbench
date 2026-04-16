@@ -24,7 +24,7 @@ afterEach(() => {
 describe('node right-click menu', () => {
   it('opens on right-click and shows the benchmark-informed items', async () => {
     render(<App />);
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    const node = await screen.findByTestId('pedigree-node-SNU-B001');
 
     fireEvent.contextMenu(node, { clientX: 200, clientY: 200 });
 
@@ -39,7 +39,7 @@ describe('node right-click menu', () => {
   it('Escape dismisses the menu', async () => {
     const user = userEvent.setup();
     render(<App />);
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    const node = await screen.findByTestId('pedigree-node-SNU-B001');
 
     fireEvent.contextMenu(node);
     await screen.findByTestId('context-menu');
@@ -53,26 +53,26 @@ describe('node right-click menu', () => {
   it('Add child prefills sire when target is male', async () => {
     const user = userEvent.setup();
     render(<App />);
-    // SNUDB #1-1 is 수컷 (male) in the seed data.
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    // SNU-B001 is 수컷 (male) in the seed data.
+    const node = await screen.findByTestId('pedigree-node-SNU-B001');
 
     fireEvent.contextMenu(node);
     await screen.findByTestId('context-menu');
     await user.click(screen.getByTestId('ctx-add-child'));
 
     const dialog = await screen.findByRole('dialog', { name: /add node/i });
-    // The sire <select> should have "SNUDB #1-1" already selected.
+    // The sire <select> should have "SNU-B001" already selected.
     const sireSelect = within(dialog)
       .getAllByRole('combobox')
-      .find((el) => (el as HTMLSelectElement).value === 'SNUDB #1-1');
+      .find((el) => (el as HTMLSelectElement).value === 'SNU-B001');
     expect(sireSelect).toBeDefined();
   }, 20000);
 
   it('Add sibling prefills sire and dam from target', async () => {
     const user = userEvent.setup();
     render(<App />);
-    // F1-1 has sire=SNUDB #1-1 and dam=SNUDB #2-1 in the seed.
-    const node = await screen.findByTestId('pedigree-node-F1-1');
+    // SNU-B021 has sire=SNU-B001 and dam=SNU-S012 in the seed.
+    const node = await screen.findByTestId('pedigree-node-SNU-B021');
 
     fireEvent.contextMenu(node);
     await screen.findByTestId('context-menu');
@@ -80,8 +80,8 @@ describe('node right-click menu', () => {
 
     const dialog = await screen.findByRole('dialog', { name: /add node/i });
     const selects = within(dialog).getAllByRole('combobox');
-    const sireSelect = selects.find((el) => (el as HTMLSelectElement).value === 'SNUDB #1-1');
-    const damSelect = selects.find((el) => (el as HTMLSelectElement).value === 'SNUDB #2-1');
+    const sireSelect = selects.find((el) => (el as HTMLSelectElement).value === 'SNU-B001');
+    const damSelect = selects.find((el) => (el as HTMLSelectElement).value === 'SNU-S012');
     expect(sireSelect).toBeDefined();
     expect(damSelect).toBeDefined();
   }, 20000);
@@ -89,14 +89,14 @@ describe('node right-click menu', () => {
   it('Delete removes the target node', async () => {
     const user = userEvent.setup();
     render(<App />);
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-2');
+    const node = await screen.findByTestId('pedigree-node-SNU-B002');
 
     fireEvent.contextMenu(node);
     await screen.findByTestId('context-menu');
     await user.click(screen.getByTestId('ctx-delete'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('pedigree-node-SNUDB #1-2')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pedigree-node-SNU-B002')).not.toBeInTheDocument();
     });
   }, 20000);
 });
@@ -104,7 +104,7 @@ describe('node right-click menu', () => {
 describe('canvas right-click menu', () => {
   it('opens on right-click of empty canvas with Add individual + Fit to screen', async () => {
     render(<App />);
-    await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    await screen.findByTestId('pedigree-node-SNU-B001');
 
     const canvas = screen.getByTestId('pedigree-canvas');
     fireEvent.contextMenu(canvas, { clientX: 50, clientY: 50 });
@@ -119,7 +119,7 @@ describe('canvas right-click menu', () => {
   it('Add individual opens the modal empty', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    await screen.findByTestId('pedigree-node-SNU-B001');
 
     const canvas = screen.getByTestId('pedigree-canvas');
     fireEvent.contextMenu(canvas);

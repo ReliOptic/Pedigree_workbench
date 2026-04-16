@@ -28,7 +28,7 @@ describe('import flow integration', () => {
 
     // First render shows a seeded individual (manually seeded in beforeEach).
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNU-B001')).toBeInTheDocument();
     });
 
     // Open the import modal via the upload button.
@@ -48,7 +48,7 @@ describe('import flow integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('pedigree-node-IMP-A')).toBeInTheDocument();
       expect(screen.getByTestId('pedigree-node-IMP-C')).toBeInTheDocument();
-      expect(screen.queryByTestId('pedigree-node-SNUDB #1-1')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pedigree-node-SNU-B001')).not.toBeInTheDocument();
     });
   }, 20000);
 
@@ -57,7 +57,7 @@ describe('import flow integration', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNU-B001')).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole('button', { name: /upload/i }));
@@ -67,6 +67,6 @@ describe('import flow integration', () => {
 
     expect(await screen.findByTestId('import-error')).toBeInTheDocument();
     // Original seed still rendered behind the modal.
-    expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
+    expect(screen.getByTestId('pedigree-node-SNU-B001')).toBeInTheDocument();
   }, 20000);
 });

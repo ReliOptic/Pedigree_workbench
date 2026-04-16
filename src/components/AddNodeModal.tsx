@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui';
@@ -32,6 +32,85 @@ interface FormState {
   status: string;
 }
 
+
+function GenerationSelectInModal({
+  value,
+  allIndividuals,
+  generationFormat,
+  onChange,
+}: {
+  readonly value: string;
+  readonly allIndividuals: readonly Individual[];
+  readonly generationFormat: GenerationFormat;
+  readonly onChange: (val: string) => void;
+}): React.JSX.Element {
+  const existingGenerations = useMemo(() => {
+    const seen = new Set<string>();
+    for (const ind of allIndividuals) {
+      if (ind.generation !== undefined && ind.generation.trim() !== '') {
+        seen.add(ind.generation.trim());
+      }
+    }
+    return Array.from(seen).sort();
+  }, [allIndividuals]);
+
+  const [addingNew, setAddingNew] = useState(false);
+
+  const placeholder =
+    generationFormat === 'F'
+      ? 'F0 / F1 / F2'
+      : generationFormat === 'Gen'
+        ? 'Gen 0 / Gen 1'
+        : generationFormat === 'Roman'
+          ? 'I / II / III'
+          : 'Custom generation label';
+
+  if (addingNew) {
+    return (
+      <div className="flex gap-1">
+        <input
+          type="text"
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="panel-field flex-1 rounded px-3 py-2 text-sm font-mono"
+        />
+        <button
+          type="button"
+          onClick={() => setAddingNew(false)}
+          className="px-2 py-1 text-sm border border-border rounded bg-surface-raised text-text-muted hover:text-text-primary"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === '__add_new__') {
+          setAddingNew(true);
+          onChange('');
+        } else {
+          onChange(e.target.value);
+        }
+      }}
+      className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
+    >
+      <option value="">— none —</option>
+      {existingGenerations.map((g) => (
+        <option key={g} value={g}>{g}</option>
+      ))}
+      {value !== '' && !existingGenerations.includes(value) && (
+        <option value={value}>{value}</option>
+      )}
+      <option value="__add_new__">+ Add new generation…</option>
+    </select>
+  );
+}
 
 /**
  * Modal form for adding a new individual.
@@ -224,29 +303,20 @@ export function AddNodeModal({
                   className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 >
                   <option value="">— none —</option>
-                  <option value="M">Male (M)</option>
-                  <option value="F">Female (F)</option>
-                  <option value="Unknown">Unknown</option>
+                  <option value="M">&#9794; Male (M) / 수컷</option>
+                  <option value="F">&#9792; Female (F) / 암컷</option>
+                  <option value="Unknown">? Unknown / 불명</option>
                 </select>
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   generation
                 </span>
-                <input
-                  type="text"
+                <GenerationSelectInModal
                   value={form.generation}
-                  onChange={patch('generation')}
-                  placeholder={
-                    generationFormat === 'F'
-                      ? 'F0 / F1 / F2'
-                      : generationFormat === 'Gen'
-                        ? 'Gen 0 / Gen 1'
-                        : generationFormat === 'Roman'
-                          ? 'I / II / III'
-                          : 'Custom generation label'
-                  }
-                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
+                  allIndividuals={allIndividuals}
+                  generationFormat={generationFormat}
+                  onChange={(val) => setForm((f) => ({ ...f, generation: val }))}
                 />
               </label>
             </div>
@@ -303,10 +373,9 @@ export function AddNodeModal({
                   birth_date
                 </span>
                 <input
-                  type="text"
+                  type="date"
                   value={form.birthDate}
                   onChange={patch('birthDate')}
-                  placeholder="YYYY-MM-DD"
                   className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 />
               </label>

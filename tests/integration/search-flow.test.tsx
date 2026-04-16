@@ -120,16 +120,16 @@ describe('search flow integration', () => {
 
     // Wait for at least one seed node.
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNU-B001')).toBeInTheDocument();
     });
 
     const searchInput = screen.getByTestId('search-input');
     await user.click(searchInput);
-    await user.type(searchInput, 'SNUDB #1-1');
+    await user.type(searchInput, 'SNU-B001');
 
     // The matching node should not have opacity-30.
     await waitFor(() => {
-      const node = screen.getByTestId('pedigree-node-SNUDB #1-1');
+      const node = screen.getByTestId('pedigree-node-SNU-B001');
       expect(node.className).not.toContain('opacity-30');
     });
 

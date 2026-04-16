@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Download, RefreshCw } from 'lucide-react';
+import { X, Download, RefreshCw, RotateCcw, ZoomIn } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { cleanDna, findLongestOrf } from '../services/sequence-utils';
 import type { OrfResult } from '../services/sequence-utils';
 import type { FoldResult } from '../services/esmfold-api';
 import type { Translation } from '../types/translation.types';
+
+// ── Modal (DNA-pipeline) variant ────────────────────────────────────────────
 
 interface StructureViewerProps {
   readonly isOpen: boolean;
@@ -83,7 +85,7 @@ export function StructureViewer({
         containerRef.current.innerHTML = '';
 
         const viewer = $3Dmol.createViewer(containerRef.current, {
-          backgroundColor: 'white',
+          backgroundColor: '#1e1e2e',
         });
         viewer.addModel(pdbData, 'pdb');
         viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
@@ -166,11 +168,11 @@ export function StructureViewer({
           {/* Body */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* 3D Viewer area */}
-            <div className="flex-1 relative bg-slate-50">
+            <div className="flex-1 relative bg-[#1e1e2e]">
               {isLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <div className="w-8 h-8 border-3 border-slate-200 border-t-brand rounded-full animate-spin" />
-                  <p className="text-sm text-slate-500">
+                  <div className="w-8 h-8 border-3 border-slate-600 border-t-indigo-400 rounded-full animate-spin" />
+                  <p className="text-sm text-slate-400">
                     {stage === 'translating' && t.translatingDna}
                     {stage === 'folding' && t.foldingProtein}
                     {stage === 'rendering' && t.foldingProtein}
@@ -180,12 +182,12 @@ export function StructureViewer({
 
               {stage === 'error' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8">
-                  <p className="text-sm font-medium text-red-600">{t.structureError}</p>
-                  <p className="text-xs text-slate-500 text-center max-w-md">{error}</p>
+                  <p className="text-sm font-medium text-red-400">{t.structureError}</p>
+                  <p className="text-xs text-slate-400 text-center max-w-md">{error}</p>
                   <button
                     type="button"
                     onClick={() => void runPipeline()}
-                    className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium bg-brand text-white rounded hover:brightness-110 transition"
+                    className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium bg-indigo-600 text-white rounded hover:brightness-110 transition"
                   >
                     <RefreshCw className="w-4 h-4" aria-hidden="true" />
                     {t.retryFold}
@@ -198,6 +200,18 @@ export function StructureViewer({
                 className="w-full h-full min-h-[400px]"
                 style={{ display: stage === 'done' ? 'block' : 'none' }}
               />
+
+              {/* Controls hint */}
+              {stage === 'done' && (
+                <div className="absolute bottom-3 right-3 flex gap-2 text-[10px] text-slate-400 bg-black/40 rounded px-2 py-1 pointer-events-none select-none">
+                  <span className="inline-flex items-center gap-1">
+                    <RotateCcw className="w-3 h-3" aria-hidden="true" /> Drag to rotate
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <ZoomIn className="w-3 h-3" aria-hidden="true" /> Scroll to zoom
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Metadata footer */}
@@ -233,5 +247,124 @@ export function StructureViewer({
         </motion.div>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+// ── Inline viewer — accepts PDB data directly (for inspector panel) ──────────
+
+interface InlineStructureViewerProps {
+  /** Pre-fetched PDB file content as a string */
+  readonly pdbData: string;
+  /** Display label (individual ID, sequence preview, etc.) */
+  readonly label?: string;
+  /** Container height in px (default 300) */
+  readonly height?: number;
+}
+
+/**
+ * Renders an already-fetched PDB structure inline.
+ * Used by NodeInspector after the ESMFold prediction is cached.
+ */
+export function InlineStructureViewer({
+  pdbData,
+  label,
+  height = 300,
+}: InlineStructureViewerProps): React.JSX.Element {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<unknown>(null);
+  const [ready, setReady] = useState(false);
+  const [viewerError, setViewerError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (containerRef.current === null) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const $3Dmol = await import('3dmol');
+        if (cancelled || containerRef.current === null) return;
+
+        containerRef.current.innerHTML = '';
+
+        const viewer = $3Dmol.createViewer(containerRef.current, {
+          backgroundColor: '#1e1e2e',
+        });
+        viewer.addModel(pdbData, 'pdb');
+        viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
+        viewer.zoomTo();
+        viewer.render();
+        viewerRef.current = viewer;
+        setReady(true);
+      } catch {
+        if (!cancelled) {
+          setViewerError('Failed to initialize 3D viewer.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pdbData]);
+
+  const handleDownloadPdb = (): void => {
+    const blob = new Blob([pdbData], { type: 'chemical/x-pdb' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${label ?? 'structure'}.pdb`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      {/* Viewer container */}
+      <div
+        className="relative w-full bg-[#1e1e2e]"
+        style={{ height }}
+      >
+        {!ready && viewerError === null && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-slate-600 border-t-indigo-400 rounded-full animate-spin" />
+          </div>
+        )}
+        {viewerError !== null && (
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <p className="text-xs text-red-400 text-center">{viewerError}</p>
+          </div>
+        )}
+        <div
+          ref={containerRef}
+          className="w-full h-full"
+          style={{ display: ready ? 'block' : 'none' }}
+        />
+        {/* Controls hint overlay */}
+        {ready && (
+          <div className="absolute bottom-2 right-2 flex gap-2 text-[10px] text-slate-400 bg-black/40 rounded px-2 py-0.5 pointer-events-none select-none">
+            <span className="inline-flex items-center gap-1">
+              <RotateCcw className="w-3 h-3" aria-hidden="true" /> Drag to rotate
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <ZoomIn className="w-3 h-3" aria-hidden="true" /> Scroll to zoom
+            </span>
+          </div>
+        )}
+      </div>
+      {/* Footer bar */}
+      <div className="flex items-center justify-between px-3 py-2 bg-surface-raised border-t border-border">
+        {label !== undefined && (
+          <span className="font-mono text-[11px] text-text-muted truncate">{label}</span>
+        )}
+        <button
+          type="button"
+          onClick={handleDownloadPdb}
+          className="ml-auto inline-flex items-center gap-1 px-2 h-6 text-[11px] text-text-secondary border border-border rounded hover:bg-surface transition"
+        >
+          <Download className="w-3 h-3" aria-hidden="true" />
+          PDB
+        </button>
+      </div>
+    </div>
   );
 }

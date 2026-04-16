@@ -9,10 +9,19 @@ import type { Translation } from '../types/translation.types';
 import { NODE, CONNECTOR } from '../constants/node-dimensions';
 import { Button } from './ui';
 
+/** Predicted structure metadata for paper view display */
+export interface PredictedStructureEntry {
+  readonly individualId: string;
+  readonly sequenceLength: number;
+  readonly pdbData: string;
+}
+
 interface PaperViewProps {
   readonly individuals: readonly Individual[];
   readonly t: Translation;
   readonly workbenchMode?: 'pedigree' | 'cohort';
+  /** Optional predicted structures from the inspector cache */
+  readonly predictedStructures?: readonly PredictedStructureEntry[];
 }
 
 // ── SVG constants ─────────────────────────────────────────────────────────────
@@ -35,9 +44,10 @@ function truncate(text: string | undefined | null, max: number): string {
 
 interface PedigreeChartProps {
   individuals: readonly Individual[];
+  t: Translation;
 }
 
-function PedigreeSvg({ individuals }: PedigreeChartProps): React.JSX.Element {
+function PedigreeSvg({ individuals, t }: PedigreeChartProps): React.JSX.Element {
   const layout = useMemo(
     () =>
       computeLayout(individuals, {
@@ -112,10 +122,10 @@ function PedigreeSvg({ individuals }: PedigreeChartProps): React.JSX.Element {
         fontWeight="600"
         fill="#111"
       >
-        Pedigree Chart
+        {t.pedigreeChart}
       </text>
       <text x={PAPER_MARGIN} y={50} fontSize={12} fill="#666">
-        {individuals.length} individuals · Generated {today}
+        {individuals.length} {t.individualsCount} · {t.generatedOn} {today}
       </text>
 
       {/* ── Generation bands ── */}
@@ -268,28 +278,28 @@ function PedigreeSvg({ individuals }: PedigreeChartProps): React.JSX.Element {
       <g transform={`translate(${PAPER_MARGIN}, ${svgHeight - FOOTER_HEIGHT + 14})`}>
         {/* Male */}
         <rect x={0} y={0} width={16} height={16} rx={2} fill="#fff" stroke="#333" strokeWidth={1.5} />
-        <text x={22} y={12} fontSize={11} fill="#555">Male</text>
+        <text x={22} y={12} fontSize={11} fill="#555">{t.legendMale}</text>
 
         {/* Female */}
         <ellipse cx={72} cy={8} rx={8} ry={8} fill="#fff" stroke="#333" strokeWidth={1.5} />
-        <text x={86} y={12} fontSize={11} fill="#555">Female</text>
+        <text x={86} y={12} fontSize={11} fill="#555">{t.legendFemale}</text>
 
         {/* Unknown */}
         <polygon points="148,0 156,8 148,16 140,8" fill="#fff" stroke="#555" strokeWidth={1.5} />
-        <text x={162} y={12} fontSize={11} fill="#555">Unknown</text>
+        <text x={162} y={12} fontSize={11} fill="#555">{t.legendUnknown}</text>
 
         {/* COI indicator */}
         <text x={240} y={12} fontSize={11} fill="#e53e3e" fontWeight="500">F=x%</text>
-        <text x={270} y={12} fontSize={11} fill="#555">= inbreeding coeff.</text>
+        <text x={270} y={12} fontSize={11} fill="#555">{t.legendInbreeding}</text>
       </g>
 
       {/* Summary stats */}
       <g transform={`translate(${PAPER_MARGIN}, ${svgHeight - FOOTER_HEIGHT + 38})`}>
         <text fontSize={11} fill="#777">
-          <tspan>Total: {stats.populationSize}</tspan>
-          <tspan dx={20}>Founders: {stats.founderCount}</tspan>
-          <tspan dx={20}>Mean COI: {(stats.meanCOI * 100).toFixed(2)}%</tspan>
-          <tspan dx={20}>Max COI: {(stats.maxCOI * 100).toFixed(2)}%</tspan>
+          <tspan>{t.statTotal}: {stats.populationSize}</tspan>
+          <tspan dx={20}>{t.statFounders}: {stats.founderCount}</tspan>
+          <tspan dx={20}>{t.statMeanCoi}: {(stats.meanCOI * 100).toFixed(2)}%</tspan>
+          <tspan dx={20}>{t.statMaxCoi}: {(stats.maxCOI * 100).toFixed(2)}%</tspan>
         </text>
       </g>
     </svg>
@@ -300,16 +310,17 @@ function PedigreeSvg({ individuals }: PedigreeChartProps): React.JSX.Element {
 
 interface CohortReportProps {
   individuals: readonly Individual[];
+  t: Translation;
 }
 
-function CohortReport({ individuals }: CohortReportProps): React.JSX.Element {
+function CohortReport({ individuals, t }: CohortReportProps): React.JSX.Element {
   const stats = useMemo(() => computePopulationStats(individuals), [individuals]);
 
   // Group by group field
   const groups = useMemo(() => {
     const m = new Map<string, Individual[]>();
     for (const ind of individuals) {
-      const key = ind.group?.trim() || 'Ungrouped';
+      const key = ind.group?.trim() || t.ungrouped;
       const arr = m.get(key) ?? [];
       arr.push(ind);
       m.set(key, arr);
@@ -347,9 +358,9 @@ function CohortReport({ individuals }: CohortReportProps): React.JSX.Element {
     >
       {/* Header */}
       <div style={{ borderBottom: '1px solid #e0e0e0', paddingBottom: '16px', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 600, margin: 0 }}>Cohort Report</h1>
+        <h1 style={{ fontSize: '20px', fontWeight: 600, margin: 0 }}>{t.cohortReport}</h1>
         <p style={{ fontSize: '12px', color: '#666', margin: '4px 0 0' }}>
-          Generated {today}
+          {t.generatedOn} {today}
         </p>
       </div>
 
@@ -366,23 +377,23 @@ function CohortReport({ individuals }: CohortReportProps): React.JSX.Element {
         }}
       >
         <div>
-          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>Total</div>
+          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>{t.statTotal}</div>
           <div style={{ fontWeight: 600 }}>{stats.populationSize}</div>
         </div>
         <div>
-          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>Sex ratio (M:F)</div>
+          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>{t.sexRatio}</div>
           <div style={{ fontWeight: 600 }}>{sexRatio}</div>
         </div>
         <div>
-          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>Groups</div>
+          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>{t.litterGroups}</div>
           <div style={{ fontWeight: 600 }}>{groups.length}</div>
         </div>
         <div>
-          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>Mean COI</div>
+          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>{t.statMeanCoi}</div>
           <div style={{ fontWeight: 600 }}>{(stats.meanCOI * 100).toFixed(2)}%</div>
         </div>
         <div>
-          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>Max COI</div>
+          <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>{t.statMaxCoi}</div>
           <div style={{ fontWeight: 600 }}>{(stats.maxCOI * 100).toFixed(2)}%</div>
         </div>
       </div>
@@ -405,7 +416,7 @@ function CohortReport({ individuals }: CohortReportProps): React.JSX.Element {
           >
             <thead>
               <tr style={{ background: '#f3f4f6' }}>
-                {['ID', 'Name', 'Sex', 'DOB', 'Status', 'Generation'].map((col) => (
+                {[t.colId, t.colName, t.colSex, t.colDob, t.colStatus, t.colGeneration].map((col) => (
                   <th
                     key={col}
                     style={{
@@ -456,7 +467,7 @@ function CohortReport({ individuals }: CohortReportProps): React.JSX.Element {
       {candidates.length > 0 && (
         <div style={{ marginTop: '32px', borderTop: '1px solid #e0e0e0', paddingTop: '24px' }}>
           <h2 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px' }}>
-            Breeding Candidates ({candidates.length})
+            {t.breedingCandidatesSection} ({candidates.length})
           </h2>
           <ul style={{ margin: 0, padding: '0 0 0 20px', fontSize: '12px', color: '#444' }}>
             {candidates.map((c) => (
@@ -513,9 +524,59 @@ function downloadPngFromSvg(svgContent: string, filename: string): void {
   img.src = url;
 }
 
+// ── Protein structure summary card (static, for paper output) ───────────────
+
+interface StructureSummaryCardProps {
+  entry: PredictedStructureEntry;
+}
+
+/**
+ * Static summary card for a predicted protein structure.
+ * Shows individual ID, sequence length, and atom/residue counts parsed from PDB.
+ * Does NOT render the 3D viewer — suitable for print/paper output.
+ */
+function StructureSummaryCard({ entry }: StructureSummaryCardProps): React.JSX.Element {
+  // Parse basic stats from PDB text (ATOM records).
+  const { atomCount, residueCount } = useMemo(() => {
+    const lines = entry.pdbData.split('\n');
+    const atomLines = lines.filter((l) => l.startsWith('ATOM'));
+    const residues = new Set(atomLines.map((l) => `${l.slice(21, 22).trim()}_${l.slice(22, 26).trim()}`));
+    return { atomCount: atomLines.length, residueCount: residues.size };
+  }, [entry.pdbData]);
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 text-xs space-y-2">
+      {/* Header */}
+      <div className="font-bold text-slate-800 font-mono truncate">{entry.individualId}</div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-600">
+        <span className="text-slate-400">Sequence</span>
+        <span className="font-mono">{entry.sequenceLength.toLocaleString()} bp</span>
+
+        <span className="text-slate-400">Residues</span>
+        <span className="font-mono">{residueCount}</span>
+
+        <span className="text-slate-400">Atoms</span>
+        <span className="font-mono">{atomCount.toLocaleString()}</span>
+      </div>
+
+      {/* Source badge */}
+      <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 border border-indigo-200 rounded text-[10px] text-indigo-700 font-medium">
+        ESMFold predicted
+      </div>
+
+      {/* PDB snippet preview */}
+      <pre className="mt-1 font-mono text-[9px] leading-tight text-slate-400 overflow-hidden max-h-16 whitespace-pre-wrap break-all">
+        {entry.pdbData.slice(0, 200)}
+      </pre>
+    </div>
+  );
+}
+
 // ── PaperView ────────────────────────────────────────────────────────────────
 
-export function PaperView({ individuals, t, workbenchMode = 'pedigree' }: PaperViewProps): React.JSX.Element {
+export function PaperView({ individuals, t, workbenchMode = 'pedigree', predictedStructures }: PaperViewProps): React.JSX.Element {
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const isPedigree = workbenchMode === 'pedigree';
 
@@ -592,21 +653,39 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree' }: PaperV
           {t.downloadPng}
         </Button>
         <span className="ml-2 text-xs text-text-muted">
-          {isPedigree ? 'Pedigree Chart' : 'Cohort Report'}
+          {isPedigree ? t.pedigreeChart : t.cohortReport}
         </span>
       </div>
 
       {/* Output area */}
       <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
-        <div
-          ref={svgContainerRef}
-          className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
-        >
-          {isPedigree ? (
-            <PedigreeSvg individuals={individuals} />
-          ) : (
-            <CohortReport individuals={individuals} />
-          )}
+        <div className="flex flex-col gap-6 w-full max-w-fit">
+          <div
+            ref={svgContainerRef}
+            className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+          >
+            {isPedigree ? (
+              <PedigreeSvg individuals={individuals} t={t} />
+            ) : (
+              <CohortReport individuals={individuals} t={t} />
+            )}
+          </div>
+
+          {/* Protein Structures section — only in pedigree mode when structures are available */}
+          {isPedigree &&
+            predictedStructures !== undefined &&
+            predictedStructures.length > 0 && (
+              <div className="rounded-xl border border-border bg-white shadow-sm p-6">
+                <h2 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">
+                  {t.proteinStructures}
+                </h2>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {predictedStructures.map((entry) => (
+                    <StructureSummaryCard key={entry.individualId} entry={entry} />
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
       </div>
     </div>

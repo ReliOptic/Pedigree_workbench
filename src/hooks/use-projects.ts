@@ -24,7 +24,7 @@ interface UseProjectsResult {
   /** Switch to a different project. Saves the current workspace first. */
   readonly switchProject: (id: string) => Promise<void>;
   /** Create a new project from imported individuals and switch to it. */
-  readonly createProject: (name: string, individuals: readonly Individual[], matings?: readonly Mating[]) => Promise<string>;
+  readonly createProject: (name: string, individuals: readonly Individual[], matings?: readonly Mating[], species?: string) => Promise<string>;
   /** Delete a project. If it was active, switches to another or clears workspace. */
   readonly removeProject: (id: string) => Promise<void>;
   /** Rename a project. */
@@ -33,6 +33,8 @@ interface UseProjectsResult {
   readonly saveCurrentProject: () => Promise<void>;
   /** Reload the project list from the store. */
   readonly refreshProjects: () => Promise<void>;
+  /** Update the species stored on the active project. */
+  readonly saveProjectSpecies: (species: string) => Promise<void>;
 }
 
 function generateId(): string {
@@ -50,6 +52,7 @@ function generateId(): string {
 export function useProjects(
   onWorkspaceChanged: () => Promise<void>,
   onMatingsChanged?: (matings: readonly Mating[]) => Promise<void>,
+  onSpeciesChanged?: (species: string | undefined) => void,
 ): UseProjectsResult {
   const [projects, setProjects] = useState<readonly Project[]>([]);
   const [activeProjectId, setActiveState] = useState<string | null>(
@@ -115,6 +118,9 @@ export function useProjects(
                 if (onMatingsChanged !== undefined) {
                   await onMatingsChanged(fallbackMatings);
                 }
+                if (onSpeciesChanged !== undefined) {
+                  onSpeciesChanged(proj.species);
+                }
               }
             }
           }
@@ -158,13 +164,16 @@ export function useProjects(
       if (onMatingsChanged !== undefined) {
         await onMatingsChanged(targetMatings);
       }
+      if (onSpeciesChanged !== undefined) {
+        onSpeciesChanged(target.species);
+      }
       logger.info('use-projects.switch', { from: activeProjectId, to: id });
     },
-    [activeProjectId, saveCurrentProject, onWorkspaceChanged, onMatingsChanged],
+    [activeProjectId, saveCurrentProject, onWorkspaceChanged, onMatingsChanged, onSpeciesChanged],
   );
 
   const createProject = useCallback(
-    async (name: string, individuals: readonly Individual[], matings: readonly Mating[] = []): Promise<string> => {
+    async (name: string, individuals: readonly Individual[], matings: readonly Mating[] = [], species?: string): Promise<string> => {
       // Save current workspace before switching.
       if (activeProjectId !== null) {
         await saveCurrentProject();
@@ -176,6 +185,7 @@ export function useProjects(
         createdAt: new Date().toISOString(),
         data: individuals,
         matings,
+        ...(species !== undefined ? { species } : {}),
       };
       await saveProject(project);
       // Load the new project's data into workspace.
@@ -187,10 +197,13 @@ export function useProjects(
       if (onMatingsChanged !== undefined) {
         await onMatingsChanged(matings);
       }
+      if (onSpeciesChanged !== undefined) {
+        onSpeciesChanged(species);
+      }
       logger.info('use-projects.create', { id, name, count: individuals.length });
       return id;
     },
-    [activeProjectId, saveCurrentProject, refreshProjects, onWorkspaceChanged, onMatingsChanged],
+    [activeProjectId, saveCurrentProject, refreshProjects, onWorkspaceChanged, onMatingsChanged, onSpeciesChanged],
   );
 
   const removeProject = useCallback(
@@ -209,6 +222,9 @@ export function useProjects(
           if (onMatingsChanged !== undefined) {
             await onMatingsChanged(nextMatings);
           }
+          if (onSpeciesChanged !== undefined) {
+            onSpeciesChanged(next.species);
+          }
         } else {
           await Promise.all([bulkImport([]), bulkImportMatings([])]);
           setActiveProjectId(null);
@@ -221,7 +237,7 @@ export function useProjects(
       }
       logger.info('use-projects.delete', { id });
     },
-    [activeProjectId, onWorkspaceChanged, onMatingsChanged],
+    [activeProjectId, onWorkspaceChanged, onMatingsChanged, onSpeciesChanged],
   );
 
   const renameProject = useCallback(
@@ -234,6 +250,16 @@ export function useProjects(
     [refreshProjects],
   );
 
+  const saveProjectSpecies = useCallback(
+    async (species: string): Promise<void> => {
+      if (activeProjectId === null) return;
+      const current = await getProject(activeProjectId);
+      if (current === undefined) return;
+      await saveProject({ ...current, species });
+    },
+    [activeProjectId],
+  );
+
   return {
     projects,
     activeProjectId,
@@ -244,5 +270,6 @@ export function useProjects(
     renameProject,
     saveCurrentProject,
     refreshProjects,
+    saveProjectSpecies,
   };
 }

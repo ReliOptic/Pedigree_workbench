@@ -196,6 +196,32 @@ function getAttentionIds(validation: ValidationResult): readonly string[] {
   return [...ids].slice(0, 8);
 }
 
+function getFirstWarningType(id: string, validation: ValidationResult, language: Language): string {
+  for (const issue of [...validation.errors, ...validation.warnings]) {
+    if (issue.ids.includes(id)) {
+      if (language === 'ko') {
+        const map: Record<string, string> = {
+          'missing-sex': '성별 미입력',
+          'missing-generation': '세대 미입력',
+          'orphan-parent': '누락 부모 참조',
+          'cycle': '순환 참조',
+          'duplicate-id': '중복 ID',
+        };
+        return map[issue.type] ?? issue.type;
+      }
+      const map: Record<string, string> = {
+        'missing-sex': 'Missing sex',
+        'missing-generation': 'Missing generation',
+        'orphan-parent': 'Orphan parent ref',
+        'cycle': 'Cycle detected',
+        'duplicate-id': 'Duplicate ID',
+      };
+      return map[issue.type] ?? issue.type;
+    }
+  }
+  return '';
+}
+
 export function WorkbenchSidebar({
   selected,
   stats,
@@ -450,24 +476,28 @@ export function WorkbenchSidebar({
             {attentionIndividuals.length === 0 ? (
               <p className="text-xs text-text-muted">{labels.noAttentionNodes}</p>
             ) : (
-              attentionIndividuals.map((individual) => (
-                <button
-                  key={individual.id}
-                  type="button"
-                  onClick={() => onSelectIndividual(individual.id)}
-                  className="panel-button flex w-full items-start justify-between rounded-lg px-3 py-2 text-left"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-text-primary" title={individual.label ?? individual.id}>
-                      {individual.label ?? individual.id}
-                    </p>
-                    <p className="mt-0.5 truncate font-mono text-xs text-text-secondary" title={individual.id}>
-                      {individual.id}
-                    </p>
-                  </div>
-                  <span className="mt-0.5 text-[11px] text-text-muted">{individual.generation ?? '—'}</span>
-                </button>
-              ))
+              attentionIndividuals.map((individual) => {
+                const warningType = getFirstWarningType(individual.id, validation, language);
+                return (
+                  <button
+                    key={individual.id}
+                    type="button"
+                    onClick={() => onSelectIndividual(individual.id)}
+                    className="panel-button flex w-full items-start justify-between rounded-lg px-3 py-2 text-left"
+                    title={`${individual.id} — ${warningType}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-text-primary" title={individual.label ?? individual.id}>
+                        {individual.id}{individual.label ? ` · ${individual.label}` : ''}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-amber-600 dark:text-amber-400" title={warningType}>
+                        {warningType}
+                      </p>
+                    </div>
+                    <span className="mt-0.5 shrink-0 text-[11px] text-text-muted">{individual.generation ?? '—'}</span>
+                  </button>
+                );
+              })
             )}
           </div>
         </section>

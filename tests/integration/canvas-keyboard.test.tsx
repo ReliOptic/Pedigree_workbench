@@ -26,7 +26,7 @@ describe('canvas keyboard interactions', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    const node = await screen.findByTestId('pedigree-node-SNU-B001');
     await user.click(node);
 
     // Inspector opens on selection.
@@ -56,7 +56,7 @@ describe('canvas keyboard interactions', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('pedigree-node-SNUDB #1-1')).toBeInTheDocument();
+      expect(screen.getByTestId('pedigree-node-SNU-B001')).toBeInTheDocument();
     });
 
     expect(screen.getByRole('button', { name: /zoom in/i })).toBeInTheDocument();
@@ -67,9 +67,9 @@ describe('canvas keyboard interactions', () => {
   it('node buttons announce sex and generation via aria-label', async () => {
     render(<App />);
 
-    const node = await screen.findByTestId('pedigree-node-SNUDB #1-1');
+    const node = await screen.findByTestId('pedigree-node-SNU-B001');
     const label = node.getAttribute('aria-label') ?? '';
-    // Seed SNUDB #1-1 is male, F0 — label should reference both.
+    // Seed SNU-B001 is male, F0 — label should reference both.
     expect(label).toMatch(/male/i);
     expect(label).toMatch(/generation/i);
     expect(label).toMatch(/F0/);

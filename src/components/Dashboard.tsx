@@ -66,10 +66,11 @@ export function Dashboard({
         <p className="text-sm text-text-muted mt-1">
           {t.individuals}: {totalCount} &nbsp;·&nbsp;
           {t.litterGroups}: {litterGroups.length} &nbsp;·&nbsp;
-          <span className="text-blue-600">{sexDistribution.male}M</span>
-          {' / '}
-          <span className="text-pink-600">{sexDistribution.female}F</span>
-          {sexDistribution.unknown > 0 && ` / ${sexDistribution.unknown}?`}
+          <span className="text-blue-600">&#9794;{sexDistribution.male}</span>
+          {' · '}
+          <span className="text-pink-600">&#9792;{sexDistribution.female}</span>
+          {' · '}
+          <span className="text-text-muted">?{sexDistribution.unknown}</span>
         </p>
       </div>
 

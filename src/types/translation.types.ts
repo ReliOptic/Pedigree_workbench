@@ -42,6 +42,8 @@ export interface Translation {
   readonly downloadPdb: string;
   readonly structureError: string;
   readonly retryFold: string;
+  readonly structureOffline: string;
+  readonly proteinStructures: string;
   readonly noSequence: string;
   readonly residues: string;
   readonly none: string;
@@ -187,6 +189,27 @@ export interface Translation {
   readonly inbredLabel: string;
   readonly countLabel: string;
   readonly noValidationErrors: string;
+  readonly pedigreeChart: string;
+  readonly cohortReport: string;
+  readonly generatedOn: string;
+  readonly individualsCount: string;
+  readonly colId: string;
+  readonly colName: string;
+  readonly colSex: string;
+  readonly colDob: string;
+  readonly colStatus: string;
+  readonly colGeneration: string;
+  readonly statTotal: string;
+  readonly statFounders: string;
+  readonly statMeanCoi: string;
+  readonly statMaxCoi: string;
+  readonly sexRatio: string;
+  readonly breedingCandidatesSection: string;
+  readonly legendMale: string;
+  readonly legendFemale: string;
+  readonly legendUnknown: string;
+  readonly legendInbreeding: string;
+  readonly ungrouped: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;
