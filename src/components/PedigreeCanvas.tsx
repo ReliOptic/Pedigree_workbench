@@ -19,6 +19,7 @@ import type { Individual, Mating } from '../types/pedigree.types';
 import type { GenerationFormat } from '../services/settings-store';
 import type { Translation } from '../types/translation.types';
 import { NODE, CONNECTOR } from '../constants/node-dimensions';
+import type { EditMode, PendingConnection } from '../stores/canvas-store';
 
 /**
  * Imperative handle exposed by {@link PedigreeCanvas}. Parents attach a ref
@@ -50,6 +51,12 @@ interface PedigreeCanvasProps {
   readonly interactionHint?: string | null;
   readonly activeGroupId?: string | null;
   readonly layoutMode?: 'cohort' | 'pedigree';
+  /** Current relationship editing mode from canvas-store. */
+  readonly editMode?: EditMode;
+  /** Pending pick-mode connection waiting for user to click a parent. */
+  readonly pendingConnection?: PendingConnection | null;
+  /** Called when user drag-connects a child node handle to a parent node. */
+  readonly onDragConnect?: (childId: string, parentId: string) => Promise<void>;
 }
 
 type StatusTone = {
@@ -169,6 +176,9 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
       interactionHint = null,
       activeGroupId = null,
       layoutMode = 'pedigree',
+      editMode = 'select',
+      pendingConnection = null,
+      onDragConnect,
     },
     ref,
   ): React.JSX.Element {
@@ -182,6 +192,14 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragStartRef = useRef<{ nodeX: number; nodeY: number; mouseX: number; mouseY: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  // Drag-to-connect handle state.
+  // connectDragSource: the node whose top-center handle is being dragged.
+  // connectDragLine: current cursor position (viewport coords) for the dashed line.
+  // connectDropTarget: the node currently under cursor while drag-connecting.
+  const [connectDragSource, setConnectDragSource] = useState<string | null>(null);
+  const [connectDragLine, setConnectDragLine] = useState<{ x: number; y: number } | null>(null);
+  const [connectDropTarget, setConnectDropTarget] = useState<string | null>(null);
 
   const layout = useMemo(
     () => computeLayout(individuals, { mode: layoutMode }, matings, nodePositions),
@@ -219,6 +237,23 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     for (const ind of individuals) map.set(ind.id, ind);
     return map;
   }, [individuals]);
+
+  // Pick-mode: compute valid candidate IDs (nodes the user can click to assign as sire/dam).
+  // Candidates = correct sex (for sire: male or unknown; for dam: female or unknown), not self.
+  // Cycle detection is done on actual click, but we pre-filter obvious invalids here for UX.
+  const pickModeCandidateIds = useMemo<Set<string>>(() => {
+    if (pendingConnection === null || editMode === 'select') return new Set<string>();
+    const { childId, role } = pendingConnection;
+    const result = new Set<string>();
+    for (const ind of individuals) {
+      if (ind.id === childId) continue;
+      const sex = classifySex(ind.sex);
+      if (role === 'sire' && sex === 'female') continue;
+      if (role === 'dam' && sex === 'male') continue;
+      result.add(ind.id);
+    }
+    return result;
+  }, [pendingConnection, editMode, individuals]);
 
   // Effective positions: layout positions with nodePositions overrides applied.
   const effectivePositions = useMemo(() => {
@@ -304,6 +339,53 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, [draggingId, zoom, onNodeDrag]);
+
+  // Global mouse listeners for drag-connect handle.
+  useEffect(() => {
+    if (connectDragSource === null) return;
+
+    const handleMouseMove = (e: MouseEvent): void => {
+      setConnectDragLine({ x: e.clientX, y: e.clientY });
+      // Determine which node is under cursor (nearest within 36px).
+      // We iterate layout nodes to find the closest one to the cursor.
+      const viewport = viewportRef.current;
+      if (viewport === null) return;
+      const rect = viewport.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left - offset.x) / zoom;
+      const worldY = (e.clientY - rect.top - offset.y) / zoom;
+
+      let nearestId: string | null = null;
+      let nearestDist = 48; // px threshold in world space
+      for (const ind of individuals) {
+        const pos = positionById.get(ind.id);
+        if (pos === undefined || ind.id === connectDragSource) continue;
+        const cx = pos.x + NODE_SIZE / 2;
+        const cy = pos.y + NODE_SIZE / 2;
+        const dist = Math.hypot(worldX - cx, worldY - cy);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestId = ind.id;
+        }
+      }
+      setConnectDropTarget(nearestId);
+    };
+
+    const handleMouseUp = (): void => {
+      if (connectDropTarget !== null && onDragConnect !== undefined) {
+        void onDragConnect(connectDragSource, connectDropTarget);
+      }
+      setConnectDragSource(null);
+      setConnectDragLine(null);
+      setConnectDropTarget(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [connectDragSource, connectDropTarget, individuals, offset, zoom, onDragConnect, positionById]);
 
   // Compute fit-to-screen parameters for the current layout + viewport.
   // Anchors the content's top-left (F0 row, first node) to the top-left of
@@ -744,7 +826,13 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
             const isRelationshipSource = relationshipSourceId === ind.id;
             const isMatch = isSearching && matchingIds.has(ind.id);
             const isGroupDimmed = activeGroupId !== null && ind.group !== activeGroupId;
-            const isDimmed = (isSearching && !matchingIds.has(ind.id)) || isGroupDimmed;
+            // Pick-mode dimming: non-candidates get 30% opacity.
+            const isPickModeActive = editMode !== 'select' && pendingConnection !== null;
+            const isPickModeCandidate = isPickModeActive && pickModeCandidateIds.has(ind.id);
+            const isPickModeDimmed = isPickModeActive && !isPickModeCandidate;
+            const isDimmed = (isSearching && !matchingIds.has(ind.id)) || isGroupDimmed || isPickModeDimmed;
+            // Drag-connect: highlight valid drop target.
+            const isDropTarget = connectDropTarget === ind.id && connectDragSource !== null && ind.id !== connectDragSource;
             const isRoving = rovingId === ind.id;
             const isInbred = inbredIds.has(ind.id);
             const statusTone = getStatusTone(ind.status);
@@ -810,8 +898,11 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                 }}
                 className={cn(
                   'flex flex-col items-center group bg-transparent border-none p-0 transition-opacity',
-                  isDimmed && 'opacity-20',
-                  draggingId === ind.id ? 'cursor-grabbing scale-105' : 'cursor-pointer',
+                  isDimmed && !isPickModeDimmed && 'opacity-20',
+                  isPickModeDimmed && 'opacity-30',
+                  isPickModeCandidate && 'ring-2 ring-brand/60 ring-offset-1 rounded',
+                  isDropTarget && 'scale-105 ring-2 ring-green-400/80 ring-offset-1 rounded',
+                  draggingId === ind.id ? 'cursor-grabbing scale-105' : isPickModeActive ? (isPickModeCandidate ? 'cursor-pointer' : 'cursor-not-allowed') : 'cursor-pointer',
                 )}
                 style={{
                   position: 'absolute',
@@ -897,6 +988,33 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   >
                     {sexGlyph}
                   </span>
+                  {/* Drag-connect handle — visible on hover at top-center of node.
+                      Dragging from here initiates a connection drag. */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-1/2 -translate-x-1/2 -top-2.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-crosshair z-30"
+                    style={{ pointerEvents: 'all' }}
+                    onMouseDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setConnectDragSource(ind.id);
+                      setConnectDragLine({ x: e.clientX, y: e.clientY });
+                      // Prevent canvas pan.
+                      setIsDragging(false);
+                    }}
+                  >
+                    <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+                      <circle
+                        cx="4"
+                        cy="4"
+                        r="3.5"
+                        fill="var(--color-brand, #6366f1)"
+                        stroke="white"
+                        strokeWidth="1"
+                      />
+                    </svg>
+                  </span>
                 </div>
                 {/* Primary label below the shape, truncated via NODE.MAX_NAME_CHARS, full value in title tooltip. */}
                 <span
@@ -967,6 +1085,47 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           aria-hidden="true"
         />
       )}
+
+      {/* Drag-connect line overlay — fixed SVG following cursor during handle drag. */}
+      {connectDragSource !== null && connectDragLine !== null && (() => {
+        const viewport = viewportRef.current;
+        const sourcePos = positionById.get(connectDragSource);
+        if (sourcePos === undefined || viewport === null) return null;
+        const rect = viewport.getBoundingClientRect();
+        // Source point: top-center of the node in viewport coords.
+        const srcViewX = sourcePos.x * zoom + offset.x + (NODE_SIZE / 2) * zoom + rect.left;
+        const srcViewY = sourcePos.y * zoom + offset.y + rect.top;
+        // Determine line color based on target sex.
+        const targetInd = connectDropTarget !== null ? individualsMap.get(connectDropTarget) : undefined;
+        const lineColor = targetInd !== undefined
+          ? classifySex(targetInd.sex) === 'male' ? '#3b82f6' : '#ec4899'
+          : '#6366f1';
+        return (
+          <svg
+            className="pointer-events-none"
+            style={{
+              position: 'fixed',
+              left: 0,
+              top: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: 100,
+            }}
+            aria-hidden="true"
+          >
+            <line
+              x1={srcViewX}
+              y1={srcViewY}
+              x2={connectDragLine.x}
+              y2={connectDragLine.y}
+              stroke={lineColor}
+              strokeWidth="2"
+              strokeDasharray="6 3"
+            />
+            <circle cx={srcViewX} cy={srcViewY} r={4} fill={lineColor} />
+          </svg>
+        );
+      })()}
 
       {/* Zoom toolbar — absolute within viewport, no fixed offsets. */}
       {interactionHint !== null && (

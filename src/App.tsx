@@ -49,8 +49,9 @@ import { TRANSLATIONS } from './translations';
 import type { Individual } from './types/pedigree.types';
 import { useCanvasStore } from './stores/canvas-store';
 import { useUIStore } from './stores/ui-store';
+import { detectCycles } from './services/pedigree-validation';
 import { initBuiltInPlugins } from './plugins';
-import { isMale, isFemale } from './lib/sex-utils';
+import { isMale, isFemale, classifySex } from './lib/sex-utils';
 import { computePopulationStats } from './services/population-genetics';
 import { validatePedigree } from './services/pedigree-validation';
 import { getSpeciesProfile } from './services/species-profiles';
@@ -172,14 +173,21 @@ export default function App(): React.JSX.Element {
     },
     [pushSnapshot, individuals, deleteOne],
   );
-  // Canvas store: node positions and search
+  // Canvas store: node positions, search, and pick-mode editing
   const {
     nodePositions,
     setNodePositions: setStoreNodePositions,
     updateNodePosition,
     searchQuery,
     setSearchQuery,
+    editMode,
+    pendingConnection,
+    setPendingConnection,
+    clearPendingConnection,
   } = useCanvasStore();
+
+  // Error message shown when a relationship change is rejected (e.g. cycle).
+  const [relationshipError, setRelationshipError] = useState<string | null>(null);
 
   // UI store: modals and shortcut overlay
   const {
@@ -375,7 +383,11 @@ export default function App(): React.JSX.Element {
       e.preventDefault();
       setRelationshipMode({ kind: 'idle' });
     }
-  }, [undo, redo, toggleShortcutOverlay, setSearchQuery, relationshipMode]);
+    if (e.key === 'Escape' && pendingConnection !== null) {
+      e.preventDefault();
+      clearPendingConnection();
+    }
+  }, [undo, redo, toggleShortcutOverlay, setSearchQuery, relationshipMode, pendingConnection, clearPendingConnection]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -383,6 +395,11 @@ export default function App(): React.JSX.Element {
   }, [handleGlobalKeyDown]);
 
   const relationshipHint = useMemo(() => {
+    if (pendingConnection !== null) {
+      return pendingConnection.role === 'sire'
+        ? 'Select a sire — click a male individual (ESC to cancel)'
+        : 'Select a dam — click a female individual (ESC to cancel)';
+    }
     if (relationshipMode.kind === 'assign-parent') {
       return relationshipMode.parentRole === 'sire'
         ? 'Click a child node to assign the selected individual as sire.'
@@ -392,11 +409,54 @@ export default function App(): React.JSX.Element {
       return 'Click a partner node to start a mating record with the selected individual.';
     }
     return null;
-  }, [relationshipMode]);
+  }, [relationshipMode, pendingConnection]);
+
+  /**
+   * Validate and apply a sire/dam assignment. Returns an error message on
+   * rejection, or null on success.
+   */
+  const applyRelationshipAssignment = useCallback(
+    async (childId: string, role: 'sire' | 'dam', parentId: string): Promise<string | null> => {
+      if (childId === parentId) {
+        return `Cannot assign an individual as its own ${role}.`;
+      }
+      // Build a tentative individuals list with the proposed link applied.
+      const tentative = individuals.map((ind) =>
+        ind.id === childId ? { ...ind, [role]: parentId } : ind,
+      );
+      const cycles = detectCycles(tentative);
+      if (cycles.length > 0) {
+        const path = cycles[0]!.join(' → ');
+        return `Circular pedigree detected: ${path} → ${cycles[0]![0]}`;
+      }
+      await trackedUpdateOne(childId, { [role]: parentId });
+      return null;
+    },
+    [individuals, trackedUpdateOne],
+  );
 
   const handleWorkbenchSelect = useCallback((id: string | null): void => {
     if (id === null) {
       setSelectedId(null);
+      return;
+    }
+
+    // Pick-mode: user clicked a candidate parent after "Assign Sire/Dam".
+    if (pendingConnection !== null) {
+      const { childId, role } = pendingConnection;
+      if (id === childId) {
+        // Clicked self — do nothing, keep pick mode active.
+        return;
+      }
+      clearPendingConnection();
+      void applyRelationshipAssignment(childId, role, id).then((err) => {
+        if (err !== null) {
+          setRelationshipError(err);
+          // Auto-dismiss after 4 s.
+          setTimeout(() => setRelationshipError(null), 4000);
+        }
+      });
+      setSelectedId(id);
       return;
     }
 
@@ -442,7 +502,7 @@ export default function App(): React.JSX.Element {
     }
 
     setSelectedId(id);
-  }, [individuals, openMateModal, relationshipMode, trackedUpdateOne, setSelectedId]);
+  }, [individuals, openMateModal, relationshipMode, trackedUpdateOne, setSelectedId, pendingConnection, clearPendingConnection, applyRelationshipAssignment]);
 
   const showWorkbenchChrome =
     activeView === 'workbench' && !isLoading && error === null && individuals.length > 0;
@@ -639,6 +699,18 @@ export default function App(): React.JSX.Element {
               interactionHint={relationshipHint}
               activeGroupId={activeGroupId}
               layoutMode={effectiveWorkbenchMode}
+              editMode={editMode}
+              pendingConnection={pendingConnection}
+              onDragConnect={async (childId, parentId) => {
+                const parentInd = individuals.find((i) => i.id === parentId);
+                if (parentInd === undefined) return;
+                const role = isMale(parentInd) ? 'sire' : 'dam';
+                const err = await applyRelationshipAssignment(childId, role, parentId);
+                if (err !== null) {
+                  setRelationshipError(err);
+                  setTimeout(() => setRelationshipError(null), 4000);
+                }
+              }}
             />
             <button
               type="button"
@@ -807,6 +879,25 @@ export default function App(): React.JSX.Element {
         t={t}
       />
 
+      {/* Relationship error toast */}
+      {relationshipError !== null && (
+        <div
+          role="alert"
+          className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/80 px-4 py-3 shadow-xl text-sm text-red-700 dark:text-red-200 max-w-md"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" aria-hidden="true" />
+          <span>{relationshipError}</span>
+          <button
+            type="button"
+            onClick={() => setRelationshipError(null)}
+            className="ml-auto text-red-400 hover:text-red-600 transition-colors"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <ContextMenu
         open={ctxMenu !== null}
         position={ctxMenu === null ? null : { x: ctxMenu.x, y: ctxMenu.y }}
@@ -858,6 +949,24 @@ export default function App(): React.JSX.Element {
                   onNote: () => {
                     setSelectedId(ctxMenu.id);
                   },
+                  onAssignSire: () => {
+                    setPendingConnection({ childId: ctxMenu.id, role: 'sire' });
+                  },
+                  onAssignDam: () => {
+                    setPendingConnection({ childId: ctxMenu.id, role: 'dam' });
+                  },
+                  onRemoveSire: () => {
+                    void trackedUpdateOne(ctxMenu.id, { sire: undefined });
+                  },
+                  onRemoveDam: () => {
+                    void trackedUpdateOne(ctxMenu.id, { dam: undefined });
+                  },
+                  onAddOffspring: () => {
+                    const target = individuals.find((i) => i.id === ctxMenu.id);
+                    if (target !== undefined) {
+                      openAddModal(buildAddChildPrefill(target));
+                    }
+                  },
                 })
               : buildCanvasMenu({
                   onAddNode: () => {
@@ -884,17 +993,82 @@ function buildNodeMenu(args: {
   readonly onDelete: () => void;
   readonly onAddMate: () => void;
   readonly onNote: () => void;
+  readonly onAssignSire: () => void;
+  readonly onAssignDam: () => void;
+  readonly onRemoveSire: () => void;
+  readonly onRemoveDam: () => void;
+  readonly onAddOffspring: () => void;
 }): readonly MenuEntry[] {
+  const hasSire = (args.target.sire ?? '').length > 0;
+  const hasDam = (args.target.dam ?? '').length > 0;
+  const sexGlyph = classifySex(args.target.sex) === 'male' ? '♂ ' : classifySex(args.target.sex) === 'female' ? '♀ ' : '';
+  const displayName = args.target.label ?? args.target.id;
+
   return [
+    // Header-style item showing name+sex (disabled, no action)
+    {
+      kind: 'item',
+      id: 'header',
+      label: `${sexGlyph}${displayName}`,
+      disabled: true,
+      onSelect: () => {},
+    },
+    { kind: 'separator', id: 'sep-header' },
+    {
+      kind: 'item',
+      id: 'assign-sire',
+      label: hasSire ? `Change Sire (current: ${args.target.sire!})` : 'Assign Sire',
+      icon: UserPlus,
+      onSelect: args.onAssignSire,
+    },
+    {
+      kind: 'item',
+      id: 'assign-dam',
+      label: hasDam ? `Change Dam (current: ${args.target.dam!})` : 'Assign Dam',
+      icon: UserPlus,
+      onSelect: args.onAssignDam,
+    },
+    ...(hasSire ? [{
+      kind: 'item' as const,
+      id: 'remove-sire',
+      label: 'Remove Sire Link',
+      icon: Trash2,
+      destructive: true,
+      onSelect: args.onRemoveSire,
+    }] : []),
+    ...(hasDam ? [{
+      kind: 'item' as const,
+      id: 'remove-dam',
+      label: 'Remove Dam Link',
+      icon: Trash2,
+      destructive: true,
+      onSelect: args.onRemoveDam,
+    }] : []),
+    { kind: 'separator', id: 'sep-parents' },
+    {
+      kind: 'item',
+      id: 'add-mate',
+      label: 'Create Mating',
+      icon: Heart,
+      shortcut: 'M',
+      onSelect: args.onAddMate,
+    },
+    {
+      kind: 'item',
+      id: 'add-offspring',
+      label: 'Add Offspring',
+      icon: Plus,
+      onSelect: args.onAddOffspring,
+    },
+    { kind: 'separator', id: 'sep-offspring' },
     {
       kind: 'item',
       id: 'edit',
-      label: 'Edit',
+      label: 'Edit Details',
       icon: Pencil,
       shortcut: 'E',
       onSelect: args.onEdit,
     },
-    { kind: 'separator', id: 'sep-edit' },
     {
       kind: 'item',
       id: 'add-child',
@@ -918,15 +1092,6 @@ function buildNodeMenu(args: {
       icon: UserPlus,
       shortcut: 'P',
       onSelect: () => args.onAddParent(buildAddParentPrefill(args.target)),
-    },
-    { kind: 'separator', id: 'sep-mate' },
-    {
-      kind: 'item',
-      id: 'add-mate',
-      label: 'Add Mate',
-      icon: Heart,
-      shortcut: 'M',
-      onSelect: args.onAddMate,
     },
     {
       kind: 'item',

@@ -5,6 +5,13 @@ interface NodePosition {
   y: number;
 }
 
+export type EditMode = 'select' | 'pick-sire' | 'pick-dam';
+
+export interface PendingConnection {
+  childId: string;
+  role: 'sire' | 'dam';
+}
+
 export interface CanvasStore {
   // View state
   zoom: number;
@@ -25,6 +32,10 @@ export interface CanvasStore {
   // Drag state
   draggingId: string | null;
 
+  // Relationship editing
+  editMode: EditMode;
+  pendingConnection: PendingConnection | null;
+
   // Actions
   setZoom: (zoom: number) => void;
   setPan: (x: number, y: number) => void;
@@ -36,6 +47,9 @@ export interface CanvasStore {
   setSearchVisible: (visible: boolean) => void;
   setDraggingId: (id: string | null) => void;
   resetView: () => void;
+  setEditMode: (mode: EditMode) => void;
+  setPendingConnection: (connection: PendingConnection) => void;
+  clearPendingConnection: () => void;
 }
 
 const DEFAULT_ZOOM = 1;
@@ -62,6 +76,10 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
   // Drag state
   draggingId: null,
 
+  // Relationship editing
+  editMode: 'select',
+  pendingConnection: null,
+
   // Actions
   setZoom: (zoom) => set({ zoom }),
   setPan: (x, y) => set({ panX: x, panY: y }),
@@ -77,6 +95,9 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
   setDraggingId: (id) => set({ draggingId: id }),
   resetView: () =>
     set({ zoom: DEFAULT_ZOOM, panX: DEFAULT_PAN_X, panY: DEFAULT_PAN_Y }),
+  setEditMode: (mode) => set({ editMode: mode }),
+  setPendingConnection: (connection) => set({ pendingConnection: connection, editMode: connection.role === 'sire' ? 'pick-sire' : 'pick-dam' }),
+  clearPendingConnection: () => set({ pendingConnection: null, editMode: 'select' }),
 }));
 
 /** Reset store to initial state — for tests only */
@@ -91,5 +112,7 @@ export function __resetCanvasStore(): void {
     searchQuery: '',
     searchVisible: false,
     draggingId: null,
+    editMode: 'select',
+    pendingConnection: null,
   });
 }
