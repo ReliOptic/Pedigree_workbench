@@ -6,9 +6,13 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { StructureViewer, InlineStructureViewer } from './StructureViewer';
 import { Button } from './ui';
+import { resolveUniprotId } from '../services/alphafold-api';
 
-/** Module-level cache: amino-acid sequence → PDB text. Persists for the session. */
+/** Module-level cache: amino-acid sequence → PDB text (ESMFold). Persists for the session. */
 const structureCache = new Map<string, string>();
+
+/** Module-level cache: UniProt accession → PDB text (AlphaFold DB). Persists for the session. */
+const alphaFoldCache = new Map<string, string>();
 
 import {
   SEQUENCE_REGEX,
@@ -121,6 +125,11 @@ export function NodeInspector({
   const [inlinePdb, setInlinePdb] = useState<string | null>(null);
   const [isPredicting, setIsPredicting] = useState<boolean>(false);
   const [predictError, setPredictError] = useState<string | null>(null);
+  const [alphaFoldPdb, setAlphaFoldPdb] = useState<string | null>(null);
+  const [isFetchingAlphaFold, setIsFetchingAlphaFold] = useState<boolean>(false);
+  const [alphaFoldError, setAlphaFoldError] = useState<string | null>(null);
+  // 'esmfold' | 'alphafold' — active tab when both structures are loaded
+  const [activeStructureTab, setActiveStructureTab] = useState<'esmfold' | 'alphafold'>('alphafold');
   const [notesOpen, setNotesOpen] = useState<boolean>(false);
   const [notesValue, setNotesValue] = useState<string>('');
   const [matingsOpen, setMatingsOpen] = useState<boolean>(false);
@@ -136,6 +145,10 @@ export function NodeInspector({
     setInlinePdb(null);
     setIsPredicting(false);
     setPredictError(null);
+    setAlphaFoldPdb(null);
+    setIsFetchingAlphaFold(false);
+    setAlphaFoldError(null);
+    setActiveStructureTab('alphafold');
     setNotesOpen(false);
     setNotesValue(individual?.notes ?? '');
   }, [individual?.id, individual?.notes]);
@@ -238,6 +251,61 @@ export function NodeInspector({
       // Clipboard may be unavailable in some contexts (iframe, old browsers).
     }
   };
+
+  /**
+   * Derive a UniProt accession from the individual's metadata by scanning
+   * label, group, id, and field keys/values for known protein names.
+   */
+  const resolvedUniprotId = useMemo((): string | null => {
+    if (individual === null) return null;
+    const candidates = [
+      individual.label,
+      individual.group,
+      individual.id,
+      ...Object.keys(individual.fields),
+      ...Object.values(individual.fields),
+    ].filter((v): v is string => typeof v === 'string' && v.length > 0);
+
+    for (const candidate of candidates) {
+      for (const token of candidate.split(/[\s,;|/]+/)) {
+        const uid = resolveUniprotId(token);
+        if (uid !== null) return uid;
+      }
+    }
+    return null;
+  }, [individual]);
+
+  /**
+   * Fetch the pre-computed AlphaFold DB reference structure.
+   * Results are cached by UniProt accession for the session.
+   */
+  const handleFetchAlphaFold = useCallback(async (): Promise<void> => {
+    if (resolvedUniprotId === null) return;
+
+    const cached = alphaFoldCache.get(resolvedUniprotId);
+    if (cached !== undefined) {
+      setAlphaFoldPdb(cached);
+      setAlphaFoldError(null);
+      setActiveStructureTab('alphafold');
+      return;
+    }
+
+    setIsFetchingAlphaFold(true);
+    setAlphaFoldError(null);
+    setAlphaFoldPdb(null);
+
+    try {
+      const { fetchAlphaFoldPdb } = await import('../services/alphafold-api');
+      const pdbData = await fetchAlphaFoldPdb(resolvedUniprotId);
+      alphaFoldCache.set(resolvedUniprotId, pdbData);
+      setAlphaFoldPdb(pdbData);
+      setActiveStructureTab('alphafold');
+    } catch (cause) {
+      setAlphaFoldError(cause instanceof Error ? cause.message : 'Failed to fetch AlphaFold structure.');
+    } finally {
+      setIsFetchingAlphaFold(false);
+    }
+  }, [resolvedUniprotId]);
 
   /**
    * Predict protein structure inline using the ESMFold API.
@@ -600,7 +668,7 @@ export function NodeInspector({
                   <pre className="p-2 font-mono text-[11px] leading-snug text-text-secondary bg-surface-raised border border-border rounded max-h-40 overflow-auto break-all whitespace-pre-wrap">
                     {individual.sequence}
                   </pre>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -610,6 +678,20 @@ export function NodeInspector({
                       <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
                       {Date.now() - copiedAt < 1500 ? t.copied : t.copy}
                     </Button>
+                    {/* AlphaFold reference — only when a known protein is detected */}
+                    {resolvedUniprotId !== null && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        data-testid="fetch-alphafold"
+                        onClick={() => void handleFetchAlphaFold()}
+                        disabled={isFetchingAlphaFold}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
+                        {isFetchingAlphaFold ? 'Fetching…' : 'View Reference Structure'}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
@@ -619,9 +701,23 @@ export function NodeInspector({
                       className="inline-flex items-center gap-1.5"
                     >
                       <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
-                      {isPredicting ? t.foldingProtein : t.predictStructure}
+                      {isPredicting
+                        ? t.foldingProtein
+                        : resolvedUniprotId !== null
+                          ? 'Predict Edited Structure'
+                          : t.predictStructure}
                     </Button>
                   </div>
+
+                  {/* AlphaFold fetch error */}
+                  {alphaFoldError !== null && (
+                    <div
+                      role="alert"
+                      className="mt-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
+                    >
+                      {alphaFoldError}
+                    </div>
+                  )}
 
                   {/* Inline prediction error */}
                   {predictError !== null && (
@@ -633,14 +729,56 @@ export function NodeInspector({
                     </div>
                   )}
 
-                  {/* Inline 3D structure viewer */}
-                  {inlinePdb !== null && (
+                  {/* Tabbed 3D structure viewer — shown when one or both structures are loaded */}
+                  {(alphaFoldPdb !== null || inlinePdb !== null) && (
                     <div className="mt-2">
-                      <InlineStructureViewer
-                        pdbData={inlinePdb}
-                        label={individual.id}
-                        height={300}
-                      />
+                      {/* Tab bar — only show tabs when both structures are available */}
+                      {alphaFoldPdb !== null && inlinePdb !== null && (
+                        <div className="flex gap-1 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveStructureTab('alphafold')}
+                            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+                              activeStructureTab === 'alphafold'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-surface-raised text-text-secondary border border-border hover:bg-surface'
+                            }`}
+                          >
+                            Reference (AlphaFold)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveStructureTab('esmfold')}
+                            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+                              activeStructureTab === 'esmfold'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-surface-raised text-text-secondary border border-border hover:bg-surface'
+                            }`}
+                          >
+                            Edited (ESMFold)
+                          </button>
+                        </div>
+                      )}
+
+                      {/* AlphaFold viewer */}
+                      {alphaFoldPdb !== null &&
+                        (inlinePdb === null || activeStructureTab === 'alphafold') && (
+                          <InlineStructureViewer
+                            pdbData={alphaFoldPdb}
+                            label={`AlphaFold · ${resolvedUniprotId ?? individual.id}`}
+                            height={300}
+                          />
+                        )}
+
+                      {/* ESMFold viewer */}
+                      {inlinePdb !== null &&
+                        (alphaFoldPdb === null || activeStructureTab === 'esmfold') && (
+                          <InlineStructureViewer
+                            pdbData={inlinePdb}
+                            label={`ESMFold · ${individual.id}`}
+                            height={300}
+                          />
+                        )}
                     </div>
                   )}
                 </div>
