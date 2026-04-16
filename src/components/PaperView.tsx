@@ -623,7 +623,7 @@ function FigureConfigPanel({ options, onChange, includeTables, onIncludeTablesCh
   };
 
   return (
-    <div className="shrink-0 border-b border-border bg-surface px-4 py-3 space-y-2 text-xs">
+    <div className="px-4 py-3 space-y-2 text-xs">
       {/* Row 1: preset + label + gen style + symbol */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <label className="flex items-center gap-1.5 text-text-muted">
@@ -850,64 +850,61 @@ function FigurePreview({ individuals, options, includeTables, t }: FigurePreview
     [individuals, layout, options, coiMap],
   );
 
-  // Derive table width from the figure SVG to keep figure and tables aligned.
-  // The figure SVG width is: (content span * nodeScale) + BAND_LABEL_WIDTH + PAPER_MARGIN*2 + legend width.
-  // We use a simpler proxy: convert preset figureWidth (mm) to screen px at 96dpi,
-  // clamped to a sensible min/max for the preview pane.
-  const tableWidth = useMemo(() => {
-    const px = Math.round((options.preset.figureWidth / 25.4) * 96);
-    return Math.max(360, Math.min(px, 1200));
-  }, [options.preset.figureWidth]);
+  // Table width: use a fixed logical pixel width that maps to the viewBox coordinate space.
+  // SVGs now use width="100%" so they'll scale to fit the paper container.
+  const tableWidth = 800;
 
   const populationTableSvg = useMemo(() => {
     if (!includeTables.population) return null;
     const tbl = generatePopulationTable(individuals, t);
     return renderTableSvg(tbl, { width: tableWidth, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
-  }, [individuals, t, includeTables.population, options.preset, tableWidth]);
+  }, [individuals, t, includeTables.population, options.preset]);
 
   const coiTableSvg = useMemo(() => {
     if (!includeTables.coi) return null;
     const tbl = generateInbreedingTable(individuals, t);
     return renderTableSvg(tbl, { width: tableWidth, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
-  }, [individuals, t, includeTables.coi, options.preset, tableWidth]);
+  }, [individuals, t, includeTables.coi, options.preset]);
 
   const genotypeTableSvg = useMemo(() => {
     if (!includeTables.genotype) return null;
     const tbl = generateGenotypeTable(individuals, t);
     return renderTableSvg(tbl, { width: tableWidth, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
-  }, [individuals, t, includeTables.genotype, options.preset, tableWidth]);
+  }, [individuals, t, includeTables.genotype, options.preset]);
 
   return (
-    <div className="flex flex-col gap-6 w-full" style={{ maxWidth: Math.max(tableWidth + 32, 400) }}>
-      {/* Figure — scrollable if wider than container */}
+    <>
+      {/* Figure SVG — fills paper width, scales via viewBox */}
       <div
-        className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+        style={{ width: '100%', overflow: 'hidden' }}
         dangerouslySetInnerHTML={{ __html: figureSvg }}
       />
 
-      {/* Tables — same max-width as figure, consistent padding */}
+      {/* Divider */}
+      {(populationTableSvg ?? coiTableSvg ?? genotypeTableSvg) && (
+        <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '4px 0' }} />
+      )}
+
+      {/* Tables — fill paper width */}
       {populationTableSvg && (
         <div
-          className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
-          style={{ padding: '16px' }}
+          style={{ width: '100%', overflow: 'hidden' }}
           dangerouslySetInnerHTML={{ __html: populationTableSvg }}
         />
       )}
       {coiTableSvg && (
         <div
-          className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
-          style={{ padding: '16px' }}
+          style={{ width: '100%', overflow: 'hidden' }}
           dangerouslySetInnerHTML={{ __html: coiTableSvg }}
         />
       )}
       {genotypeTableSvg && (
         <div
-          className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
-          style={{ padding: '16px' }}
+          style={{ width: '100%', overflow: 'hidden' }}
           dangerouslySetInnerHTML={{ __html: genotypeTableSvg }}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -994,49 +991,60 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
     <div className="flex flex-col h-full overflow-hidden">
       {isPedigree ? (
         <>
-          {/* Figure configuration panel */}
-          <FigureConfigPanel
-            options={figureOptions}
-            onChange={setFigureOptions}
-            includeTables={includeTables}
-            onIncludeTablesChange={setIncludeTables}
-          />
-
-          {/* Download action bar */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface shrink-0">
-            <span className="text-xs text-text-muted mr-1">Download:</span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleDownloadFigureSvg}
-              className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              SVG
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDownloadFigurePng(300)}
-              className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              PNG 300 dpi
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDownloadFigurePng(600)}
-              className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              TIFF 600 dpi
-            </Button>
+          {/* ── Fixed config + download toolbar ── */}
+          <div className="shrink-0 border-b border-border bg-surface">
+            <FigureConfigPanel
+              options={figureOptions}
+              onChange={setFigureOptions}
+              includeTables={includeTables}
+              onIncludeTablesChange={setIncludeTables}
+            />
+            <div className="flex items-center gap-2 px-4 py-2 border-t border-border/50">
+              <span className="text-xs text-text-muted mr-1">Download:</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDownloadFigureSvg}
+                className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
+              >
+                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                SVG
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleDownloadFigurePng(300)}
+                className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
+              >
+                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                PNG 300 dpi
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleDownloadFigurePng(600)}
+                className="inline-flex items-center gap-1.5 min-w-[7rem] justify-center"
+              >
+                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                TIFF 600 dpi
+              </Button>
+            </div>
           </div>
 
-          {/* Preview */}
-          <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
-            <div className="flex flex-col gap-6 w-full items-center">
+          {/* ── Scrollable paper preview ── */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-neutral-200 py-8 px-4">
+            {/* A4 paper sheet */}
+            <div
+              className="mx-auto bg-white shadow-lg"
+              style={{
+                width: '210mm',
+                maxWidth: '100%',
+                padding: '20mm 15mm',
+                minHeight: '297mm',
+                boxSizing: 'border-box',
+                color: '#111',
+              }}
+            >
               <FigurePreview
                 individuals={individuals}
                 options={figureOptions}
@@ -1046,8 +1054,8 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
 
               {/* Protein Structures section */}
               {predictedStructures !== undefined && predictedStructures.length > 0 && (
-                <div className="rounded-xl border border-border bg-white shadow-sm p-6 w-full max-w-4xl">
-                  <h2 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">
+                <div style={{ marginTop: '32px', borderTop: '1px solid #e5e7eb', paddingTop: '24px' }}>
+                  <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginBottom: '16px' }}>
                     {t.proteinStructures}
                   </h2>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -1086,12 +1094,22 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
           </div>
 
           {/* Cohort output area */}
-          <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-neutral-200 py-8 px-4">
+            {/* A4 paper sheet */}
             <div
-              ref={svgContainerRef}
-              className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+              className="mx-auto bg-white shadow-lg"
+              style={{
+                width: '210mm',
+                maxWidth: '100%',
+                padding: '20mm 15mm',
+                minHeight: '297mm',
+                boxSizing: 'border-box',
+                color: '#111',
+              }}
             >
-              <CohortReport individuals={individuals} t={t} />
+              <div ref={svgContainerRef}>
+                <CohortReport individuals={individuals} t={t} />
+              </div>
             </div>
           </div>
         </>

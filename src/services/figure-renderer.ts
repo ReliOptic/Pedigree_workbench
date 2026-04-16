@@ -295,7 +295,7 @@ export function renderFigureSvg(
     parts.push(`<text x="${BAND_LABEL_WIDTH + PAPER_MARGIN}" y="${capY}" font-size="${capFs}" font-family="${font}" fill="#333" font-style="italic">${escapeXml(caption)}</text>`);
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="background:#fff;font-family:${font}">${halfFillDefs}\n${parts.join('\n')}\n</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMin meet" style="display:block;max-width:100%;background:#fff;font-family:${font}">${halfFillDefs}\n${parts.join('\n')}\n</svg>`;
 }
 
 function escapeXml(str: string): string {

@@ -255,7 +255,7 @@ export function renderTableSvg(table: StatsTable, options: TableRenderOptions): 
     parts.push(`<text x="0" y="${fy}" font-size="${footnoteFs}" font-family="${fontFamily}" fill="#666" font-style="italic">${escapeXml(footnoteLines[fi] ?? '')}</text>`);
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${svgH}" viewBox="0 0 ${width} ${svgH}" style="background:#fff">\n${parts.join('\n')}\n</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" viewBox="0 0 ${width} ${svgH}" preserveAspectRatio="xMidYMin meet" style="display:block;max-width:100%;background:#fff">\n${parts.join('\n')}\n</svg>`;
 }
 
 function escapeXml(str: string): string {

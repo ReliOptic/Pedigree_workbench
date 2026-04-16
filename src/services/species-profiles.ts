@@ -1,4 +1,5 @@
 import type { Language } from '../types/translation.types';
+import { lookupSpecies } from './eol-api';
 
 export interface FieldDef {
   key: string;
@@ -977,6 +978,38 @@ export function createCustomProfile(base: Partial<SpeciesProfile>): SpeciesProfi
     gestationOrIncubation:
       base.gestationOrIncubation ?? base.gestationDays ?? fallback.gestationOrIncubation,
   };
+}
+
+/**
+ * Enrich an existing species profile with data from the EOL API.
+ *
+ * Only missing fields are filled in — existing values are never overwritten.
+ * Returns a new profile object (the input is not mutated).
+ * Returns the unchanged profile if the lookup fails or the app is offline.
+ */
+export async function enrichProfileFromEol(profile: SpeciesProfile): Promise<SpeciesProfile> {
+  // Use the English name (most likely to match EOL) as the search term.
+  const query = profile.name.en ?? profile.name.ko ?? '';
+  if (!query) return profile;
+
+  const info = await lookupSpecies(query);
+  if (!info) return profile;
+
+  // Build enriched copy — never overwrite fields that already have content.
+  const enriched: SpeciesProfile = { ...profile };
+
+  // Fill English name from scientific name if the profile name looks generic.
+  if (!enriched.name.en && info.scientificName) {
+    enriched.name = { ...enriched.name, en: info.scientificName };
+  }
+
+  // Use image URL as icon when the profile still has an emoji or empty icon.
+  // An icon that starts with "http" is already a URL, so we leave it alone.
+  if (info.imageUrl && !enriched.icon.startsWith('http')) {
+    enriched.icon = info.imageUrl;
+  }
+
+  return enriched;
 }
 
 /**
