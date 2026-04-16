@@ -4,6 +4,7 @@ import { X, Pencil, Check, Trash2, Copy as CopyIcon, FlaskConical, ChevronDown, 
 import { motion, AnimatePresence } from 'motion/react';
 
 import { StructureViewer } from './StructureViewer';
+import { Button } from './ui';
 
 import {
   SEQUENCE_REGEX,
@@ -244,44 +245,48 @@ export function NodeInspector({
             <div className="mt-3 flex gap-2">
               {isEditing ? (
                 <>
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => void saveEdit()}
                     disabled={isSaving}
                     data-testid="inspector-save"
-                    className="panel-button panel-button-primary inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5"
                   >
                     <Check className="w-4 h-4" aria-hidden="true" />
                     {t.save}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={cancelEdit}
-                    className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded"
+                    className="inline-flex items-center gap-1.5"
                   >
                     {t.cancel}
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={beginEdit}
                     data-testid="inspector-edit"
-                    className="panel-button panel-button-primary inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded"
+                    className="inline-flex items-center gap-1.5"
                   >
                     <Pencil className="w-4 h-4" aria-hidden="true" />
                     {t.edit}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
                     onClick={() => setConfirmingDelete(true)}
                     data-testid="inspector-delete"
-                    className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded text-red-600 dark:text-red-300"
+                    className="inline-flex items-center gap-1.5"
                   >
                     <Trash2 className="w-4 h-4" aria-hidden="true" />
                     {t.delete}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
@@ -336,8 +341,9 @@ export function NodeInspector({
                   <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wide">
                     Pedigree Certificate
                   </h3>
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => {
                       downloadFile(
                         JSON.stringify(certificate, null, 2),
@@ -345,11 +351,11 @@ export function NodeInspector({
                         'application/json',
                       );
                     }}
-                    className="panel-button inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium rounded"
+                    className="inline-flex items-center gap-1.5"
                   >
                     <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
                     Export JSON
-                  </button>
+                  </Button>
                 </div>
                 <div className="rounded-lg bg-surface-raised border border-border px-3 py-2 text-xs text-text-secondary space-y-1">
                   <div><span className="font-semibold">Species:</span> {certificate.speciesName}</div>
@@ -457,23 +463,25 @@ export function NodeInspector({
                     {individual.sequence}
                   </pre>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => void handleCopySequence()}
-                      className="panel-button inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium rounded"
+                      className="inline-flex items-center gap-1.5"
                     >
                       <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
                       {Date.now() - copiedAt < 1500 ? t.copied : t.copy}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       data-testid="predict-structure"
                       onClick={() => setShowStructureViewer(true)}
-                      className="panel-button inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium rounded"
+                      className="inline-flex items-center gap-1.5"
                     >
                       <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
                       {t.predictStructure}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -510,21 +518,21 @@ export function NodeInspector({
                   {t.confirmDelete}
                 </p>
                 <div className="flex justify-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setConfirmingDelete(false)}
-                    className="panel-button px-3 h-8 text-xs font-medium rounded"
                   >
                     {t.cancel}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
                     onClick={() => void confirmDelete()}
                     data-testid="inspector-confirm-delete"
-                    className="px-3 h-8 text-xs font-medium bg-red-600 text-white rounded hover:brightness-110 transition"
                   >
                     {t.delete}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

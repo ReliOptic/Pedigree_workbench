@@ -4,6 +4,7 @@ import { Download, ClipboardCopy } from 'lucide-react';
 import { toMermaid } from '../services/pedigree-mermaid';
 import type { Individual } from '../types/pedigree.types';
 import type { Translation } from '../types/translation.types';
+import { Button } from './ui';
 
 interface PaperViewProps {
   readonly individuals: readonly Individual[];
@@ -163,41 +164,45 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
     <div className="flex flex-col h-full overflow-hidden">
       {/* Action bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface shrink-0">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={handleDownloadSvg}
           disabled={svgHtml === null}
-          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5"
         >
           <Download className="w-3.5 h-3.5" aria-hidden="true" />
           {t.downloadSvg}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={handleDownloadPng}
           disabled={svgHtml === null}
-          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5"
         >
           <Download className="w-3.5 h-3.5" aria-hidden="true" />
           {t.downloadPng}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={handleCopySource}
-          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded"
+          className="inline-flex items-center gap-1.5"
         >
           <ClipboardCopy className="w-3.5 h-3.5" aria-hidden="true" />
           {t.copyMermaidSource}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={handleCopySvg}
           disabled={svgHtml === null}
-          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5"
         >
           <ClipboardCopy className="w-3.5 h-3.5" aria-hidden="true" />
           {t.copySvg}
-        </button>
+        </Button>
       </div>
 
       {/* Diagram area */}

@@ -22,6 +22,7 @@ import {
 import type { SaveStatus } from '../hooks/use-pedigree';
 import type { Project } from '../types/pedigree.types';
 import type { Language, Translation } from '../types/translation.types';
+import { Button } from './ui';
 
 type ActiveView = 'dashboard' | 'workbench' | 'paper';
 
@@ -136,10 +137,11 @@ export function TopBar({
 
         {/* Project selector */}
         <div className="relative" ref={menuRef}>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setIsProjectMenuOpen((prev) => !prev)}
-            className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded max-w-[200px]"
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium max-w-[200px]"
             aria-label={t.projects}
           >
             <FolderOpen className="w-4 h-4 text-text-secondary flex-shrink-0" aria-hidden="true" />
@@ -147,7 +149,7 @@ export function TopBar({
               {activeProject?.name ?? t.noProjects}
             </span>
             <ChevronDown className="w-3 h-3 text-text-secondary flex-shrink-0" aria-hidden="true" />
-          </button>
+          </Button>
           {isProjectMenuOpen && (
             <div className="absolute top-full left-0 mt-1 w-64 bg-surface-raised border border-border rounded-lg shadow-lg shadow-slate-950/40 z-50 overflow-hidden">
               <div className="max-h-60 overflow-y-auto">
@@ -200,53 +202,57 @@ export function TopBar({
                         </button>
                       )}
                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             setRenamingId(proj.id);
                             setRenameValue(proj.name);
                           }}
-                          className="panel-button p-1 rounded"
+                          className="p-1"
                           aria-label={`${t.renameProject}: ${proj.name}`}
                         >
                           <Pencil className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteProject(proj.id);
                             if (projects.length <= 1) setIsProjectMenuOpen(false);
                           }}
-                          className="panel-button p-1 rounded text-red-500"
+                          className="p-1"
                           aria-label={`${t.deleteProject}: ${proj.name}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
-                        </button>
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        </Button>
                       </div>
                     </div>
                   ))
                 )}
               </div>
               <div className="border-t border-border">
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => {
                     onNewProject();
                     setIsProjectMenuOpen(false);
                   }}
-                  className="panel-button panel-button-primary flex items-center gap-2 w-full px-4 py-2.5 text-sm font-medium"
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" aria-hidden="true" />
                   {t.newProject}
-                </button>
+                </Button>
               </div>
             </div>
           )}
         </div>
 
         <nav className="hidden md:flex items-center gap-1 ml-2" aria-label="View switcher">
+          {/* TODO: migrate to Button — tab-style border-b-2 active state doesn't map to Button variants */}
           <button
             type="button"
             onClick={() => setActiveView('dashboard')}
@@ -314,100 +320,109 @@ export function TopBar({
         {/* Save status indicator */}
         <SaveIndicator status={saveStatus} t={t} />
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onUndo}
           disabled={!canUndo}
           aria-label={t.undo}
           data-testid="undo-button"
-          className="panel-button flex items-center justify-center w-9 h-9 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center justify-center w-9 h-9"
         >
           <Undo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onRedo}
           disabled={!canRedo}
           aria-label={t.redo}
           data-testid="redo-button"
-          className="panel-button flex items-center justify-center w-9 h-9 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center justify-center w-9 h-9"
         >
           <Redo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
           aria-label={`Language: ${language === 'en' ? 'English' : 'Korean'}. Click to switch.`}
-          className="panel-button flex items-center gap-2 px-3 h-9 text-xs font-medium rounded"
+          className="flex items-center gap-2 px-3 h-9 text-xs font-medium"
         >
           <Languages className="w-4 h-4" aria-hidden="true" />
           {language === 'en' ? 'KO' : 'EN'}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onSettingsClick}
           aria-label={t.settings}
-          className="panel-button flex items-center justify-center w-9 h-9 rounded"
+          className="flex items-center justify-center w-9 h-9"
         >
           <Settings className="w-5 h-5 text-text-secondary" aria-hidden="true" />
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="sm"
           onClick={onAddNodeClick}
           aria-label={t.addNode}
           data-testid="add-node-button"
-          className="panel-button panel-button-primary flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           {t.addNode}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onExportClick}
           aria-label={t.exportCsv}
           data-testid="export-csv-button"
-          className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
         >
           <Download className="w-4 h-4" aria-hidden="true" />
           {t.exportCsv}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onBackupProject}
           aria-label={t.backupProject}
           data-testid="backup-project-button"
-          className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
         >
           <HardDriveDownload className="w-4 h-4" aria-hidden="true" />
           {t.backupProject}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={onRestoreProject}
           aria-label={t.restoreBackup}
           data-testid="restore-project-button"
-          className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
+          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
         >
           <HardDriveUpload className="w-4 h-4" aria-hidden="true" />
           {t.restoreBackup}
-        </button>
+        </Button>
 
-        <button
+        <Button
           ref={uploadButtonRef}
-          type="button"
+          variant="primary"
+          size="sm"
           onClick={onUploadClick}
           aria-label={t.upload}
-          className="panel-button panel-button-primary px-4 h-9 text-sm font-medium active:scale-[0.99] flex items-center gap-2 rounded"
+          className="px-4 h-9 text-sm font-medium active:scale-[0.99] flex items-center gap-2"
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
           {t.upload}
-        </button>
+        </Button>
       </div>
     </header>
   );

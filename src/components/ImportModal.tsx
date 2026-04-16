@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, Upload, AlertTriangle, FileUp, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Button } from './ui';
 
 import { logger } from '../services/logger';
 import {
@@ -462,13 +463,13 @@ export function ImportModal({
             <>
               <FileUp className="w-8 h-8 text-text-muted" aria-hidden="true" />
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => fileInputRef.current?.click()}
-                  className="panel-button panel-button-primary px-4 py-1.5 text-sm font-medium rounded"
                 >
                   {t.browseFile}
-                </button>
+                </Button>
                 <span className="text-xs text-text-muted">.json, .csv, .tsv, .xlsx, .xls</span>
               </div>
               <button
@@ -588,29 +589,24 @@ export function ImportModal({
       </div>
 
       <div className="p-6 border-t border-border flex justify-end gap-3 bg-surface">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={onClose}
-          className="panel-button px-6 py-2 text-sm font-medium rounded"
         >
           {t.cancel}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant={hasPending ? 'ghost' : 'primary'}
           data-testid="import-submit"
           disabled={isSubmitting || raw.trim().length === 0}
           onClick={() => {
             void handleJsonImport();
           }}
-          className={
-            hasPending
-              ? 'panel-button px-8 py-2 text-sm font-medium rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-amber-200 border-amber-700'
-              : 'panel-button panel-button-primary px-8 py-2 text-sm font-medium rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
-          }
+          className={`flex items-center gap-2${hasPending ? ' text-amber-600 border-amber-700' : ''}`}
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
           {hasPending ? 'Import with warnings' : t.importData}
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -649,8 +645,8 @@ export function ImportModal({
         </ul>
       </div>
       <div className="p-6 border-t border-border flex justify-between gap-3 bg-surface">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => {
             setStep('input');
             setSheetNames([]);
@@ -658,19 +654,18 @@ export function ImportModal({
             setPendingExcelBuffer(null);
             setError(null);
           }}
-          className="panel-button px-6 py-2 text-sm font-medium rounded"
         >
           {t.back}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="primary"
           disabled={selectedSheet === ''}
           onClick={handleSheetSelect}
-          className="panel-button panel-button-primary px-8 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed rounded flex items-center gap-2"
+          className="flex items-center gap-2"
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
           {t.selectSheet}
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -740,28 +735,27 @@ export function ImportModal({
           </div>
         </div>
         <div className="p-6 border-t border-border flex justify-between gap-3 bg-surface">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => {
               setStep('mapping');
               setPending(null);
             }}
-            className="panel-button px-6 py-2 text-sm font-medium rounded"
           >
             {t.back}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
             data-testid="import-submit"
             disabled={isSubmitting}
             onClick={() => {
               void handleCsvSubmit();
             }}
-            className="panel-button px-8 py-2 text-sm font-medium rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-amber-200 border-amber-700"
+            className="flex items-center gap-2 text-amber-600 border-amber-700"
           >
             <Upload className="w-4 h-4" aria-hidden="true" />
             Import with warnings
-          </button>
+          </Button>
         </div>
       </>
     );
@@ -803,14 +797,15 @@ export function ImportModal({
                     : t.importDescription}
               </p>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={onClose}
               aria-label="Close import dialog"
-              className="panel-button p-2 rounded-full"
+              className="rounded-full p-2"
             >
               <X className="w-5 h-5" aria-hidden="true" />
-            </button>
+            </Button>
           </div>
 
           {step === 'input' && renderInputStep()}

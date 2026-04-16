@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Button } from './ui';
 
 import { APP_CONFIG } from '../config';
 import type { AutoBackupInterval, ConnectorLineStyle, GenerationFormat, NodeSize, Species, Theme } from '../services/settings-store';
@@ -116,14 +117,15 @@ export function SettingsModal({
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="text-lg font-semibold text-text-primary">{t.settings}</h2>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={onClose}
                 aria-label="Close"
-                className="panel-button rounded-full p-2"
+                className="rounded-full p-2"
               >
                 <X className="w-5 h-5 text-text-secondary" />
-              </button>
+              </Button>
             </div>
 
             {/* Body */}

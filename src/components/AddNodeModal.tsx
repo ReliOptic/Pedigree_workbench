@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Button } from './ui';
 
 import { logger } from '../services/logger';
 import type { GenerationFormat } from '../services/settings-store';
@@ -174,14 +175,15 @@ export function AddNodeModal({
             <h2 id="add-node-title" className="text-lg font-semibold text-text-primary">
               {t.addNode}
             </h2>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={onClose}
               aria-label="Close add node dialog"
-              className="panel-button rounded-full p-2"
+              className="rounded-full p-2"
             >
               <X className="w-5 h-5 text-text-secondary" aria-hidden="true" />
-            </button>
+            </Button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
@@ -333,25 +335,24 @@ export function AddNodeModal({
           </div>
 
           <div className="p-5 border-t border-border flex justify-end gap-3 bg-surface">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={onClose}
-              className="panel-button rounded px-4 py-2 text-sm font-medium"
             >
               {t.cancel}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="primary"
               data-testid="add-node-submit"
               disabled={isSubmitting || form.id.trim().length === 0}
               onClick={() => {
                 void handleSubmit();
               }}
-              className="panel-button panel-button-primary rounded px-6 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="flex items-center gap-2"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
               {t.addNode}
-            </button>
+            </Button>
           </div>
         </motion.div>
       </motion.div>
