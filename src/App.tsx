@@ -24,7 +24,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { ContextMenu, type MenuEntry } from './components/ContextMenu';
 import { Footer } from './components/Footer';
 import { ImportModal } from './components/ImportModal';
-import { toCsv, downloadFile } from './services/pedigree-export';
+import { downloadFile } from './services/pedigree-export';
+import { ExportPanel } from './components/ExportPanel';
 import { exportProject, parseProjectFile } from './services/project-io';
 import { NodeInspector } from './components/NodeInspector';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
@@ -240,6 +241,7 @@ export default function App(): React.JSX.Element {
   } = useUIStore();
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [showWorkbenchSidebar, setShowWorkbenchSidebar] = useState<boolean>(true);
+  const [showExportPanel, setShowExportPanel] = useState<boolean>(false);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [relationshipMode, setRelationshipMode] = useState<
     | { readonly kind: 'idle' }
@@ -546,12 +548,7 @@ export default function App(): React.JSX.Element {
       <TopBar
         uploadButtonRef={uploadButtonRef}
         onUploadClick={() => openImportModal()}
-        onExportClick={() => {
-          const csv = toCsv(individuals);
-          const projName = projects.find((p) => p.id === activeProjectId)?.name ?? 'pedigree';
-          const date = new Date().toISOString().slice(0, 10);
-          downloadFile(csv, `${projName}-${date}.csv`, 'text/csv');
-        }}
+        onExportClick={() => setShowExportPanel(true)}
         onAddNodeClick={() => {
           setActiveNav('workbench');
           openAddModal();
@@ -597,7 +594,7 @@ export default function App(): React.JSX.Element {
           : 'grid-cols-[1fr_auto]'
       }`}>
         {activeView === 'paper' ? (
-          <PaperView individuals={individuals} t={t} />
+          <PaperView individuals={individuals} t={t} workbenchMode={effectiveWorkbenchMode} />
         ) : activeView === 'dashboard' ? (
           isLoading ? (
             <LoadingState />
@@ -751,6 +748,15 @@ export default function App(): React.JSX.Element {
           />
         )}
       </main>
+
+      {showExportPanel && (
+        <ExportPanel
+          individuals={individuals}
+          filteredCount={matchCount > 0 ? matchCount : individuals.length}
+          selectedIds={selectedId !== null ? [selectedId] : []}
+          onClose={() => setShowExportPanel(false)}
+        />
+      )}
 
       <Footer t={t} summary={summary} saveStatus={saveStatus} />
 
