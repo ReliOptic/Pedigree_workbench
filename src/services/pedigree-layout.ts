@@ -1,6 +1,7 @@
 import dagre from 'dagre';
 import type { Individual, Mating } from '../types/pedigree.types';
 import { computeAllCOI } from './kinship';
+import { NODE, CONNECTOR, GENERATION } from '../constants/node-dimensions';
 
 /**
  * Pure layout helpers for the pedigree canvas.
@@ -72,18 +73,19 @@ export interface LayoutOptions {
   readonly originX?: number;
   readonly originY?: number;
   readonly nodePositions?: Readonly<Record<string, { x: number; y: number }>>;
+  readonly mode?: 'cohort' | 'pedigree';
 }
 
-/** Node dimensions — must match the w-14 h-14 (56px) shape in PedigreeCanvas. */
-const NODE_WIDTH = 140;
-const NODE_HEIGHT = 60;
+/** Node dimensions — from node-dimensions constants. */
+const NODE_WIDTH = NODE.WIDTH;
+const NODE_HEIGHT = NODE.HEIGHT;
 
-/** Bottom edge offset from node top (node shape height = 56px). */
-const NODE_BOTTOM = 56;
+/** Bottom edge offset from node top (node shape height). */
+const NODE_BOTTOM = NODE.HEIGHT;
 /** How far below the node bottom to draw the horizontal marriage line. */
-const MARRIAGE_OFFSET = 30;
+const MARRIAGE_OFFSET = GENERATION.BAND_SPACING / 4;
 /** Half the rendered node size — used to center connectors and row labels. */
-const NODE_HALF = 28;
+const NODE_HALF = NODE.RADIUS;
 
 const UNSPECIFIED_GENERATION = '__unspecified__';
 const GROUP_CARD_PADDING_X = 28;
@@ -118,6 +120,10 @@ function shouldUseGroupedFounderLayout(individuals: readonly Individual[]): bool
       .filter((value): value is string => value !== undefined && value !== ''),
   );
   return generations.size <= 1 && groups.size >= 2;
+}
+
+export function isFounderCohortLayoutCandidate(individuals: readonly Individual[]): boolean {
+  return shouldUseGroupedFounderLayout(individuals);
 }
 
 function computeGroupedFounderLayout(
@@ -244,8 +250,9 @@ export function computeLayout(
   const vGap = options.verticalGap ?? 240;
   const originX = options.originX ?? 100;
   const originY = options.originY ?? 100;
+  const mode = options.mode ?? 'pedigree';
 
-  if (shouldUseGroupedFounderLayout(individuals)) {
+  if (mode === 'cohort' && shouldUseGroupedFounderLayout(individuals)) {
     return computeGroupedFounderLayout(individuals, originX, originY, positionOverrides);
   }
 
@@ -323,11 +330,24 @@ export function computeLayout(
     g.setEdge(damId, key, {});
   }
 
-  // Connect mating nodes to children.
-  for (const ind of individuals) {
-    if (ind.sire === undefined || ind.dam === undefined) continue;
-    if (!individualIds.has(ind.sire) || !individualIds.has(ind.dam)) continue;
-    const key = pairKey(ind.sire, ind.dam);
+  // Connect mating nodes to children, grouping same-litter offspring consecutively.
+  // Sorting by litter first ensures dagre places litter-mates adjacent to each other.
+  const childrenSorted = individuals
+    .filter((ind) => {
+      if (ind.sire === undefined || ind.dam === undefined) return false;
+      if (!individualIds.has(ind.sire) || !individualIds.has(ind.dam)) return false;
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      const litterA = a.group ?? '';
+      const litterB = b.group ?? '';
+      if (litterA !== litterB) return litterA.localeCompare(litterB);
+      return (a.label ?? a.id).localeCompare(b.label ?? b.id);
+    });
+
+  for (const ind of childrenSorted) {
+    const key = pairKey(ind.sire!, ind.dam!);
     g.setEdge(key, ind.id, {});
   }
 
@@ -400,7 +420,7 @@ export function computeLayout(
     const childCenterX = childPos.x + NODE_HALF;
     const childTopY = childPos.y;
 
-    const cpOffset = Math.max(20, (childTopY - marriageY) * 0.45);
+    const cpOffset = Math.max(20, (childTopY - marriageY) * CONNECTOR.BEZIER_CP_RATIO);
     const dropD = `M ${midX} ${marriageY} C ${midX} ${marriageY + cpOffset} ${childCenterX} ${childTopY - cpOffset} ${childCenterX} ${childTopY}`;
 
     connectors.push({ childId: ind.id, marriageD, dropD });
@@ -467,6 +487,189 @@ export function computeLayout(
 
   return { nodes, connectors, generations, generationLabels, groupLabels: [], matingConnections };
 }
+
+// ─── Cohort card layout ───────────────────────────────────────────────────────
+
+/** Tile dimensions for cohort mode (slightly taller than pedigree nodes). */
+export const COHORT_TILE = {
+  WIDTH: 140,
+  HEIGHT: 100,
+} as const;
+
+const COHORT_CARD_HEADER_H = 40;
+const COHORT_CARD_PAD_X = 16;
+const COHORT_CARD_PAD_Y = 12;
+const COHORT_TILE_GAP_X = 12;
+const COHORT_TILE_GAP_Y = 12;
+const COHORT_CARD_GAP_Y = 32;
+const COHORT_CARD_GAP_X = 28;
+const COHORT_TILES_PER_ROW_DEFAULT = 3;
+
+/** Position of a single individual tile, relative to the card's top-left corner. */
+export interface CohortTilePosition {
+  readonly individualId: string;
+  readonly tileX: number;
+  readonly tileY: number;
+}
+
+/** A fully positioned cohort card in absolute canvas coordinates. */
+export interface CohortCardLayout {
+  readonly groupName: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly tiles: readonly CohortTilePosition[];
+}
+
+/** Full result of a cohort layout computation. */
+export interface CohortLayoutResult {
+  readonly cards: readonly CohortCardLayout[];
+  /**
+   * Flat node positions compatible with NodePosition[] so canvas
+   * hit-testing and selection logic works unchanged.
+   */
+  readonly nodes: readonly NodePosition[];
+}
+
+export interface CohortLayoutOptions {
+  readonly originX?: number;
+  readonly originY?: number;
+  /** Max tiles per row inside each card (default 3). */
+  readonly tilesPerRow?: number;
+  /** Max cards per row before wrapping (default 3). */
+  readonly cardsPerRow?: number;
+}
+
+/**
+ * Arranges individuals into litter/group cards for Cohort mode.
+ *
+ * - Groups by `individual.group` field (falls back to "Ungrouped").
+ * - Within each group, tiles are placed in a grid of `tilesPerRow` columns.
+ * - Cards themselves are arranged in a `cardsPerRow` column grid.
+ * - Returns both CohortCardLayout[] (for CohortCard rendering) and flat
+ *   NodePosition[] (compatible with the existing canvas system).
+ */
+export function computeCohortLayout(
+  individuals: readonly Individual[],
+  options: CohortLayoutOptions = {},
+): CohortLayoutResult {
+  const originX = options.originX ?? 80;
+  const originY = options.originY ?? 80;
+  const tilesPerRow = options.tilesPerRow ?? COHORT_TILES_PER_ROW_DEFAULT;
+  const cardsPerRow = options.cardsPerRow ?? 3;
+
+  // ── Group individuals ─────────────────────────────────────────────────────
+  const groupMap = new Map<string, Individual[]>();
+  for (const ind of individuals) {
+    const key = ind.group?.trim() || 'Ungrouped';
+    const bucket = groupMap.get(key) ?? [];
+    bucket.push(ind);
+    groupMap.set(key, bucket);
+  }
+
+  // Natural sort so "L02" sorts before "L10".
+  const sortedGroups = Array.from(groupMap.entries()).sort(([a], [b]) =>
+    a.localeCompare(b, undefined, { numeric: true }),
+  );
+
+  // ── Compute per-card dimensions ───────────────────────────────────────────
+  interface CardDims {
+    groupName: string;
+    members: Individual[];
+    cols: number;
+    cardWidth: number;
+    cardHeight: number;
+  }
+
+  const allCardDims: CardDims[] = sortedGroups.map(([groupName, members]) => {
+    const sorted = members
+      .slice()
+      .sort((a, b) => (a.label ?? a.id).localeCompare(b.label ?? b.id));
+    const cols = Math.min(tilesPerRow, sorted.length);
+    const rows = Math.max(1, Math.ceil(sorted.length / cols));
+    const innerW = cols * COHORT_TILE.WIDTH + (cols - 1) * COHORT_TILE_GAP_X;
+    const innerH = rows * COHORT_TILE.HEIGHT + (rows - 1) * COHORT_TILE_GAP_Y;
+    const cardWidth = innerW + COHORT_CARD_PAD_X * 2;
+    const cardHeight =
+      COHORT_CARD_HEADER_H + COHORT_CARD_PAD_Y + innerH + COHORT_CARD_PAD_Y;
+    return { groupName, members: sorted, cols, cardWidth, cardHeight };
+  });
+
+  const totalCards = allCardDims.length;
+  const totalCardRows = Math.ceil(totalCards / cardsPerRow);
+
+  // Per-row max height for vertical alignment.
+  const rowMaxHeights: number[] = [];
+  for (let r = 0; r < totalCardRows; r++) {
+    let maxH = 0;
+    for (let c = 0; c < cardsPerRow; c++) {
+      const idx = r * cardsPerRow + c;
+      if (idx < totalCards) maxH = Math.max(maxH, allCardDims[idx]!.cardHeight);
+    }
+    rowMaxHeights.push(maxH);
+  }
+
+  // Per-column max width.
+  const colMaxWidths: number[] = new Array<number>(cardsPerRow).fill(0);
+  for (let i = 0; i < totalCards; i++) {
+    const col = i % cardsPerRow;
+    colMaxWidths[col] = Math.max(colMaxWidths[col]!, allCardDims[i]!.cardWidth);
+  }
+
+  // Precompute column x-offsets.
+  const colXOffsets: number[] = [];
+  let runX = originX;
+  for (let col = 0; col < cardsPerRow; col++) {
+    colXOffsets.push(runX);
+    runX += colMaxWidths[col]! + COHORT_CARD_GAP_X;
+  }
+
+  // Precompute row y-offsets.
+  const rowYOffsets: number[] = [];
+  let runY = originY;
+  for (let r = 0; r < totalCardRows; r++) {
+    rowYOffsets.push(runY);
+    runY += rowMaxHeights[r]! + COHORT_CARD_GAP_Y;
+  }
+
+  // ── Place cards and emit output ───────────────────────────────────────────
+  const cards: CohortCardLayout[] = [];
+  const nodes: NodePosition[] = [];
+
+  allCardDims.forEach((dims, idx) => {
+    const cardRow = Math.floor(idx / cardsPerRow);
+    const cardCol = idx % cardsPerRow;
+    const cardX = colXOffsets[cardCol]!;
+    const cardY = rowYOffsets[cardRow]!;
+
+    const tiles: CohortTilePosition[] = dims.members.map((ind, memberIdx) => {
+      const tileRow = Math.floor(memberIdx / dims.cols);
+      const tileCol = memberIdx % dims.cols;
+      const tileX = COHORT_CARD_PAD_X + tileCol * (COHORT_TILE.WIDTH + COHORT_TILE_GAP_X);
+      const tileY =
+        COHORT_CARD_HEADER_H +
+        COHORT_CARD_PAD_Y +
+        tileRow * (COHORT_TILE.HEIGHT + COHORT_TILE_GAP_Y);
+
+      nodes.push({ id: ind.id, x: cardX + tileX, y: cardY + tileY });
+      return { individualId: ind.id, tileX, tileY };
+    });
+
+    cards.push({
+      groupName: dims.groupName,
+      x: cardX,
+      y: cardY,
+      width: dims.cardWidth,
+      height: dims.cardHeight,
+      tiles,
+    });
+  });
+
+  return { cards, nodes };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Returns IDs of individuals that have a non-zero inbreeding coefficient (F > 0).

@@ -6,6 +6,7 @@ import type { Language } from '../types/translation.types';
 import type { PopulationStats } from '../services/population-genetics';
 import type { ValidationResult } from '../services/pedigree-validation';
 import type { SpeciesProfile } from '../services/species-profiles';
+import type { WorkbenchMode } from '../services/settings-store';
 
 type RelationshipMode =
   | { readonly kind: 'idle' }
@@ -42,6 +43,13 @@ interface SidebarLabels {
   readonly topAttentionNodes: string;
   readonly noGroups: string;
   readonly noAttentionNodes: string;
+  readonly workbenchMode: string;
+  readonly autoMode: string;
+  readonly cohortMode: string;
+  readonly pedigreeMode: string;
+  readonly cohortHint: string;
+  readonly pedigreeHint: string;
+  readonly autoHint: string;
 }
 
 interface WorkbenchSidebarProps {
@@ -63,7 +71,9 @@ interface WorkbenchSidebarProps {
   readonly onFocusGeneration: (generation: string) => void;
   readonly activeGroupId: string | null;
   readonly onFocusGroup: (groupId: string | null) => void;
-  readonly onCollapse: () => void;
+  readonly preferredWorkbenchMode: WorkbenchMode;
+  readonly effectiveWorkbenchMode: 'cohort' | 'pedigree';
+  readonly onWorkbenchModeChange: (mode: WorkbenchMode) => void;
 }
 
 function getLabels(language: Language): SidebarLabels {
@@ -98,6 +108,13 @@ function getLabels(language: Language): SidebarLabels {
       topAttentionNodes: '우선 확인 개체',
       noGroups: '그룹 정보 없음',
       noAttentionNodes: '즉시 확인이 필요한 개체가 없습니다.',
+      workbenchMode: '작업 모드',
+      autoMode: '자동',
+      cohortMode: '코호트',
+      pedigreeMode: '가계도',
+      cohortHint: 'F0 중심의 리터·상태·데이터 완성도를 읽을 때 적합합니다.',
+      pedigreeHint: '부모-자식 연결과 세대 구조를 편집할 때 적합합니다.',
+      autoHint: '현재 데이터 구조를 보고 코호트 또는 가계도 보기 중 하나를 자동으로 추천합니다.',
     };
   }
 
@@ -131,6 +148,13 @@ function getLabels(language: Language): SidebarLabels {
     topAttentionNodes: 'Priority review nodes',
     noGroups: 'No group data',
     noAttentionNodes: 'No immediate attention nodes.',
+    workbenchMode: 'Workbench mode',
+    autoMode: 'Auto',
+    cohortMode: 'Cohort',
+    pedigreeMode: 'Pedigree',
+    cohortHint: 'Best for founder-only litter review, status screening, and data completeness work.',
+    pedigreeHint: 'Best for sire-dam links, generation structure, and lineage editing.',
+    autoHint: 'Automatically chooses cohort or pedigree based on the current dataset shape.',
   };
 }
 
@@ -191,7 +215,9 @@ export function WorkbenchSidebar({
   onFocusGeneration,
   activeGroupId,
   onFocusGroup,
-  onCollapse,
+  preferredWorkbenchMode,
+  effectiveWorkbenchMode,
+  onWorkbenchModeChange,
 }: WorkbenchSidebarProps): React.JSX.Element {
   const labels = getLabels(language);
   const generationRows = getGenerationRows(stats);
@@ -213,10 +239,36 @@ export function WorkbenchSidebar({
     <aside className="h-full overflow-y-auto border-r border-border bg-surface-raised">
       <div className="p-4 space-y-4">
         <section className="rounded-xl border border-border bg-surface p-4">
-          <p className="text-xs leading-5 text-text-muted">
-            {language === 'ko'
-              ? '세대와 리터를 기준으로 작업 대상을 좁힌 뒤, 캔버스에서 관계를 편집하세요.'
-              : 'Use generations and litters to narrow the working set, then edit relationships on the canvas.'}
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-text-primary">{labels.workbenchMode}</h3>
+            <span className="text-[11px] uppercase tracking-wide text-text-muted">
+              {effectiveWorkbenchMode === 'cohort' ? labels.cohortMode : labels.pedigreeMode}
+            </span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {([
+              ['auto', labels.autoMode],
+              ['cohort', labels.cohortMode],
+              ['pedigree', labels.pedigreeMode],
+            ] as const).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onWorkbenchModeChange(mode)}
+                className={`panel-button rounded-lg px-3 py-2 text-xs font-medium ${
+                  preferredWorkbenchMode === mode ? 'border-[var(--color-border-strong)] bg-surface text-text-primary' : ''
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-text-muted">
+            {preferredWorkbenchMode === 'pedigree'
+              ? labels.pedigreeHint
+              : preferredWorkbenchMode === 'cohort'
+                ? labels.cohortHint
+                : labels.autoHint}
           </p>
         </section>
 
@@ -379,6 +431,16 @@ export function WorkbenchSidebar({
           </div>
         </section>
 
+        {effectiveWorkbenchMode === 'cohort' && (
+          <CohortSummarySection
+            stats={stats}
+            individuals={individuals}
+            language={language}
+            activeGroupId={activeGroupId}
+            onFocusGroup={onFocusGroup}
+          />
+        )}
+
         <section className="rounded-xl border border-border bg-surface p-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-brand" />
@@ -413,6 +475,151 @@ export function WorkbenchSidebar({
     </aside>
   );
 }
+
+// ─── Cohort Summary Section ────────────────────────────────────────────────
+
+interface CohortSummarySectionProps {
+  readonly stats: CohortStats;
+  readonly individuals: readonly Individual[];
+  readonly language: Language;
+  readonly activeGroupId: string | null;
+  readonly onFocusGroup: (groupId: string | null) => void;
+}
+
+function CohortSummarySection({
+  stats,
+  individuals,
+  language,
+  activeGroupId,
+  onFocusGroup,
+}: CohortSummarySectionProps): React.JSX.Element {
+  const isKo = language === 'ko';
+  const total = stats.totalCount;
+  const { male, female, unknown } = stats.sexDistribution;
+
+  // Genotype completion: individuals that have at least one locus value.
+  const withGenotype = individuals.filter((ind) => {
+    return Object.keys(ind.fields).some((k) => /genotype|CD163/i.test(k)) ||
+      (ind.sequence !== undefined && ind.sequence.trim() !== '');
+  }).length;
+  const genotypeCompletionPct =
+    total > 0 ? Math.round((withGenotype / total) * 100) : 0;
+
+  // Sex ratio string.
+  const ratioStr = [
+    male > 0 ? `♂${male}` : '',
+    female > 0 ? `♀${female}` : '',
+    unknown > 0 ? `?${unknown}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  // Unique statuses for quick-filter.
+  const statusCounts = Array.from(stats.statusDistribution.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6);
+
+  // Groups for quick-filter.
+  const groupRows = stats.litterGroups
+    .map((g) => ({ label: g.groupId, count: g.individuals.length }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, 8);
+
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4">
+      <div className="flex items-center gap-2">
+        {/* Use a simple inline SVG icon so we don't need an extra import */}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          className="text-brand"
+          aria-hidden="true"
+        >
+          <rect x="1" y="4" width="5" height="8" rx="1" stroke="currentColor" strokeWidth="1.5" />
+          <rect x="7.5" y="1" width="5" height="11" rx="1" stroke="currentColor" strokeWidth="1.5" />
+          <rect x="14" y="6" width="1" height="1" rx="0.5" fill="currentColor" />
+        </svg>
+        <h3 className="text-sm font-semibold text-text-primary">
+          {isKo ? '코호트 요약' : 'Cohort Summary'}
+        </h3>
+      </div>
+
+      {/* Summary metrics */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <MetricCard label={isKo ? '개체 수' : 'Total'} value={total} />
+        <MetricCard label={isKo ? '성비' : 'Sex ratio'} value={ratioStr || '—'} />
+        <MetricCard label={isKo ? '리터 수' : 'Groups'} value={groupRows.length} />
+        <MetricCard
+          label={isKo ? '유전형 완성도' : 'Genotype %'}
+          value={`${genotypeCompletionPct}%`}
+        />
+      </div>
+
+      {/* Quick filter: by group */}
+      {groupRows.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-text-muted">
+            {isKo ? '그룹 필터' : 'Filter by group'}
+          </p>
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => onFocusGroup(null)}
+              className={`panel-button flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${
+                activeGroupId === null ? 'border-[var(--color-border-strong)] bg-surface' : ''
+              }`}
+            >
+              <span className="truncate text-xs text-text-secondary">
+                {isKo ? '전체' : 'All'}
+              </span>
+              <span className="shrink-0 text-xs font-semibold text-text-primary">{total}</span>
+            </button>
+            {groupRows.map((row) => (
+              <button
+                key={row.label}
+                type="button"
+                onClick={() => onFocusGroup(row.label)}
+                className={`panel-button flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${
+                  activeGroupId === row.label ? 'border-[var(--color-border-strong)] bg-surface' : ''
+                }`}
+                title={row.label}
+              >
+                <span className="truncate font-mono text-xs text-text-secondary">{row.label}</span>
+                <span className="shrink-0 text-xs font-semibold text-text-primary">{row.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quick filter: by status */}
+      {statusCounts.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-text-muted">
+            {isKo ? '상태 분포' : 'By status'}
+          </p>
+          <div className="space-y-1">
+            {statusCounts.map(([status, count]) => (
+              <div
+                key={status}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-raised px-3 py-2"
+              >
+                <span className="min-w-0 truncate text-xs text-text-secondary" title={status}>
+                  {status}
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-text-primary">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function MetricCard({ label, value }: { readonly label: string; readonly value: number | string }): React.JSX.Element {
   return (

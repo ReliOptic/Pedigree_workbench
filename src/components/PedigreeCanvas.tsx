@@ -18,6 +18,7 @@ import { cn } from '../lib/utils';
 import type { Individual, Mating } from '../types/pedigree.types';
 import type { GenerationFormat } from '../services/settings-store';
 import type { Translation } from '../types/translation.types';
+import { NODE, CONNECTOR } from '../constants/node-dimensions';
 
 /**
  * Imperative handle exposed by {@link PedigreeCanvas}. Parents attach a ref
@@ -48,6 +49,7 @@ interface PedigreeCanvasProps {
   readonly relationshipSourceId?: string | null;
   readonly interactionHint?: string | null;
   readonly activeGroupId?: string | null;
+  readonly layoutMode?: 'cohort' | 'pedigree';
 }
 
 type StatusTone = {
@@ -166,6 +168,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
       relationshipSourceId = null,
       interactionHint = null,
       activeGroupId = null,
+      layoutMode = 'pedigree',
     },
     ref,
   ): React.JSX.Element {
@@ -175,13 +178,14 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
   const [hasFitOnce, setHasFitOnce] = useState<boolean>(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredConnectorChildId, setHoveredConnectorChildId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const dragStartRef = useRef<{ nodeX: number; nodeY: number; mouseX: number; mouseY: number } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const layout = useMemo(
-    () => computeLayout(individuals, {}, matings, nodePositions),
-    [individuals, matings, nodePositions],
+    () => computeLayout(individuals, { mode: layoutMode }, matings, nodePositions),
+    [individuals, layoutMode, matings, nodePositions],
   );
   const coiMap = useMemo(() => {
     const results = computeAllCOI(individuals);
@@ -192,6 +196,22 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     return map;
   }, [individuals]);
   const inbredIds = useMemo(() => new Set(coiMap.keys()), [coiMap]);
+
+  // IDs of nodes directly connected to the hovered node (for overlay highlight).
+  const hoveredConnectedIds = useMemo<Set<string>>(() => {
+    if (hoveredId === null) return new Set();
+    const connected = new Set<string>([hoveredId]);
+    for (const ind of individuals) {
+      if (ind.id === hoveredId) {
+        if (ind.sire !== undefined) connected.add(ind.sire);
+        if (ind.dam !== undefined) connected.add(ind.dam);
+      }
+      if (ind.sire === hoveredId || ind.dam === hoveredId) {
+        connected.add(ind.id);
+      }
+    }
+    return connected;
+  }, [hoveredId, individuals]);
 
   // Memoized id→individual map for O(1) lookups (used by hover tooltip).
   const individualsMap = useMemo(() => {
@@ -531,23 +551,33 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           transformOrigin: '0 0',
         }}
       >
-        {/* Generation bands — alternating subtle backgrounds per row. */}
-        {layout.generationLabels.map((gl, idx) => (
-          idx % 2 === 1 ? (
+        {/* Generation bands — full-width background stripes, alternating per row. */}
+        {layoutMode === 'pedigree' && layout.generationLabels.map((gl, idx) => {
+          // Compute band top/bottom from adjacent labels.
+          const prevY = idx > 0 ? layout.generationLabels[idx - 1]!.y : gl.y - 160;
+          const nextY = idx < layout.generationLabels.length - 1
+            ? layout.generationLabels[idx + 1]!.y
+            : gl.y + 160;
+          const bandTop = Math.round((gl.y + prevY) / 2) - NODE.HEIGHT;
+          const bandBottom = Math.round((gl.y + nextY) / 2) - NODE.HEIGHT;
+          const bandHeight = bandBottom - bandTop;
+          return (
             <div
               key={`band-${gl.label}`}
               className="absolute pointer-events-none"
               style={{
-                left: 0,
-                top: gl.y - 28 - 60,
-                width: 5000,
-                height: 240,
-                background: 'var(--color-surface-band, rgba(248,250,252,0.5))',
+                left: -9999,
+                top: bandTop,
+                width: 99999,
+                height: Math.max(bandHeight, 1),
+                background: idx % 2 === 0
+                  ? 'transparent'
+                  : 'var(--color-surface-band, rgba(248,250,252,0.35))',
               }}
               aria-hidden="true"
             />
-          ) : null
-        ))}
+          );
+        })}
 
         {layout.groupLabels.map((group) => (
           <div
@@ -584,18 +614,29 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           const svgHeight = Math.max(svgMaxY - svgMinY, 2000);
           return (
         <svg
-          className="absolute pointer-events-none"
+          className="absolute"
           width={svgWidth}
           height={svgHeight}
-          style={{ left: svgMinX, top: svgMinY }}
+          style={{ left: svgMinX, top: svgMinY, pointerEvents: 'none' }}
           viewBox={`${svgMinX} ${svgMinY} ${svgWidth} ${svgHeight}`}
           aria-hidden="true"
         >
-          <g stroke="var(--color-text-secondary)" strokeWidth="1.5" fill="none">
+          <g stroke="var(--color-text-secondary)" fill="none">
             {layout.connectors.map((c) => {
               const dimConnector = isSearching && !matchingIds.has(c.childId);
+              const isHoveredConnector = hoveredConnectorChildId === c.childId;
+              const strokeWidth = isHoveredConnector
+                ? CONNECTOR.THICKNESS_HOVER
+                : CONNECTOR.THICKNESS;
               return (
-                <g key={`link-${c.childId}`} opacity={dimConnector ? 0.3 : 1}>
+                <g
+                  key={`link-${c.childId}`}
+                  opacity={dimConnector ? 0.3 : 1}
+                  strokeWidth={strokeWidth}
+                  style={{ pointerEvents: 'stroke' }}
+                  onMouseEnter={() => setHoveredConnectorChildId(c.childId)}
+                  onMouseLeave={() => setHoveredConnectorChildId(null)}
+                >
                   <path d={c.marriageD} strokeDasharray="5 3" vectorEffect="non-scaling-stroke" />
                   <path d={c.dropD} vectorEffect="non-scaling-stroke" />
                 </g>
@@ -649,25 +690,10 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           );
         })()}
 
-        {/* Row labels — positioned in canvas space so they track with nodes. */}
-        {layout.generationLabels.map((gl) => (
-          <div
-            key={gl.label}
-            className="absolute flex items-center gap-2 pointer-events-none select-none"
-            style={{ left: 0, top: gl.y - 10 }}
-            aria-hidden="true"
-          >
-            <div className="flex max-w-[132px] items-center gap-1.5 rounded border border-border bg-surface-raised/92 px-2 py-1 shadow-md" style={{ borderLeft: '2px solid var(--color-brand)' }}>
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
-                Gen
-              </span>
-              <span className="truncate font-mono text-sm font-bold text-text-primary tracking-wide">
-                {formatGeneration(gl.label, generationFormat)}
-              </span>
-            </div>
-            <span className="h-[1px] w-16 bg-border" />
-          </div>
-        ))}
+        {/* Row labels — positioned in canvas space so they pan/zoom with nodes.
+            The sticky-left effect is achieved in the parent via a fixed-position
+            overlay rendered outside the transform group (see below). */}
+        {/* (intentionally empty — labels rendered as sticky overlay below) */}
 
         {/* Hover tooltip — rendered inside transform group so it pans/zooms with the canvas. */}
         {hoveredId !== null && hoverPos !== null && (() => {
@@ -727,6 +753,12 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
               ind.generation !== undefined ? `, generation ${ind.generation}` : ''
             }`;
             const sexGlyph = shape === 'male' ? '♂' : shape === 'female' ? '♀' : '?';
+            // Overlay z-index: hovered node and its connected nodes rise above the backdrop.
+            const isAboveOverlay = hoveredId !== null && hoveredConnectedIds.has(ind.id);
+            // Truncate display name using NODE.MAX_NAME_CHARS constant.
+            const truncatedDisplay = display.length > NODE.MAX_NAME_CHARS
+              ? `${display.slice(0, NODE.MAX_NAME_CHARS)}…`
+              : display;
             return (
               <motion.button
                 key={ind.id}
@@ -781,24 +813,79 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   isDimmed && 'opacity-20',
                   draggingId === ind.id ? 'cursor-grabbing scale-105' : 'cursor-pointer',
                 )}
-                style={{ position: 'absolute', left: pos.x, top: pos.y }}
+                style={{
+                  position: 'absolute',
+                  left: pos.x,
+                  top: pos.y,
+                  // Raise hovered node + connected nodes above the overlay backdrop.
+                  zIndex: isAboveOverlay ? 20 : undefined,
+                }}
               >
-                {/* Shape — no text inside, sex glyph overlay top-right. */}
+                {/* Shape — SVG-based standard pedigree symbols.
+                    Male = rectangle (sharp corners), Female = ellipse, Unknown = diamond. */}
                 <div className="relative">
-                  <div
+                  <svg
+                    width={NODE.HEIGHT}
+                    height={NODE.HEIGHT}
+                    viewBox={`0 0 ${NODE.HEIGHT} ${NODE.HEIGHT}`}
                     className={cn(
-                      'w-[52px] h-[52px] border-2 transition-transform group-hover:scale-[1.04] shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_28px_rgba(2,6,23,0.38)]',
-                      shape === 'male' && 'bg-node-male-bg border-node-male-border',
-                      shape === 'female' && 'bg-node-female-bg border-node-female-border rounded-full',
-                      shape === 'unknown' &&
-                        'bg-node-unknown-bg border-node-unknown-border [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]',
-                      statusTone?.shell,
-                      isSelected && 'ring-2 ring-brand/50 ring-offset-2 ring-offset-surface',
-                      isRelationshipSource && !isSelected && 'ring-2 ring-brand/35 ring-offset-2 ring-offset-surface',
-                      isMatch && !isSelected && 'ring-2 ring-brand/30 ring-offset-1 ring-offset-surface',
-                      isInbred && !isSelected && 'ring-2 ring-indigo-300/60 ring-offset-1 ring-offset-surface',
+                      'transition-transform group-hover:scale-[1.04]',
+                      isSelected && 'drop-shadow-[0_0_4px_rgba(99,102,241,0.6)]',
                     )}
-                  />
+                    aria-hidden="true"
+                    style={{ overflow: 'visible' }}
+                  >
+                    {shape === 'male' && (
+                      <rect
+                        x={2}
+                        y={2}
+                        width={NODE.HEIGHT - 4}
+                        height={NODE.HEIGHT - 4}
+                        rx={0}
+                        ry={0}
+                        className="fill-node-male-bg stroke-node-male-border"
+                        strokeWidth={isSelected ? 2.5 : isRelationshipSource || isMatch ? 2 : 1.5}
+                      />
+                    )}
+                    {shape === 'female' && (
+                      <ellipse
+                        cx={NODE.HEIGHT / 2}
+                        cy={NODE.HEIGHT / 2}
+                        rx={(NODE.HEIGHT - 4) / 2}
+                        ry={(NODE.HEIGHT - 4) / 2}
+                        className="fill-node-female-bg stroke-node-female-border"
+                        strokeWidth={isSelected ? 2.5 : isRelationshipSource || isMatch ? 2 : 1.5}
+                      />
+                    )}
+                    {shape === 'unknown' && (() => {
+                      const half = NODE.HEIGHT / 2;
+                      const pts = `${half},2 ${NODE.HEIGHT - 2},${half} ${half},${NODE.HEIGHT - 2} 2,${half}`;
+                      return (
+                        <polygon
+                          points={pts}
+                          className="fill-node-unknown-bg stroke-node-unknown-border"
+                          strokeWidth={isSelected ? 2.5 : isRelationshipSource || isMatch ? 2 : 1.5}
+                        />
+                      );
+                    })()}
+                    {isInbred && (
+                      <circle cx={8} cy={NODE.HEIGHT - 8} r={5} className="fill-indigo-400" />
+                    )}
+                    {missingFieldCount > 0 && (
+                      <circle cx={NODE.HEIGHT - 8} cy={NODE.HEIGHT - 8} r={5} className="fill-amber-500" />
+                    )}
+                    {(() => {
+                      const coi = coiMap.get(ind.id);
+                      if (!coi) return null;
+                      const fillClass = coi.risk === 'high' ? 'fill-red-500' : coi.risk === 'moderate' ? 'fill-amber-500' : 'fill-indigo-400';
+                      return (
+                        <circle cx={8} cy={8} r={6} className={fillClass}>
+                          <title>{`COI: ${(coi.coefficient * 100).toFixed(1)}%`}</title>
+                        </circle>
+                      );
+                    })()}
+                  </svg>
+                  {/* Sex glyph badge — top-right corner. */}
                   <span
                     className={cn(
                       'absolute -top-1 -right-1 h-[18px] w-[18px] rounded-full flex items-center justify-center text-[10px] font-bold bg-surface-raised border shadow-sm',
@@ -810,46 +897,14 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   >
                     {sexGlyph}
                   </span>
-                  {isInbred && (
-                    <span
-                      className="absolute -bottom-1 -left-1 h-3.5 min-w-3.5 rounded-full bg-indigo-400 px-1 flex items-center justify-center text-[8px] text-white font-bold shadow-sm"
-                      aria-label="Shared ancestry"
-                      title="Shared ancestry detected"
-                    >
-                      i
-                    </span>
-                  )}
-                  {missingFieldCount > 0 && (
-                    <span
-                      className="absolute -bottom-1.5 -right-1.5 h-4 min-w-4 rounded-full bg-amber-500 px-1 flex items-center justify-center text-[8px] text-white font-bold shadow-sm"
-                      aria-label={`Missing ${missingFieldCount} key fields`}
-                      title={`Missing ${missingFieldCount} key fields`}
-                    >
-                      !
-                    </span>
-                  )}
-                  {/* COI badge — only show if individual has inbreeding */}
-                  {(() => {
-                    const coi = coiMap.get(ind.id);
-                    if (!coi) return null;
-                    const color = coi.risk === 'high' ? 'bg-red-500' : coi.risk === 'moderate' ? 'bg-amber-500' : 'bg-indigo-400';
-                    return (
-                      <span
-                        className={`absolute -top-1 -left-1 ${color} text-white text-[8px] font-bold px-1 rounded-full shadow-sm`}
-                        title={`COI: ${(coi.coefficient * 100).toFixed(1)}%`}
-                      >
-                        F:{(coi.coefficient * 100).toFixed(0)}%
-                      </span>
-                    );
-                  })()}
                 </div>
-                {/* Primary label below the shape, truncated, full value in title tooltip. */}
+                {/* Primary label below the shape, truncated via NODE.MAX_NAME_CHARS, full value in title tooltip. */}
                 <span
-                  className="mt-1.5 max-w-[92px] truncate text-[11px] font-semibold leading-tight text-text-primary"
+                  className="mt-1.5 max-w-[92px] text-[11px] font-semibold leading-tight text-text-primary"
                   aria-hidden="true"
                   title={display}
                 >
-                  {display}
+                  {truncatedDisplay}
                 </span>
                 {/* Secondary: id when it differs from the label, else group. */}
                 {display !== ind.id && (
@@ -874,6 +929,44 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           })}
         </div>
       </div>
+
+      {/* Sticky generation labels — outside the transform group so they remain
+          pinned to the left edge during pan, but their Y tracks the transformed
+          canvas position. */}
+      {layoutMode === 'pedigree' && layout.generationLabels.map((gl) => {
+        const labelY = gl.y * zoom + offset.y;
+        return (
+          <div
+            key={`sticky-label-${gl.label}`}
+            className="absolute flex items-center gap-2 pointer-events-none select-none z-20"
+            style={{ left: 8, top: labelY - 12 }}
+            aria-hidden="true"
+          >
+            <div
+              className="flex max-w-[132px] items-center gap-1.5 rounded border border-border bg-surface-raised/92 px-2 py-1 shadow-md"
+              style={{ borderLeft: '2px solid var(--color-brand)' }}
+            >
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
+                Gen
+              </span>
+              <span className="truncate font-mono text-sm font-bold text-text-primary tracking-wide">
+                {formatGeneration(gl.label, generationFormat)}
+              </span>
+            </div>
+            <span className="h-[1px] w-16 bg-border" />
+          </div>
+        );
+      })}
+
+      {/* Node hover overlay — semi-transparent backdrop covering canvas.
+          Hovered node + connected nodes are rendered above this via z-index. */}
+      {hoveredId !== null && (
+        <div
+          className="absolute inset-0 pointer-events-none z-10"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Zoom toolbar — absolute within viewport, no fixed offsets. */}
       {interactionHint !== null && (
