@@ -678,46 +678,24 @@ export function NodeInspector({
                       <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
                       {Date.now() - copiedAt < 1500 ? t.copied : t.copy}
                     </Button>
-                    {/* AlphaFold reference — only when a known protein is detected */}
-                    {resolvedUniprotId !== null && (
+                    {individual.sequence !== undefined && (
                       <Button
                         variant="secondary"
                         size="sm"
-                        data-testid="fetch-alphafold"
-                        onClick={() => void handleFetchAlphaFold()}
-                        disabled={isFetchingAlphaFold}
+                        data-testid="predict-structure"
+                        onClick={() => void handlePredictInline()}
+                        disabled={isPredicting}
                         className="inline-flex items-center gap-1.5"
                       >
                         <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
-                        {isFetchingAlphaFold ? 'Fetching…' : 'View Reference Structure'}
+                        {isPredicting
+                          ? t.foldingProtein
+                          : resolvedUniprotId !== null
+                            ? 'Predict Edited Structure'
+                            : t.predictStructure}
                       </Button>
                     )}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      data-testid="predict-structure"
-                      onClick={() => void handlePredictInline()}
-                      disabled={isPredicting}
-                      className="inline-flex items-center gap-1.5"
-                    >
-                      <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
-                      {isPredicting
-                        ? t.foldingProtein
-                        : resolvedUniprotId !== null
-                          ? 'Predict Edited Structure'
-                          : t.predictStructure}
-                    </Button>
                   </div>
-
-                  {/* AlphaFold fetch error */}
-                  {alphaFoldError !== null && (
-                    <div
-                      role="alert"
-                      className="mt-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
-                    >
-                      {alphaFoldError}
-                    </div>
-                  )}
 
                   {/* Inline prediction error */}
                   {predictError !== null && (
@@ -727,58 +705,17 @@ export function NodeInspector({
                     >
                       {predictError}
                     </div>
+
                   )}
 
-                  {/* Tabbed 3D structure viewer — shown when one or both structures are loaded */}
-                  {(alphaFoldPdb !== null || inlinePdb !== null) && (
+                  {/* ESMFold inline viewer */}
+                  {inlinePdb !== null && (
                     <div className="mt-2">
-                      {/* Tab bar — only show tabs when both structures are available */}
-                      {alphaFoldPdb !== null && inlinePdb !== null && (
-                        <div className="flex gap-1 mb-2">
-                          <button
-                            type="button"
-                            onClick={() => setActiveStructureTab('alphafold')}
-                            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                              activeStructureTab === 'alphafold'
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-surface-raised text-text-secondary border border-border hover:bg-surface'
-                            }`}
-                          >
-                            Reference (AlphaFold)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveStructureTab('esmfold')}
-                            className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                              activeStructureTab === 'esmfold'
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-surface-raised text-text-secondary border border-border hover:bg-surface'
-                            }`}
-                          >
-                            Edited (ESMFold)
-                          </button>
-                        </div>
-                      )}
-
-                      {/* AlphaFold viewer */}
-                      {alphaFoldPdb !== null &&
-                        (inlinePdb === null || activeStructureTab === 'alphafold') && (
-                          <InlineStructureViewer
-                            pdbData={alphaFoldPdb}
-                            label={`AlphaFold · ${resolvedUniprotId ?? individual.id}`}
-                            height={300}
-                          />
-                        )}
-
-                      {/* ESMFold viewer */}
-                      {inlinePdb !== null &&
-                        (alphaFoldPdb === null || activeStructureTab === 'esmfold') && (
-                          <InlineStructureViewer
-                            pdbData={inlinePdb}
-                            label={`ESMFold · ${individual.id}`}
-                            height={300}
-                          />
-                        )}
+                      <InlineStructureViewer
+                        pdbData={inlinePdb}
+                        label={`ESMFold · ${individual.id}`}
+                        height={300}
+                      />
                     </div>
                   )}
                 </div>
@@ -787,6 +724,47 @@ export function NodeInspector({
               )}
             </section>
           </div>
+
+          {/* AlphaFold / Structure Prediction — independent of sequence section */}
+          {resolvedUniprotId !== null && (
+            <div className="px-3 pb-3">
+              <section>
+                <h4 className="text-xs font-semibold text-text-secondary mb-2">Protein Structure</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    data-testid="fetch-alphafold"
+                    onClick={() => void handleFetchAlphaFold()}
+                    disabled={isFetchingAlphaFold}
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
+                    {isFetchingAlphaFold ? 'Fetching...' : `View Reference (${resolvedUniprotId})`}
+                  </Button>
+                </div>
+
+                {alphaFoldError !== null && (
+                  <div
+                    role="alert"
+                    className="mt-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
+                  >
+                    {alphaFoldError}
+                  </div>
+                )}
+
+                {alphaFoldPdb !== null && (
+                  <div className="mt-2">
+                    <InlineStructureViewer
+                      pdbData={alphaFoldPdb}
+                      label={`AlphaFold · ${resolvedUniprotId}`}
+                      height={300}
+                    />
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="p-3 border-t border-border bg-surface-raised text-[11px] font-mono text-text-muted text-center">
