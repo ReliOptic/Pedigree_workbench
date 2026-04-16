@@ -15,6 +15,7 @@ import {
   getShowStatusBadges,
   getSpecies,
   getTheme,
+  getWorkbenchMode,
   setActiveNav as persistActiveNav,
   setAutoBackupInterval as persistAutoBackupInterval,
   setAutoFitOnImport as persistAutoFitOnImport,
@@ -29,8 +30,9 @@ import {
   setShowStatusBadges as persistShowStatusBadges,
   setSpecies as persistSpecies,
   setTheme as persistTheme,
+  setWorkbenchMode as persistWorkbenchMode,
 } from '../services/settings-store';
-import type { AutoBackupInterval, ConnectorLineStyle, GenerationFormat, NodeSize, Species, Theme } from '../services/settings-store';
+import type { AutoBackupInterval, ConnectorLineStyle, GenerationFormat, NodeSize, Species, Theme, WorkbenchMode } from '../services/settings-store';
 import type { Language } from '../types/translation.types';
 
 interface UseSettingsResult {
@@ -62,6 +64,8 @@ interface UseSettingsResult {
   readonly setGenerationFormat: (next: GenerationFormat) => void;
   readonly species: Species;
   readonly setSpecies: (next: Species) => void;
+  readonly workbenchMode: WorkbenchMode;
+  readonly setWorkbenchMode: (next: WorkbenchMode) => void;
 }
 
 /**
@@ -84,6 +88,7 @@ export function useSettings(): UseSettingsResult {
   const [connectorLineStyle, setConnectorLineStyleState] = useState<ConnectorLineStyle>(() => getConnectorLineStyle());
   const [generationFormat, setGenerationFormatState] = useState<GenerationFormat>(() => getGenerationFormat());
   const [species, setSpeciesState] = useState<Species>(() => getSpecies());
+  const [workbenchMode, setWorkbenchModeState] = useState<WorkbenchMode>(() => getWorkbenchMode());
 
   const setLanguage = useCallback((next: Language): void => {
     setLanguageState(next);
@@ -155,6 +160,11 @@ export function useSettings(): UseSettingsResult {
     persistSpecies(next);
   }, []);
 
+  const setWorkbenchMode = useCallback((next: WorkbenchMode): void => {
+    setWorkbenchModeState(next);
+    persistWorkbenchMode(next);
+  }, []);
+
   return {
     language, setLanguage,
     activeNav, setActiveNav,
@@ -170,5 +180,6 @@ export function useSettings(): UseSettingsResult {
     connectorLineStyle, setConnectorLineStyle,
     generationFormat, setGenerationFormat,
     species, setSpecies,
+    workbenchMode, setWorkbenchMode,
   };
 }

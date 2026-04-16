@@ -17,7 +17,7 @@ Offline desktop workbench for pedigree and lineage analysis. The product is aime
 
 English is the canonical documentation language for this repository.
 
-Links: [Repository](https://github.com/ReliOptic/Pedigree_workbench) · [Product Philosophy](PRODUCT_PHILOSOPHY.md) · [UX Roadmap](UX_ROADMAP.md) · [Changelog](CHANGELOG.md)
+Links: [Repository](https://github.com/ReliOptic/Pedigree_workbench) · [Product Philosophy](PRODUCT_PHILOSOPHY.md) · [Workbench Modes](WORKBENCH_MODES.md) · [UX Roadmap](UX_ROADMAP.md) · [Changelog](CHANGELOG.md)
 
 | Platform | Support | Notes |
 |---|---|---|

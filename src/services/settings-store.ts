@@ -23,6 +23,7 @@ const KEY_DEFAULT_GESTATION_DAYS = 'pdw.defaultGestationDays';
 const KEY_AUTO_BACKUP_INTERVAL = 'pdw.autoBackupInterval';
 const KEY_SHOW_NOTES_ON_HOVER = 'pdw.showNotesOnHover';
 const KEY_CONNECTOR_LINE_STYLE = 'pdw.connectorLineStyle';
+const KEY_WORKBENCH_MODE = 'pdw.workbenchMode';
 
 const DEFAULT_LANGUAGE: Language = 'en';
 
@@ -115,6 +116,7 @@ export type AutoBackupInterval = 'off' | '5min' | '15min' | '30min';
 export type ConnectorLineStyle = 'straight' | 'curved';
 export type GenerationFormat = 'F' | 'Gen' | 'Roman' | 'Custom';
 export type Species = 'pig' | 'dog' | 'cattle' | 'horse' | 'sheep' | 'goat' | 'cat' | 'rabbit' | 'custom';
+export type WorkbenchMode = 'auto' | 'cohort' | 'pedigree';
 
 /** Returns the persisted node size, or `'medium'`. */
 export function getNodeSize(): NodeSize {
@@ -196,6 +198,16 @@ export function getConnectorLineStyle(): ConnectorLineStyle {
 
 export function setConnectorLineStyle(value: ConnectorLineStyle): void {
   safeSet(KEY_CONNECTOR_LINE_STYLE, value);
+}
+
+/** Returns the persisted workbench mode, or `'auto'`. */
+export function getWorkbenchMode(): WorkbenchMode {
+  const raw = safeGet(KEY_WORKBENCH_MODE);
+  return raw === 'cohort' || raw === 'pedigree' || raw === 'auto' ? raw : 'auto';
+}
+
+export function setWorkbenchMode(value: WorkbenchMode): void {
+  safeSet(KEY_WORKBENCH_MODE, value);
 }
 
 const KEY_GENERATION_FORMAT = 'pdw.generationFormat';

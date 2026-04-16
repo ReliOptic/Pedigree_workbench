@@ -43,10 +43,10 @@ export function parseProjectFile(json: string): PedigreeProjectFile {
   const data = JSON.parse(json) as PedigreeProjectFile;
 
   if (!data.version || !data.project) {
-    throw new Error('Invalid project file format');
+    throw new Error('This file does not appear to be a valid Pedigree Workbench project. Make sure you are opening a .pwb file exported from this app.');
   }
   if (!Array.isArray(data.project.individuals)) {
-    throw new Error('Project file missing individuals array');
+    throw new Error('The project file is missing the individuals list. The file may be incomplete or corrupted. Try exporting the project again from the source.');
   }
 
   return data;

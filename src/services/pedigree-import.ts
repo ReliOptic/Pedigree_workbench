@@ -175,13 +175,13 @@ function toIndividual(raw: z.infer<typeof rawIndividualSchema>): Individual {
  */
 export function parsePedigreeImport(raw: string): Individual[] {
   if (raw.length === 0) {
-    throw new PedigreeImportError('empty-payload', 'Import payload is empty.');
+    throw new PedigreeImportError('empty-payload', 'The import payload is empty. Make sure the file contains data and try again.');
   }
   if (raw.length > APP_CONFIG.maxImportBytes) {
     logger.warn('pedigree-import.too-large', { size: raw.length });
     throw new PedigreeImportError(
       'too-large',
-      `Import payload exceeds ${APP_CONFIG.maxImportBytes} bytes.`,
+      `This file is too large to import (limit: ${Math.round(APP_CONFIG.maxImportBytes / 1_048_576)}MB). Split the dataset into smaller files and import each separately.`,
     );
   }
 
@@ -190,14 +190,14 @@ export function parsePedigreeImport(raw: string): Individual[] {
     json = JSON.parse(raw);
   } catch (cause) {
     logger.warn('pedigree-import.invalid-json', { cause: String(cause) });
-    throw new PedigreeImportError('invalid-json', 'Payload is not valid JSON.');
+    throw new PedigreeImportError('invalid-json', 'Could not parse this file as JSON. The file may be corrupted or in the wrong format. Re-saving as .xlsx or .csv often resolves this.');
   }
 
   const parsed = payloadSchema.safeParse(json);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
     logger.warn('pedigree-import.schema-violation', { issues });
-    throw new PedigreeImportError('schema-violation', 'Payload failed validation.', issues);
+    throw new PedigreeImportError('schema-violation', 'The file structure does not match the expected format. Check that required columns are present and values are correct.', issues);
   }
 
   const rawRows = Array.isArray(parsed.data) ? parsed.data : parsed.data.individuals;

@@ -267,6 +267,48 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
 
   const positionById = effectivePositions;
 
+  // Viewport culling — only render nodes/connectors inside the visible area plus margin.
+  // Critical for 500+ individual datasets: avoids mounting hundreds of off-screen DOM nodes.
+  // Falls back to rendering all nodes when the container has no measured size (test/SSR env).
+  const CULL_MARGIN = 200; // px in world space
+  const containerWidth = viewportRef.current?.clientWidth ?? 0;
+  const containerHeight = viewportRef.current?.clientHeight ?? 0;
+  const cullEnabled = containerWidth > 0 && containerHeight > 0;
+  const viewLeft = cullEnabled ? -offset.x / zoom - CULL_MARGIN : -Infinity;
+  const viewTop = cullEnabled ? -offset.y / zoom - CULL_MARGIN : -Infinity;
+  const viewRight = cullEnabled ? viewLeft + containerWidth / zoom + CULL_MARGIN * 2 : Infinity;
+  const viewBottom = cullEnabled ? viewTop + containerHeight / zoom + CULL_MARGIN * 2 : Infinity;
+
+  const visibleNodes = useMemo(() => {
+    if (!cullEnabled) return individuals;
+    return individuals.filter((ind) => {
+      const pos = effectivePositions.get(ind.id);
+      if (pos === undefined) return false;
+      return (
+        pos.x + NODE.WIDTH > viewLeft &&
+        pos.x < viewRight &&
+        pos.y + NODE.HEIGHT > viewTop &&
+        pos.y < viewBottom
+      );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [individuals, effectivePositions, offset.x, offset.y, zoom, cullEnabled]);
+
+  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
+
+  const visibleConnectors = useMemo(() => {
+    return layout.connectors.filter((c) => {
+      if (visibleNodeIds.has(c.childId)) return true;
+      // Also keep if at least one parent is visible (connector spans into view).
+      const child = individualsMap.get(c.childId);
+      if (child === undefined) return false;
+      return (
+        (child.sire !== undefined && visibleNodeIds.has(child.sire)) ||
+        (child.dam !== undefined && visibleNodeIds.has(child.dam))
+      );
+    });
+  }, [layout.connectors, visibleNodeIds, individualsMap]);
+
   // Set of individual IDs that match the current search query.
   const isSearching = searchQuery !== undefined && searchQuery.length > 0;
   const matchingIds = useMemo<Set<string>>(() => {
@@ -704,7 +746,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           aria-hidden="true"
         >
           <g stroke="var(--color-text-secondary)" fill="none">
-            {layout.connectors.map((c) => {
+            {visibleConnectors.map((c) => {
               const dimConnector = isSearching && !matchingIds.has(c.childId);
               const isHoveredConnector = hoveredConnectorChildId === c.childId;
               const strokeWidth = isHoveredConnector
@@ -817,7 +859,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
         })()}
 
         <div className="relative p-16">
-          {individuals.map((ind) => {
+          {visibleNodes.map((ind) => {
             const pos = positionById.get(ind.id);
             if (pos === undefined) return null;
             const shape = classifySex(ind.sex);

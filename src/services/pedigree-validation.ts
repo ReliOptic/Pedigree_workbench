@@ -85,7 +85,7 @@ export function validatePedigree(individuals: readonly Individual[]): Validation
       errors.push({
         type: 'duplicate-id',
         ids: [id],
-        message: `Duplicate ID: "${id}" appears ${count} times`,
+        message: `ID "${id}" appears ${count} times in the dataset. Each individual must have a unique ID. Remove or rename the duplicates and re-import.`,
       });
     }
   }
@@ -96,7 +96,7 @@ export function validatePedigree(individuals: readonly Individual[]): Validation
       errors.push({
         type: 'self-reference',
         ids: [ind.id],
-        message: `"${ind.id}" references itself as parent`,
+        message: `"${ind.id}" is listed as its own parent. Remove the self-referencing sire or dam value to fix this.`,
       });
     }
   }
@@ -107,7 +107,9 @@ export function validatePedigree(individuals: readonly Individual[]): Validation
     errors.push({
       type: 'cycle',
       ids: cycle,
-      message: `Circular reference: ${cycle.join(' → ')} → ${cycle[0]}`,
+      message: `Circular pedigree: ${cycle.join(' → ')} → ${cycle[0]}. ` +
+        `${cycle[0]} is set as an ancestor of ${cycle[cycle.length - 1]}, which is itself an ancestor of ${cycle[0]}. ` +
+        `Remove one of the links in the chain to resolve this.`,
     });
   }
 
@@ -118,14 +120,14 @@ export function validatePedigree(individuals: readonly Individual[]): Validation
       warnings.push({
         type: 'orphan-parent',
         ids: [ind.id, ind.sire],
-        message: `"${ind.id}" references unknown sire "${ind.sire}"`,
+        message: `Sire "${ind.sire}" referenced by "${ind.id}" is not in the dataset. This may be an externally sourced sire. You can add them as a new individual or leave the reference as-is.`,
       });
     }
     if (ind.dam && !idSet.has(ind.dam)) {
       warnings.push({
         type: 'orphan-parent',
         ids: [ind.id, ind.dam],
-        message: `"${ind.id}" references unknown dam "${ind.dam}"`,
+        message: `Dam "${ind.dam}" referenced by "${ind.id}" is not in the dataset. This may be an externally sourced dam. You can add them as a new individual or leave the reference as-is.`,
       });
     }
   }
@@ -136,7 +138,7 @@ export function validatePedigree(individuals: readonly Individual[]): Validation
     warnings.push({
       type: 'missing-sex',
       ids: missingSex,
-      message: `${missingSex.length} individuals missing sex`,
+      message: `${missingSex.length} individual${missingSex.length === 1 ? '' : 's'} ha${missingSex.length === 1 ? 's' : 've'} no sex recorded. Sex is used for pedigree symbol rendering (square/circle/diamond) and parent role assignment. Edit each individual to set it.`,
     });
   }
 
@@ -145,7 +147,7 @@ export function validatePedigree(individuals: readonly Individual[]): Validation
     warnings.push({
       type: 'missing-generation',
       ids: missingGen,
-      message: `${missingGen.length} individuals missing generation`,
+      message: `${missingGen.length} individual${missingGen.length === 1 ? '' : 's'} ha${missingGen.length === 1 ? 's' : 've'} no generation assigned. Generation is used for layout banding. Map the generation column during import, or set it manually in the inspector.`,
     });
   }
 

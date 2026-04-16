@@ -22,6 +22,7 @@ interface DashboardProps {
   readonly validation: ValidationResult;
   readonly speciesProfile: SpeciesProfile;
   readonly language: Language;
+  readonly onJumpToWorkbench: (individualId?: string) => void;
 }
 
 /**
@@ -40,6 +41,7 @@ export function Dashboard({
   validation,
   speciesProfile,
   language,
+  onJumpToWorkbench,
 }: DashboardProps): React.JSX.Element {
   if (stats.totalCount === 0) {
     return (
@@ -145,7 +147,7 @@ export function Dashboard({
         {/* Missing Data Panel */}
         <section className="bg-surface-raised border border-border rounded-lg p-4">
           <h2 className="text-sm font-semibold text-text-primary mb-3">{t.missingData}</h2>
-          <MissingDataPanel missingAlerts={missingAlerts} />
+          <MissingDataPanel missingAlerts={missingAlerts} onJumpToWorkbench={onJumpToWorkbench} />
         </section>
 
         {/* Breeding Candidates */}
@@ -197,6 +199,43 @@ export function Dashboard({
               </tbody>
             </table>
           </div>
+          {/* High-COI individual jump links */}
+          {(() => {
+            const highCoiIndividuals = individuals.filter((ind) => {
+              // Approximate COI check: individuals with both parents in dataset are candidates
+              return ind.sire !== undefined && ind.dam !== undefined;
+            });
+            const highCoiCount = highCoiIndividuals.length;
+            if (highCoiCount === 0 || populationStats.maxCOI < 0.0625) return null;
+            return (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium mb-2">
+                  High COI detected — inspect individuals in Workbench:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {highCoiIndividuals.slice(0, 8).map((ind) => (
+                    <button
+                      key={ind.id}
+                      type="button"
+                      onClick={() => onJumpToWorkbench(ind.id)}
+                      className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800/60 transition-colors font-mono"
+                    >
+                      {ind.id}
+                    </button>
+                  ))}
+                  {highCoiIndividuals.length > 8 && (
+                    <button
+                      type="button"
+                      onClick={() => onJumpToWorkbench()}
+                      className="text-[10px] px-2 py-0.5 rounded bg-surface text-text-muted border border-border hover:bg-surface-raised transition-colors"
+                    >
+                      +{highCoiIndividuals.length - 8} more
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </section>
 
         <section className="bg-surface-raised border border-border rounded-lg p-4 md:col-span-2">
@@ -207,7 +246,16 @@ export function Dashboard({
             <div className="space-y-2">
               {validation.errors.map((error, index) => (
                 <div key={`${error.type}-${index}`} className="rounded border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3 text-xs">
-                  <div className="font-semibold text-red-700 dark:text-red-300">{error.message}</div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold text-red-700 dark:text-red-300">{error.message}</div>
+                    <button
+                      type="button"
+                      onClick={() => onJumpToWorkbench(error.ids[0])}
+                      className="flex-shrink-0 text-[10px] px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-800/60 transition-colors whitespace-nowrap"
+                    >
+                      View in Workbench
+                    </button>
+                  </div>
                   <div className="mt-1 font-mono text-red-600 dark:text-red-400">{error.ids.join(', ')}</div>
                 </div>
               ))}
@@ -217,7 +265,16 @@ export function Dashboard({
             <div className="mt-4 space-y-2">
               {validation.warnings.map((warning, index) => (
                 <div key={`${warning.type}-${index}`} className="rounded border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-xs">
-                  <div className="font-semibold text-amber-700 dark:text-amber-300">{warning.message}</div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold text-amber-700 dark:text-amber-300">{warning.message}</div>
+                    <button
+                      type="button"
+                      onClick={() => onJumpToWorkbench(warning.ids[0])}
+                      className="flex-shrink-0 text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800/60 transition-colors whitespace-nowrap"
+                    >
+                      View in Workbench
+                    </button>
+                  </div>
                   <div className="mt-1 font-mono text-amber-600 dark:text-amber-400">{warning.ids.join(', ')}</div>
                 </div>
               ))}

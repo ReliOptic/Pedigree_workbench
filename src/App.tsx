@@ -36,8 +36,11 @@ import {
 } from './components/PedigreeCanvas';
 import { TopBar } from './components/TopBar';
 import { Dashboard } from './components/Dashboard';
+import { ImportSummary } from './components/ImportSummary';
 import { WorkbenchSidebar } from './components/WorkbenchSidebar';
 import { computeCohortStats, detectMissingData } from './services/cohort-analyzer';
+import { analyzeStructure } from './services/structure-analyzer';
+import type { StructureAnalysis } from './services/structure-analyzer';
 import { usePedigree } from './hooks/use-pedigree';
 import { useMatings } from './hooks/use-matings';
 import { useProjects } from './hooks/use-projects';
@@ -243,6 +246,7 @@ export default function App(): React.JSX.Element {
   const [showWorkbenchSidebar, setShowWorkbenchSidebar] = useState<boolean>(true);
   const [showExportPanel, setShowExportPanel] = useState<boolean>(false);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<StructureAnalysis | null>(null);
   const [relationshipMode, setRelationshipMode] = useState<
     | { readonly kind: 'idle' }
     | { readonly kind: 'assign-parent'; readonly parentRole: 'sire' | 'dam'; readonly sourceId: string }
@@ -612,6 +616,12 @@ export default function App(): React.JSX.Element {
               validation={validation}
               speciesProfile={speciesProfile}
               language={language}
+              onJumpToWorkbench={(individualId?: string) => {
+                setActiveNav('workbench');
+                if (individualId !== undefined) {
+                  setSelectedId(individualId);
+                }
+              }}
             />
           )
         ) : isLoading ? (
@@ -774,6 +784,9 @@ export default function App(): React.JSX.Element {
           pushSnapshot(individuals);
           closeImportModal();
           setActiveNav('workbench');
+          const analysis = analyzeStructure(importedIndividuals);
+          setWorkbenchMode(analysis.recommendedMode);
+          setImportSummary(analysis);
           if (mode === 'merge') {
             await replaceAll(importedIndividuals);
             await saveCurrentProject();
@@ -784,6 +797,13 @@ export default function App(): React.JSX.Element {
         }}
         t={t}
       />
+
+      {importSummary !== null && (
+        <ImportSummary
+          analysis={importSummary}
+          onDismiss={() => setImportSummary(null)}
+        />
+      )}
 
       <input
         ref={restoreInputRef}

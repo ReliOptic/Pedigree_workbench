@@ -77,7 +77,11 @@ export function parseExcel(data: ArrayBuffer, sheetName?: string): ExcelParseRes
   const worksheet = workbook.Sheets[selectedSheet];
 
   if (worksheet === undefined) {
-    throw new Error(`Sheet "${selectedSheet}" not found.`);
+    throw new Error(
+      `Sheet "${selectedSheet}" was not found in this workbook. ` +
+      `Available sheets: ${workbook.SheetNames.join(', ')}. ` +
+      `Select a different sheet and try again.`,
+    );
   }
 
   // Convert sheet to array of arrays (all values as strings)
@@ -88,7 +92,10 @@ export function parseExcel(data: ArrayBuffer, sheetName?: string): ExcelParseRes
   }) as string[][];
 
   if (rows.length === 0) {
-    throw new Error('Sheet is empty.');
+    throw new Error(
+      `Sheet "${selectedSheet}" appears to be empty. ` +
+      `Check that the correct sheet is selected and that data starts in row 1.`,
+    );
   }
 
   // First row = headers

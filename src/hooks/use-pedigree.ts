@@ -54,7 +54,7 @@ export function usePedigree(): UsePedigreeResult {
       setError(null);
     } catch (cause) {
       logger.error('use-pedigree.refresh-failed', { cause: String(cause) });
-      setError(cause instanceof Error ? cause.message : 'Failed to load pedigree.');
+      setError(cause instanceof Error ? cause.message : 'Could not load pedigree data. Try refreshing the page. If the problem persists, check that the local database is not full or corrupted.');
     }
   }, []);
 
@@ -119,7 +119,7 @@ export function usePedigree(): UsePedigreeResult {
       } catch (cause) {
         logger.error('use-pedigree.bootstrap-failed', { cause: String(cause) });
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : 'Failed to initialize pedigree.');
+          setError(cause instanceof Error ? cause.message : 'Could not initialize pedigree storage. Try refreshing the page or clearing site data if the problem continues.');
         }
       } finally {
         if (!cancelled) setIsLoading(false);

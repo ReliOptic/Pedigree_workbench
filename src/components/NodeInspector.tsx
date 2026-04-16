@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { computeInbreedingCoefficient } from '../services/kinship';
+import { pluginRegistry } from '../plugins/plugin-registry';
 import { X, Pencil, Check, Trash2, Copy as CopyIcon, FlaskConical, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -116,6 +117,7 @@ export function NodeInspector({
   const [notesOpen, setNotesOpen] = useState<boolean>(false);
   const [notesValue, setNotesValue] = useState<string>('');
   const [matingsOpen, setMatingsOpen] = useState<boolean>(false);
+  const [geneticsOpen, setGeneticsOpen] = useState<boolean>(false);
 
   // Reset edit state whenever the selection changes.
   useEffect(() => {
@@ -147,6 +149,11 @@ export function NodeInspector({
     if (individual === null) return null;
     return generateCertificate(individual, allIndividuals, { species, language });
   }, [individual, allIndividuals, species, language]);
+
+  const pluginResults = useMemo(() => {
+    if (individual === null) return [];
+    return pluginRegistry.analyze(individual, allIndividuals);
+  }, [individual, allIndividuals]);
 
   const beginEdit = (): void => {
     if (individual === null) return;
@@ -333,6 +340,58 @@ export function NodeInspector({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Genetics Analysis — plugin results */}
+            {pluginResults.length > 0 && (
+              <section aria-labelledby="genetics-heading" className="pt-2 border-t border-border">
+                <button
+                  type="button"
+                  id="genetics-heading"
+                  onClick={() => setGeneticsOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 w-full text-xs font-bold text-text-secondary uppercase tracking-wide mb-2 hover:text-brand transition-colors"
+                  aria-expanded={geneticsOpen}
+                >
+                  {geneticsOpen ? (
+                    <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  )}
+                  Genetics Analysis
+                  <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 rounded-full font-mono">
+                    {pluginResults.length}
+                  </span>
+                </button>
+                {geneticsOpen && (
+                  <div className="space-y-1.5">
+                    {pluginResults.map((result, idx) => (
+                      <div
+                        key={`${result.pluginId}-${result.locus ?? ''}-${idx}`}
+                        className={`flex items-center justify-between px-2 py-1.5 rounded text-xs border ${
+                          result.severity === 'error'
+                            ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'
+                            : result.severity === 'warning'
+                              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+                              : 'bg-surface-raised border-border'
+                        }`}
+                      >
+                        <span className="font-mono text-text-muted truncate">
+                          {result.locus !== undefined ? result.locus : result.label}
+                        </span>
+                        <span className={`font-semibold ml-2 flex-shrink-0 ${
+                          result.severity === 'error'
+                            ? 'text-red-700 dark:text-red-300'
+                            : result.severity === 'warning'
+                              ? 'text-amber-700 dark:text-amber-300'
+                              : 'text-text-primary'
+                        }`}>
+                          {String(result.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
 
             {certificate !== null && (
