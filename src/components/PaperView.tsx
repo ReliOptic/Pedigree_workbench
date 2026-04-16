@@ -1,9 +1,23 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Download } from 'lucide-react';
 
 import { computeLayout } from '../services/pedigree-layout';
 import { computeAllCOI } from '../services/kinship';
 import { computePopulationStats } from '../services/population-genetics';
+import { JOURNAL_PRESETS } from '../services/journal-presets';
+import type { JournalPreset } from '../services/journal-presets';
+import {
+  renderFigureSvg,
+  svgToCanvas,
+  exportAsPng,
+} from '../services/figure-renderer';
+import type { FigureOptions } from '../services/figure-renderer';
+import {
+  generatePopulationTable,
+  generateInbreedingTable,
+  generateGenotypeTable,
+  renderTableSvg,
+} from '../services/stats-table-renderer';
 import type { Individual } from '../types/pedigree.types';
 import type { Translation } from '../types/translation.types';
 import { NODE, CONNECTOR } from '../constants/node-dimensions';
@@ -574,12 +588,341 @@ function StructureSummaryCard({ entry }: StructureSummaryCardProps): React.JSX.E
   );
 }
 
+// ── Figure config panel ──────────────────────────────────────────────────────
+
+const DEFAULT_PRESET_ID = 'nature';
+
+const DEFAULT_OPTIONS: FigureOptions = {
+  preset: (JOURNAL_PRESETS.find(p => p.id === DEFAULT_PRESET_ID) ?? JOURNAL_PRESETS[0])!,
+  caption: '',
+  showCoi: true,
+  showGenotype: false,
+  labelMode: 'id-name',
+  generationStyle: 'f-prefix',
+  legendPosition: 'bottom',
+  symbolFill: 'standard',
+};
+
+interface FigureConfigPanelProps {
+  options: FigureOptions;
+  onChange: (opts: FigureOptions) => void;
+  includeTables: { population: boolean; coi: boolean; genotype: boolean };
+  onIncludeTablesChange: (v: { population: boolean; coi: boolean; genotype: boolean }) => void;
+}
+
+function FigureConfigPanel({ options, onChange, includeTables, onIncludeTablesChange }: FigureConfigPanelProps): React.JSX.Element {
+  const isCustom = options.preset.id === 'custom';
+
+  const handlePresetChange = (id: string) => {
+    const preset = (JOURNAL_PRESETS.find(p => p.id === id) ?? JOURNAL_PRESETS[0])!;
+    onChange({ ...options, preset });
+  };
+
+  const patchPreset = (patch: Partial<JournalPreset>) => {
+    onChange({ ...options, preset: { ...options.preset, ...patch } });
+  };
+
+  return (
+    <div className="shrink-0 border-b border-border bg-surface px-4 py-3 space-y-2 text-xs">
+      {/* Row 1: preset + label + gen style + symbol */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <label className="flex items-center gap-1.5 text-text-muted">
+          Preset:
+          <select
+            value={options.preset.id}
+            onChange={e => handlePresetChange(e.target.value)}
+            className="text-xs border border-border rounded px-1.5 py-0.5 bg-surface text-text"
+          >
+            {JOURNAL_PRESETS.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-text-muted">
+          Label:
+          <select
+            value={options.labelMode}
+            onChange={e => onChange({ ...options, labelMode: e.target.value as FigureOptions['labelMode'] })}
+            className="text-xs border border-border rounded px-1.5 py-0.5 bg-surface text-text"
+          >
+            <option value="id">ID only</option>
+            <option value="name">Name only</option>
+            <option value="id-name">ID + Name</option>
+            <option value="id-genotype">ID + Genotype</option>
+          </select>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-text-muted">
+          Gen style:
+          <select
+            value={options.generationStyle}
+            onChange={e => onChange({ ...options, generationStyle: e.target.value as FigureOptions['generationStyle'] })}
+            className="text-xs border border-border rounded px-1.5 py-0.5 bg-surface text-text"
+          >
+            <option value="f-prefix">F0, F1, F2</option>
+            <option value="arabic">1, 2, 3</option>
+            <option value="roman">I, II, III</option>
+          </select>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-text-muted">
+          Symbol:
+          <select
+            value={options.symbolFill}
+            onChange={e => onChange({ ...options, symbolFill: e.target.value as FigureOptions['symbolFill'] })}
+            className="text-xs border border-border rounded px-1.5 py-0.5 bg-surface text-text"
+          >
+            <option value="standard">Standard</option>
+            <option value="affected">Affected (KO/HET)</option>
+          </select>
+        </label>
+      </div>
+
+      {/* Row 2: checkboxes + legend + caption */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <label className="flex items-center gap-1 text-text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={options.showCoi}
+            onChange={e => onChange({ ...options, showCoi: e.target.checked })}
+            className="rounded"
+          />
+          Show COI
+        </label>
+
+        <label className="flex items-center gap-1 text-text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={options.showGenotype}
+            onChange={e => onChange({ ...options, showGenotype: e.target.checked })}
+            className="rounded"
+          />
+          Show genotype
+        </label>
+
+        <label className="flex items-center gap-1.5 text-text-muted">
+          Legend:
+          <select
+            value={options.legendPosition}
+            onChange={e => onChange({ ...options, legendPosition: e.target.value as FigureOptions['legendPosition'] })}
+            className="text-xs border border-border rounded px-1.5 py-0.5 bg-surface text-text"
+          >
+            <option value="bottom">Bottom</option>
+            <option value="right">Right</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-text-muted flex-1 min-w-[200px]">
+          Caption:
+          <input
+            type="text"
+            value={options.caption}
+            onChange={e => onChange({ ...options, caption: e.target.value })}
+            placeholder="Fig. 1. Pedigree of CD163..."
+            className="flex-1 text-xs border border-border rounded px-2 py-0.5 bg-surface text-text placeholder:text-text-muted"
+          />
+        </label>
+      </div>
+
+      {/* Row 3: custom preset overrides (only when Custom selected) */}
+      {isCustom && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 border-t border-border/50">
+          <span className="text-text-muted font-medium">Custom:</span>
+
+          <label className="flex items-center gap-1 text-text-muted">
+            Width (mm):
+            <input
+              type="number"
+              value={options.preset.figureWidth}
+              onChange={e => patchPreset({ figureWidth: Number(e.target.value) })}
+              className="w-16 text-xs border border-border rounded px-1 py-0.5 bg-surface text-text"
+            />
+          </label>
+
+          <label className="flex items-center gap-1 text-text-muted">
+            DPI:
+            <input
+              type="number"
+              value={options.preset.dpi}
+              onChange={e => patchPreset({ dpi: Number(e.target.value) })}
+              className="w-16 text-xs border border-border rounded px-1 py-0.5 bg-surface text-text"
+            />
+          </label>
+
+          <label className="flex items-center gap-1 text-text-muted">
+            Font (pt):
+            <input
+              type="number"
+              value={options.preset.fontSize}
+              onChange={e => patchPreset({ fontSize: Number(e.target.value) })}
+              className="w-12 text-xs border border-border rounded px-1 py-0.5 bg-surface text-text"
+            />
+          </label>
+
+          <label className="flex items-center gap-1 text-text-muted">
+            Line (px):
+            <input
+              type="number"
+              step="0.1"
+              value={options.preset.lineWidth}
+              onChange={e => patchPreset({ lineWidth: Number(e.target.value) })}
+              className="w-12 text-xs border border-border rounded px-1 py-0.5 bg-surface text-text"
+            />
+          </label>
+
+          <label className="flex items-center gap-1 text-text-muted">
+            Node scale:
+            <input
+              type="number"
+              step="0.05"
+              value={options.preset.nodeScale}
+              onChange={e => patchPreset({ nodeScale: Number(e.target.value) })}
+              className="w-14 text-xs border border-border rounded px-1 py-0.5 bg-surface text-text"
+            />
+          </label>
+        </div>
+      )}
+
+      {/* Row 4: include tables + download buttons */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t border-border/50">
+        <span className="text-text-muted font-medium">Include tables:</span>
+
+        <label className="flex items-center gap-1 text-text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={includeTables.population}
+            onChange={e => onIncludeTablesChange({ ...includeTables, population: e.target.checked })}
+            className="rounded"
+          />
+          Population
+        </label>
+
+        <label className="flex items-center gap-1 text-text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={includeTables.coi}
+            onChange={e => onIncludeTablesChange({ ...includeTables, coi: e.target.checked })}
+            className="rounded"
+          />
+          COI
+        </label>
+
+        <label className="flex items-center gap-1 text-text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={includeTables.genotype}
+            onChange={e => onIncludeTablesChange({ ...includeTables, genotype: e.target.checked })}
+            className="rounded"
+          />
+          Genotype
+        </label>
+      </div>
+    </div>
+  );
+}
+
+// ── Rendered figure preview ──────────────────────────────────────────────────
+
+interface FigurePreviewProps {
+  individuals: readonly Individual[];
+  options: FigureOptions;
+  includeTables: { population: boolean; coi: boolean; genotype: boolean };
+  t: Translation;
+}
+
+function FigurePreview({ individuals, options, includeTables, t }: FigurePreviewProps): React.JSX.Element {
+  const layout = useMemo(
+    () => computeLayout(individuals, { mode: 'pedigree' }),
+    [individuals],
+  );
+
+  const coiMap = useMemo(() => {
+    const results = computeAllCOI(individuals);
+    const m = new Map<string, number>();
+    for (const r of results) m.set(r.id, r.coefficient);
+    return m;
+  }, [individuals]);
+
+  const figureSvg = useMemo(
+    () => renderFigureSvg(individuals, layout, options, coiMap),
+    [individuals, layout, options, coiMap],
+  );
+
+  const populationTableSvg = useMemo(() => {
+    if (!includeTables.population) return null;
+    const tbl = generatePopulationTable(individuals, t);
+    return renderTableSvg(tbl, { width: 480, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
+  }, [individuals, t, includeTables.population, options.preset]);
+
+  const coiTableSvg = useMemo(() => {
+    if (!includeTables.coi) return null;
+    const tbl = generateInbreedingTable(individuals, t);
+    return renderTableSvg(tbl, { width: 480, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
+  }, [individuals, t, includeTables.coi, options.preset]);
+
+  const genotypeTableSvg = useMemo(() => {
+    if (!includeTables.genotype) return null;
+    const tbl = generateGenotypeTable(individuals, t);
+    return renderTableSvg(tbl, { width: 480, fontSize: options.preset.fontSize, fontFamily: options.preset.fontFamily });
+  }, [individuals, t, includeTables.genotype, options.preset]);
+
+  return (
+    <div className="flex flex-col gap-4 w-full max-w-fit">
+      {/* Figure */}
+      <div
+        className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+        dangerouslySetInnerHTML={{ __html: figureSvg }}
+      />
+
+      {/* Tables */}
+      {populationTableSvg && (
+        <div
+          className="rounded-xl border border-border bg-white shadow-sm overflow-auto p-4"
+          dangerouslySetInnerHTML={{ __html: populationTableSvg }}
+        />
+      )}
+      {coiTableSvg && (
+        <div
+          className="rounded-xl border border-border bg-white shadow-sm overflow-auto p-4"
+          dangerouslySetInnerHTML={{ __html: coiTableSvg }}
+        />
+      )}
+      {genotypeTableSvg && (
+        <div
+          className="rounded-xl border border-border bg-white shadow-sm overflow-auto p-4"
+          dangerouslySetInnerHTML={{ __html: genotypeTableSvg }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── PaperView ────────────────────────────────────────────────────────────────
 
 export function PaperView({ individuals, t, workbenchMode = 'pedigree', predictedStructures }: PaperViewProps): React.JSX.Element {
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const isPedigree = workbenchMode === 'pedigree';
 
+  // Figure options state (pedigree mode only)
+  const [figureOptions, setFigureOptions] = useState<FigureOptions>(DEFAULT_OPTIONS);
+  const [includeTables, setIncludeTables] = useState({ population: true, coi: true, genotype: false });
+
+  // ── Derived layout + coi for download helpers ──
+  const layout = useMemo(
+    () => computeLayout(individuals, { mode: 'pedigree' }),
+    [individuals],
+  );
+
+  const coiMap = useMemo(() => {
+    const results = computeAllCOI(individuals);
+    const m = new Map<string, number>();
+    for (const r of results) m.set(r.id, r.coefficient);
+    return m;
+  }, [individuals]);
+
+  // ── Legacy cohort helpers ──
   const getSvgContent = useCallback((): string | null => {
     if (!isPedigree) return null;
     const el = svgContainerRef.current?.querySelector('svg');
@@ -587,22 +930,7 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
     return new XMLSerializer().serializeToString(el);
   }, [isPedigree]);
 
-  const handleDownloadSvg = useCallback(() => {
-    if (!isPedigree) return;
-    const content = getSvgContent();
-    if (!content) return;
-    downloadSvgContent(content, 'pedigree.svg');
-  }, [isPedigree, getSvgContent]);
-
-  const handleDownloadPng = useCallback(() => {
-    if (!isPedigree) return;
-    const content = getSvgContent();
-    if (!content) return;
-    downloadPngFromSvg(content, 'pedigree.png');
-  }, [isPedigree, getSvgContent]);
-
   const handleDownloadCohortSvg = useCallback(() => {
-    // Cohort report is HTML — wrap in a foreignObject SVG for download
     const el = svgContainerRef.current;
     if (!el) return;
     const html = el.innerHTML;
@@ -630,52 +958,82 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
     downloadPngFromSvg(svg, 'cohort-report.png');
   }, []);
 
+  // ── Figure download handlers ──
+  const handleDownloadFigureSvg = useCallback(() => {
+    const svgStr = renderFigureSvg(individuals, layout, figureOptions, coiMap);
+    downloadSvgContent(svgStr, 'pedigree-figure.svg');
+  }, [individuals, layout, figureOptions, coiMap]);
+
+  const handleDownloadFigurePng = useCallback((dpi: number) => {
+    const svgStr = renderFigureSvg(individuals, layout, figureOptions, coiMap);
+    svgToCanvas(svgStr, dpi).then(canvas => {
+      exportAsPng(canvas).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pedigree-figure-${dpi}dpi.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }).catch(console.error);
+    }).catch(console.error);
+  }, [individuals, layout, figureOptions, coiMap]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Action bar */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface shrink-0">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={isPedigree ? handleDownloadSvg : handleDownloadCohortSvg}
-          className="inline-flex items-center gap-1.5"
-        >
-          <Download className="w-3.5 h-3.5" aria-hidden="true" />
-          {t.downloadSvg}
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={isPedigree ? handleDownloadPng : handleDownloadCohortPng}
-          className="inline-flex items-center gap-1.5"
-        >
-          <Download className="w-3.5 h-3.5" aria-hidden="true" />
-          {t.downloadPng}
-        </Button>
-        <span className="ml-2 text-xs text-text-muted">
-          {isPedigree ? t.pedigreeChart : t.cohortReport}
-        </span>
-      </div>
+      {isPedigree ? (
+        <>
+          {/* Figure configuration panel */}
+          <FigureConfigPanel
+            options={figureOptions}
+            onChange={setFigureOptions}
+            includeTables={includeTables}
+            onIncludeTablesChange={setIncludeTables}
+          />
 
-      {/* Output area */}
-      <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
-        <div className="flex flex-col gap-6 w-full max-w-fit">
-          <div
-            ref={svgContainerRef}
-            className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
-          >
-            {isPedigree ? (
-              <PedigreeSvg individuals={individuals} t={t} />
-            ) : (
-              <CohortReport individuals={individuals} t={t} />
-            )}
+          {/* Download action bar */}
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface shrink-0">
+            <span className="text-xs text-text-muted mr-1">Download:</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadFigureSvg}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              SVG
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleDownloadFigurePng(300)}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              PNG 300 dpi
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleDownloadFigurePng(600)}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              TIFF 600 dpi
+            </Button>
           </div>
 
-          {/* Protein Structures section — only in pedigree mode when structures are available */}
-          {isPedigree &&
-            predictedStructures !== undefined &&
-            predictedStructures.length > 0 && (
-              <div className="rounded-xl border border-border bg-white shadow-sm p-6">
+          {/* Preview */}
+          <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
+            <FigurePreview
+              individuals={individuals}
+              options={figureOptions}
+              includeTables={includeTables}
+              t={t}
+            />
+
+            {/* Protein Structures section */}
+            {predictedStructures !== undefined && predictedStructures.length > 0 && (
+              <div className="rounded-xl border border-border bg-white shadow-sm p-6 mt-6">
                 <h2 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-200">
                   {t.proteinStructures}
                 </h2>
@@ -686,8 +1044,44 @@ export function PaperView({ individuals, t, workbenchMode = 'pedigree', predicte
                 </div>
               </div>
             )}
-        </div>
-      </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Cohort mode: original action bar */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadCohortSvg}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              {t.downloadSvg}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadCohortPng}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              {t.downloadPng}
+            </Button>
+            <span className="ml-2 text-xs text-text-muted">{t.cohortReport}</span>
+          </div>
+
+          {/* Cohort output area */}
+          <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
+            <div
+              ref={svgContainerRef}
+              className="rounded-xl border border-border bg-white shadow-sm overflow-auto"
+            >
+              <CohortReport individuals={individuals} t={t} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

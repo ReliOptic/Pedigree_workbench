@@ -210,6 +210,25 @@ export interface Translation {
   readonly legendUnknown: string;
   readonly legendInbreeding: string;
   readonly ungrouped: string;
+  // Stats table headers and labels
+  readonly tablePopulationSummary: string;
+  readonly tableInbreedingStats: string;
+  readonly tableGenotypeDistribution: string;
+  readonly colN: string;
+  readonly colMales: string;
+  readonly colFemales: string;
+  readonly colUnknownSex: string;
+  readonly colMeanCoi: string;
+  readonly colMedianF: string;
+  readonly colMaxF: string;
+  readonly colPctInbred: string;
+  readonly colWt: string;
+  readonly colHet: string;
+  readonly colKo: string;
+  readonly colUnknown: string;
+  readonly colTotal: string;
+  readonly rowTotal: string;
+  readonly figCaption: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;
