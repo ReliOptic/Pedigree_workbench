@@ -130,10 +130,17 @@ export function NodeInspector({
   const [alphaFoldError, setAlphaFoldError] = useState<string | null>(null);
   // 'esmfold' | 'alphafold' — active tab when both structures are loaded
   const [activeStructureTab, setActiveStructureTab] = useState<'esmfold' | 'alphafold'>('alphafold');
-  const [notesOpen, setNotesOpen] = useState<boolean>(false);
   const [notesValue, setNotesValue] = useState<string>('');
-  const [matingsOpen, setMatingsOpen] = useState<boolean>(false);
-  const [geneticsOpen, setGeneticsOpen] = useState<boolean>(false);
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    new Set(['basic', 'coi', 'protein', 'genetics']),
+  );
+  const toggleSection = useCallback((id: string): void => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
 
   // Reset edit state whenever the selection changes.
   useEffect(() => {
@@ -149,7 +156,7 @@ export function NodeInspector({
     setIsFetchingAlphaFold(false);
     setAlphaFoldError(null);
     setActiveStructureTab('alphafold');
-    setNotesOpen(false);
+    setOpenSections(new Set(['basic', 'coi', 'protein', 'genetics']));
     setNotesValue(individual?.notes ?? '');
   }, [individual?.id, individual?.notes]);
 
@@ -202,6 +209,12 @@ export function NodeInspector({
     setForm(initialForm(individual));
     setIsEditing(true);
     setFormError(null);
+    // Open sequence section so the textarea is accessible in edit mode.
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      next.add('sequence');
+      return next;
+    });
   };
 
   const cancelEdit = (): void => {
@@ -452,64 +465,156 @@ export function NodeInspector({
               </div>
             )}
 
-            {isEditing && form !== null ? (
-              <EditForm
-                form={form}
-                setForm={setForm}
-                sireOptions={sireOptions}
-                damOptions={damOptions}
-                allIndividuals={allIndividuals}
-              />
-            ) : (
-              <ReadRows ind={individual} />
-            )}
+            {/* Section 2: Basic fields — default open */}
+            <section aria-labelledby="basic-heading" className="border-t border-border pt-2">
+              <button
+                type="button"
+                id="basic-heading"
+                onClick={() => toggleSection('basic')}
+                className="flex items-center justify-between w-full py-1 mb-1"
+                aria-expanded={openSections.has('basic')}
+              >
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                  {t.edit}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-text-muted transition-transform ${openSections.has('basic') ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+              {openSections.has('basic') && (
+                isEditing && form !== null ? (
+                  <EditForm
+                    form={form}
+                    setForm={setForm}
+                    sireOptions={sireOptions}
+                    damOptions={damOptions}
+                    allIndividuals={allIndividuals}
+                  />
+                ) : (
+                  <ReadRows ind={individual} />
+                )
+              )}
+            </section>
 
-            {/* COI Section */}
+            {/* Section 3: COI — default open */}
             {individual !== null && (
-              <div className="mt-3 px-3 py-2 rounded-lg bg-surface-raised border border-border">
-                <div className="text-xs font-semibold text-text-muted mb-1">
-                  Inbreeding Coefficient (COI)
-                </div>
-                <div className={`text-lg font-bold ${
-                  coi >= 0.125 ? 'text-red-600 dark:text-red-400' :
-                  coi >= 0.0625 ? 'text-amber-600 dark:text-amber-400' :
-                  coi > 0 ? 'text-indigo-600 dark:text-indigo-400' :
-                  'text-green-600 dark:text-green-400'
-                }`}>
-                  {(coi * 100).toFixed(2)}%
-                </div>
-                {coi >= 0.0625 && (
-                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    {coi >= 0.125
-                      ? '⚠ High inbreeding — increased genetic risk'
-                      : 'Caution: moderate inbreeding level'
-                    }
+              <section aria-labelledby="coi-heading" className="border-t border-border pt-2">
+                <button
+                  type="button"
+                  id="coi-heading"
+                  onClick={() => toggleSection('coi')}
+                  className="flex items-center justify-between w-full py-1 mb-1"
+                  aria-expanded={openSections.has('coi')}
+                >
+                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                    Inbreeding Coefficient (COI)
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-text-muted transition-transform ${openSections.has('coi') ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  />
+                </button>
+                {openSections.has('coi') && (
+                  <div className="px-3 py-2 rounded-lg bg-surface-raised border border-border">
+                    <div className={`text-lg font-bold ${
+                      coi >= 0.125 ? 'text-red-600 dark:text-red-400' :
+                      coi >= 0.0625 ? 'text-amber-600 dark:text-amber-400' :
+                      coi > 0 ? 'text-indigo-600 dark:text-indigo-400' :
+                      'text-green-600 dark:text-green-400'
+                    }`}>
+                      {(coi * 100).toFixed(2)}%
+                    </div>
+                    {coi >= 0.0625 && (
+                      <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        {coi >= 0.125
+                          ? '⚠ High inbreeding — increased genetic risk'
+                          : 'Caution: moderate inbreeding level'
+                        }
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </section>
             )}
 
-            {/* Genetics Analysis — plugin results */}
+            {/* Section 4: Protein Structure — default open when protein detected */}
+            {resolvedUniprotId !== null && (
+              <section aria-labelledby="protein-heading" className="border-t border-border pt-2">
+                <button
+                  type="button"
+                  id="protein-heading"
+                  onClick={() => toggleSection('protein')}
+                  className="flex items-center justify-between w-full py-1 mb-1"
+                  aria-expanded={openSections.has('protein')}
+                >
+                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                    Protein Structure
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-text-muted transition-transform ${openSections.has('protein') ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  />
+                </button>
+                {openSections.has('protein') && (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        data-testid="fetch-alphafold"
+                        onClick={() => void handleFetchAlphaFold()}
+                        disabled={isFetchingAlphaFold}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
+                        {isFetchingAlphaFold ? 'Fetching...' : `View Reference (${resolvedUniprotId})`}
+                      </Button>
+                    </div>
+                    {alphaFoldError !== null && (
+                      <div
+                        role="alert"
+                        className="p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
+                      >
+                        {alphaFoldError}
+                      </div>
+                    )}
+                    {alphaFoldPdb !== null && (
+                      <div className="mt-2">
+                        <InlineStructureViewer
+                          pdbData={alphaFoldPdb}
+                          label={`AlphaFold · ${resolvedUniprotId}`}
+                          height={300}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Section 5: Genetics Analysis — default open */}
             {pluginResults.length > 0 && (
-              <section aria-labelledby="genetics-heading" className="pt-2 border-t border-border">
+              <section aria-labelledby="genetics-heading" className="border-t border-border pt-2">
                 <button
                   type="button"
                   id="genetics-heading"
-                  onClick={() => setGeneticsOpen((prev) => !prev)}
-                  className="flex items-center gap-1.5 w-full text-xs font-bold text-text-secondary uppercase tracking-wide mb-2 hover:text-brand transition-colors"
-                  aria-expanded={geneticsOpen}
+                  onClick={() => toggleSection('genetics')}
+                  className="flex items-center justify-between w-full py-1 mb-1"
+                  aria-expanded={openSections.has('genetics')}
                 >
-                  {geneticsOpen ? (
-                    <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
-                  ) : (
-                    <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-                  )}
-                  Genetics Analysis
-                  <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 rounded-full font-mono">
-                    {pluginResults.length}
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                    Genetics Analysis
+                    <span className="px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 rounded-full font-mono">
+                      {pluginResults.length}
+                    </span>
                   </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-text-muted transition-transform ${openSections.has('genetics') ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  />
                 </button>
-                {geneticsOpen && (
+                {openSections.has('genetics') && (
                   <div className="space-y-1.5">
                     {pluginResults.map((result, idx) => (
                       <div
@@ -541,54 +646,134 @@ export function NodeInspector({
               </section>
             )}
 
-            {certificate !== null && (
-              <section className="pt-2 border-t border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wide">
-                    Pedigree Certificate
-                  </h3>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      downloadFile(
-                        JSON.stringify(certificate, null, 2),
-                        `${certificate.subject.id}-certificate.json`,
-                        'application/json',
-                      );
-                    }}
-                    className="inline-flex items-center gap-1.5"
-                  >
-                    <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                    Export JSON
-                  </Button>
-                </div>
-                <div className="rounded-lg bg-surface-raised border border-border px-3 py-2 text-xs text-text-secondary space-y-1">
-                  <div><span className="font-semibold">Species:</span> {certificate.speciesName}</div>
-                  <div><span className="font-semibold">Ancestor slots:</span> {certificate.ancestors.length}</div>
-                  <div><span className="font-semibold">COI:</span> {(certificate.coi * 100).toFixed(2)}%</div>
-                  <div><span className="font-semibold">Generated:</span> {new Date(certificate.generatedAt).toLocaleString()}</div>
-                </div>
-              </section>
-            )}
+            {/* Section 6: Sequence / PCR — default closed */}
+            <section aria-labelledby="sequence-heading" className="border-t border-border pt-2">
+              <button
+                type="button"
+                id="sequence-heading"
+                onClick={() => toggleSection('sequence')}
+                className="flex items-center justify-between w-full py-1 mb-1"
+                aria-expanded={openSections.has('sequence')}
+              >
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                  {t.sequence} (PCR)
+                  {!isEditing && individual.sequence !== undefined && (
+                    <span className="ml-2 font-mono font-normal normal-case text-text-muted">
+                      {t.sequenceLength}: {sequenceLen.toLocaleString()} bp
+                      {individual.sequenceSource !== undefined ? ` · ${individual.sequenceSource}` : ''}
+                    </span>
+                  )}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-text-muted transition-transform ${openSections.has('sequence') ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+              {openSections.has('sequence') && (
+                isEditing && form !== null ? (
+                  <div className="space-y-2">
+                    <select
+                      value={form.sequenceSource}
+                      onChange={(e) =>
+                        setForm((f) => (f === null ? f : { ...f, sequenceSource: e.target.value }))
+                      }
+                      className="w-full p-2 text-xs bg-surface-raised text-text-primary border border-border rounded"
+                      aria-label={t.sequenceSource}
+                    >
+                      <option value="">— {t.none} —</option>
+                      {SEQUENCE_SOURCES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <textarea
+                      data-testid="inspector-sequence"
+                      value={form.sequence}
+                      onChange={(e) =>
+                        setForm((f) => (f === null ? f : { ...f, sequence: e.target.value }))
+                      }
+                      placeholder="ATGCGTA... (IUPAC codes, whitespace ignored)"
+                      spellCheck={false}
+                      rows={6}
+                      className="w-full p-2 font-mono text-xs bg-surface-raised text-text-primary border border-border rounded resize-y"
+                    />
+                  </div>
+                ) : individual.sequence !== undefined ? (
+                  <div className="space-y-2">
+                    <pre className="p-2 font-mono text-[11px] leading-snug text-text-secondary bg-surface-raised border border-border rounded max-h-40 overflow-auto break-all whitespace-pre-wrap">
+                      {individual.sequence}
+                    </pre>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void handleCopySequence()}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                        {Date.now() - copiedAt < 1500 ? t.copied : t.copy}
+                      </Button>
+                      {individual.sequence !== undefined && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          data-testid="predict-structure"
+                          onClick={() => void handlePredictInline()}
+                          disabled={isPredicting}
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
+                          {isPredicting
+                            ? t.foldingProtein
+                            : resolvedUniprotId !== null
+                              ? 'Predict Edited Structure'
+                              : t.predictStructure}
+                        </Button>
+                      )}
+                    </div>
+                    {predictError !== null && (
+                      <div
+                        role="alert"
+                        className="mt-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
+                      >
+                        {predictError}
+                      </div>
+                    )}
+                    {inlinePdb !== null && (
+                      <div className="mt-2">
+                        <InlineStructureViewer
+                          pdbData={inlinePdb}
+                          label={`ESMFold · ${individual.id}`}
+                          height={300}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted italic">— {t.none} —</p>
+                )
+              )}
+            </section>
 
-            {/* Notes section */}
-            <section aria-labelledby="notes-heading" className="pt-2 border-t border-border">
+            {/* Section 7: Notes — default closed */}
+            <section aria-labelledby="notes-heading" className="border-t border-border pt-2">
               <button
                 type="button"
                 id="notes-heading"
-                onClick={() => setNotesOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 w-full text-xs font-bold text-text-secondary uppercase tracking-wide mb-2 hover:text-brand transition-colors"
-                aria-expanded={notesOpen}
+                onClick={() => toggleSection('notes')}
+                className="flex items-center justify-between w-full py-1 mb-1"
+                aria-expanded={openSections.has('notes')}
               >
-                {notesOpen ? (
-                  <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-                )}
-                {t.notes}
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                  {t.notes}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-text-muted transition-transform ${openSections.has('notes') ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                />
               </button>
-              {notesOpen && (
+              {openSections.has('notes') && (
                 <textarea
                   value={notesValue}
                   onChange={(e) => setNotesValue(e.target.value)}
@@ -606,165 +791,66 @@ export function NodeInspector({
               )}
             </section>
 
-            {/* Matings section */}
+            {/* Section 8: Matings — default closed */}
             <IndividualMatings
               individual={individual}
               allIndividuals={allIndividuals}
               matings={matings}
-              isOpen={matingsOpen}
-              onToggle={() => setMatingsOpen((prev) => !prev)}
+              isOpen={openSections.has('matings')}
+              onToggle={() => toggleSection('matings')}
               onDeleteMating={onDeleteMating}
               onUpdateMating={onUpdateMating}
               t={t}
             />
 
-            {/* Sequence section */}
-            <section aria-labelledby="sequence-heading" className="pt-2 border-t border-border">
-              <div className="flex items-center justify-between mb-2">
-                <h3
-                  id="sequence-heading"
-                  className="text-xs font-bold text-text-secondary uppercase tracking-wide"
+            {/* Section 9: Pedigree Certificate — default closed */}
+            {certificate !== null && (
+              <section aria-labelledby="certificate-heading" className="border-t border-border pt-2">
+                <button
+                  type="button"
+                  id="certificate-heading"
+                  onClick={() => toggleSection('certificate')}
+                  className="flex items-center justify-between w-full py-1 mb-1"
+                  aria-expanded={openSections.has('certificate')}
                 >
-                  {t.sequence} (PCR)
-                </h3>
-                {!isEditing && individual.sequence !== undefined && (
-                  <span className="font-mono text-xs text-text-secondary">
-                    {t.sequenceLength}: {sequenceLen.toLocaleString()} bp
-                    {individual.sequenceSource !== undefined ? ` · ${individual.sequenceSource}` : ''}
+                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                    Pedigree Certificate
                   </span>
-                )}
-              </div>
-              {isEditing && form !== null ? (
-                <div className="space-y-2">
-                  <select
-                    value={form.sequenceSource}
-                    onChange={(e) =>
-                      setForm((f) => (f === null ? f : { ...f, sequenceSource: e.target.value }))
-                    }
-                    className="w-full p-2 text-xs bg-surface-raised text-text-primary border border-border rounded"
-                    aria-label={t.sequenceSource}
-                  >
-                    <option value="">— {t.none} —</option>
-                    {SEQUENCE_SOURCES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                  <textarea
-                    data-testid="inspector-sequence"
-                    value={form.sequence}
-                    onChange={(e) =>
-                      setForm((f) => (f === null ? f : { ...f, sequence: e.target.value }))
-                    }
-                    placeholder="ATGCGTA... (IUPAC codes, whitespace ignored)"
-                    spellCheck={false}
-                    rows={6}
-                    className="w-full p-2 font-mono text-xs bg-surface-raised text-text-primary border border-border rounded resize-y"
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-text-muted transition-transform ${openSections.has('certificate') ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
                   />
-                </div>
-              ) : individual.sequence !== undefined ? (
-                <div className="space-y-2">
-                  <pre className="p-2 font-mono text-[11px] leading-snug text-text-secondary bg-surface-raised border border-border rounded max-h-40 overflow-auto break-all whitespace-pre-wrap">
-                    {individual.sequence}
-                  </pre>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => void handleCopySequence()}
-                      className="inline-flex items-center gap-1.5"
-                    >
-                      <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                      {Date.now() - copiedAt < 1500 ? t.copied : t.copy}
-                    </Button>
-                    {individual.sequence !== undefined && (
+                </button>
+                {openSections.has('certificate') && (
+                  <div>
+                    <div className="flex justify-end mb-2">
                       <Button
                         variant="secondary"
                         size="sm"
-                        data-testid="predict-structure"
-                        onClick={() => void handlePredictInline()}
-                        disabled={isPredicting}
+                        onClick={() => {
+                          downloadFile(
+                            JSON.stringify(certificate, null, 2),
+                            `${certificate.subject.id}-certificate.json`,
+                            'application/json',
+                          );
+                        }}
                         className="inline-flex items-center gap-1.5"
                       >
-                        <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
-                        {isPredicting
-                          ? t.foldingProtein
-                          : resolvedUniprotId !== null
-                            ? 'Predict Edited Structure'
-                            : t.predictStructure}
+                        <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                        Export JSON
                       </Button>
-                    )}
-                  </div>
-
-                  {/* Inline prediction error */}
-                  {predictError !== null && (
-                    <div
-                      role="alert"
-                      className="mt-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
-                    >
-                      {predictError}
                     </div>
-
-                  )}
-
-                  {/* ESMFold inline viewer */}
-                  {inlinePdb !== null && (
-                    <div className="mt-2">
-                      <InlineStructureViewer
-                        pdbData={inlinePdb}
-                        label={`ESMFold · ${individual.id}`}
-                        height={300}
-                      />
+                    <div className="rounded-lg bg-surface-raised border border-border px-3 py-2 text-xs text-text-secondary space-y-1">
+                      <div><span className="font-semibold">Species:</span> {certificate.speciesName}</div>
+                      <div><span className="font-semibold">Ancestor slots:</span> {certificate.ancestors.length}</div>
+                      <div><span className="font-semibold">COI:</span> {(certificate.coi * 100).toFixed(2)}%</div>
+                      <div><span className="font-semibold">Generated:</span> {new Date(certificate.generatedAt).toLocaleString()}</div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-text-muted italic">— {t.none} —</p>
-              )}
-            </section>
-          </div>
-
-          {/* AlphaFold / Structure Prediction — independent of sequence section */}
-          {resolvedUniprotId !== null && (
-            <div className="px-3 pb-3">
-              <section>
-                <h4 className="text-xs font-semibold text-text-secondary mb-2">Protein Structure</h4>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    data-testid="fetch-alphafold"
-                    onClick={() => void handleFetchAlphaFold()}
-                    disabled={isFetchingAlphaFold}
-                    className="inline-flex items-center gap-1.5"
-                  >
-                    <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
-                    {isFetchingAlphaFold ? 'Fetching...' : `View Reference (${resolvedUniprotId})`}
-                  </Button>
-                </div>
-
-                {alphaFoldError !== null && (
-                  <div
-                    role="alert"
-                    className="mt-2 p-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded"
-                  >
-                    {alphaFoldError}
-                  </div>
-                )}
-
-                {alphaFoldPdb !== null && (
-                  <div className="mt-2">
-                    <InlineStructureViewer
-                      pdbData={alphaFoldPdb}
-                      label={`AlphaFold · ${resolvedUniprotId}`}
-                      height={300}
-                    />
                   </div>
                 )}
               </section>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Footer */}
           <div className="p-3 border-t border-border bg-surface-raised text-[11px] font-mono text-text-muted text-center">
@@ -1093,11 +1179,10 @@ function IndividualMatings({
         className="flex items-center gap-1.5 w-full text-xs font-bold text-text-secondary uppercase tracking-wide mb-2 hover:text-brand transition-colors"
         aria-expanded={isOpen}
       >
-        {isOpen ? (
-          <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-        )}
+        <ChevronDown
+          className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
         {t.matings}
         {myMatings.length > 0 && (
           <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 rounded-full font-mono">

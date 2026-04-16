@@ -215,7 +215,7 @@ export function ContextMenu({
             {Icon !== undefined && <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />}
             <span className="flex-1">{entry.label}</span>
             {entry.shortcut !== undefined && (
-              <span className="font-mono text-[11px] text-text-muted">{entry.shortcut}</span>
+              <kbd className="ml-auto pl-4 text-text-muted text-xs font-mono">{entry.shortcut}</kbd>
             )}
           </button>
         );

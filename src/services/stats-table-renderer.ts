@@ -162,6 +162,17 @@ export function renderTableSvg(table: StatsTable, options: TableRenderOptions): 
   const parts: string[] = [];
   parts.push(`<rect x="0" y="0" width="${width}" height="${svgH}" fill="#fff"/>`);
 
+  // Define clipPath regions per column to prevent text overflow into adjacent columns.
+  const clipDefs: string[] = [];
+  for (let ci = 0; ci < nCols; ci++) {
+    const clipX = (colX[ci] ?? 0) + colPad;
+    const clipW = Math.max(0, (colWidths[ci] ?? 0) - colPad * 2);
+    clipDefs.push(
+      `<clipPath id="col-clip-${ci}"><rect x="${clipX}" y="0" width="${clipW}" height="${svgH}"/></clipPath>`
+    );
+  }
+  parts.push(`<defs>${clipDefs.join('')}</defs>`);
+
   // Title
   parts.push(`<text x="0" y="${fs * 1.2}" font-size="${fs + 1}" font-family="${fontFamily}" fill="#111" font-weight="600">${escapeXml(table.title)}</text>`);
 
@@ -174,7 +185,7 @@ export function renderTableSvg(table: StatsTable, options: TableRenderOptions): 
   for (let ci = 0; ci < nCols; ci++) {
     const x = (colX[ci] ?? 0) + (isNumericCol(ci) ? (colWidths[ci] ?? 0) - colPad : colPad);
     const textAnchor = isNumericCol(ci) ? 'end' : 'start';
-    parts.push(`<text x="${x}" y="${tableTop + headerH - 6}" font-size="${fs}" font-family="${fontFamily}" fill="#111" font-weight="600" text-anchor="${textAnchor}">${escapeXml(table.headers[ci] ?? '')}</text>`);
+    parts.push(`<text x="${x}" y="${tableTop + headerH - 6}" font-size="${fs}" font-family="${fontFamily}" fill="#111" font-weight="600" text-anchor="${textAnchor}" clip-path="url(#col-clip-${ci})">${escapeXml(table.headers[ci] ?? '')}</text>`);
   }
 
   // Header rule
@@ -192,7 +203,7 @@ export function renderTableSvg(table: StatsTable, options: TableRenderOptions): 
       const cell = table.rows[ri]?.[ci] ?? '';
       const x = (colX[ci] ?? 0) + (isNumericCol(ci) ? (colWidths[ci] ?? 0) - colPad : colPad);
       const textAnchor = isNumericCol(ci) ? 'end' : 'start';
-      parts.push(`<text x="${x}" y="${rowBaseY}" font-size="${fs}" font-family="${fontFamily}" fill="#222" text-anchor="${textAnchor}">${escapeXml(cell)}</text>`);
+      parts.push(`<text x="${x}" y="${rowBaseY}" font-size="${fs}" font-family="${fontFamily}" fill="#222" text-anchor="${textAnchor}" clip-path="url(#col-clip-${ci})">${escapeXml(cell)}</text>`);
     }
   }
 

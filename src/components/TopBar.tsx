@@ -316,113 +316,129 @@ export function TopBar({
           )}
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Save status indicator */}
         <SaveIndicator status={saveStatus} t={t} />
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onUndo}
-          disabled={!canUndo}
-          aria-label={t.undo}
-          data-testid="undo-button"
-          className="flex items-center justify-center w-9 h-9"
-        >
-          <Undo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRedo}
-          disabled={!canRedo}
-          aria-label={t.redo}
-          data-testid="redo-button"
-          className="flex items-center justify-center w-9 h-9"
-        >
-          <Redo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
-        </Button>
+        {/* Input group: things that add data */}
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onAddNodeClick}
+            aria-label={t.addNode}
+            data-testid="add-node-button"
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            {t.addNode}
+          </Button>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
-          aria-label={`Language: ${language === 'en' ? 'English' : 'Korean'}. Click to switch.`}
-          className="flex items-center gap-2 px-3 h-9 text-xs font-medium"
-        >
-          <Languages className="w-4 h-4" aria-hidden="true" />
-          {language === 'en' ? 'KO' : 'EN'}
-        </Button>
+          <Button
+            ref={uploadButtonRef}
+            variant="secondary"
+            size="sm"
+            onClick={onUploadClick}
+            aria-label={t.upload}
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium active:scale-[0.99]"
+          >
+            <Upload className="w-4 h-4" aria-hidden="true" />
+            {t.upload}
+          </Button>
+        </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSettingsClick}
-          aria-label={t.settings}
-          className="flex items-center justify-center w-9 h-9"
-        >
-          <Settings className="w-5 h-5 text-text-secondary" aria-hidden="true" />
-        </Button>
+        {/* Separator */}
+        <div className="w-px h-6 bg-border mx-2" aria-hidden="true" />
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onAddNodeClick}
-          aria-label={t.addNode}
-          data-testid="add-node-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" aria-hidden="true" />
-          {t.addNode}
-        </Button>
+        {/* Output group: things that take data out */}
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onExportClick}
+            aria-label={t.exportCsv}
+            data-testid="export-csv-button"
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
+          >
+            <Download className="w-4 h-4" aria-hidden="true" />
+            {t.exportCsv}
+          </Button>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onExportClick}
-          aria-label={t.exportCsv}
-          data-testid="export-csv-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
-        >
-          <Download className="w-4 h-4" aria-hidden="true" />
-          {t.exportCsv}
-        </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onBackupProject}
+            aria-label={t.backupProject}
+            data-testid="backup-project-button"
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
+          >
+            <HardDriveDownload className="w-4 h-4" aria-hidden="true" />
+            {t.backupProject}
+          </Button>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onBackupProject}
-          aria-label={t.backupProject}
-          data-testid="backup-project-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
-        >
-          <HardDriveDownload className="w-4 h-4" aria-hidden="true" />
-          {t.backupProject}
-        </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onRestoreProject}
+            aria-label={t.restoreBackup}
+            data-testid="restore-project-button"
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
+          >
+            <HardDriveUpload className="w-4 h-4" aria-hidden="true" />
+            {t.restoreBackup}
+          </Button>
+        </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onRestoreProject}
-          aria-label={t.restoreBackup}
-          data-testid="restore-project-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
-        >
-          <HardDriveUpload className="w-4 h-4" aria-hidden="true" />
-          {t.restoreBackup}
-        </Button>
+        {/* Separator */}
+        <div className="w-px h-6 bg-border mx-2" aria-hidden="true" />
 
-        <Button
-          ref={uploadButtonRef}
-          variant="primary"
-          size="sm"
-          onClick={onUploadClick}
-          aria-label={t.upload}
-          className="px-4 h-9 text-sm font-medium active:scale-[0.99] flex items-center gap-2"
-        >
-          <Upload className="w-4 h-4" aria-hidden="true" />
-          {t.upload}
-        </Button>
+        {/* Utility group: undo/redo, language, settings */}
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onUndo}
+            disabled={!canUndo}
+            aria-label={t.undo}
+            data-testid="undo-button"
+            className="flex items-center justify-center w-9 h-9"
+          >
+            <Undo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRedo}
+            disabled={!canRedo}
+            aria-label={t.redo}
+            data-testid="redo-button"
+            className="flex items-center justify-center w-9 h-9"
+          >
+            <Redo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
+            aria-label={`Language: ${language === 'en' ? 'English' : 'Korean'}. Click to switch.`}
+            className="flex items-center gap-2 px-3 h-9 text-xs font-medium"
+          >
+            <Languages className="w-4 h-4" aria-hidden="true" />
+            {language === 'en' ? 'KO' : 'EN'}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onSettingsClick}
+            aria-label={t.settings}
+            className="flex items-center gap-2 px-3 h-9 text-sm font-medium"
+          >
+            <Settings className="w-4 h-4" aria-hidden="true" />
+            {t.settings}
+          </Button>
+        </div>
       </div>
     </header>
   );

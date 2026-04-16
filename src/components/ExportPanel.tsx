@@ -306,17 +306,6 @@ export function ExportPanel({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-4 border-t border-border">
-          <Button
-            variant="primary"
-            size="md"
-            onClick={triggerDownload}
-            className="w-full"
-          >
-            Export
-          </Button>
-        </div>
       </div>
     </Panel>
   );

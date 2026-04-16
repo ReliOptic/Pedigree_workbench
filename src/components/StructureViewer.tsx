@@ -279,7 +279,26 @@ export function InlineStructureViewer({
     if (containerRef.current === null) return;
     let cancelled = false;
 
-    void (async () => {
+    const initViewer = async (): Promise<void> => {
+      // Wait for the container to have non-zero dimensions before initializing.
+      // 3Dmol needs a mounted element with explicit width/height.
+      const el = containerRef.current;
+      if (el === null) return;
+
+      if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+        // Retry after a short delay to allow layout to complete.
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        if (cancelled) return;
+      }
+
+      // Second check after delay — if still 0, bail out with helpful message.
+      if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+        if (!cancelled) {
+          setViewerError('3D viewer container has no dimensions. Try resizing the panel.');
+        }
+        return;
+      }
+
       try {
         const $3Dmol = await import('3dmol');
         if (cancelled || containerRef.current === null) return;
@@ -295,15 +314,22 @@ export function InlineStructureViewer({
         viewer.render();
         viewerRef.current = viewer;
         setReady(true);
-      } catch {
+      } catch (cause) {
         if (!cancelled) {
-          setViewerError('Failed to initialize 3D viewer.');
+          const msg = cause instanceof Error ? cause.message : String(cause);
+          setViewerError(`Failed to initialize 3D viewer: ${msg || 'unknown error'}. Try refreshing.`);
         }
       }
-    })();
+    };
+
+    // Use requestAnimationFrame to ensure the DOM has been painted before init.
+    const rafId = requestAnimationFrame(() => {
+      void initViewer();
+    });
 
     return () => {
       cancelled = true;
+      cancelAnimationFrame(rafId);
     };
   }, [pdbData]);
 
