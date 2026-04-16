@@ -155,33 +155,33 @@ export function MateModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="mate-modal-title"
-          className="bg-surface-raised w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] rounded-lg overflow-hidden"
+          className="bg-surface-raised w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] rounded-xl overflow-hidden border border-border"
         >
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-            <h2 id="mate-modal-title" className="text-lg font-bold text-brand">
+          <div className="p-5 border-b border-border flex justify-between items-center">
+            <h2 id="mate-modal-title" className="text-lg font-semibold text-text-primary">
               {t.addMate}
             </h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close mate dialog"
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              className="panel-button rounded-full p-2"
             >
-              <X className="w-5 h-5" aria-hidden="true" />
+              <X className="w-5 h-5 text-text-secondary" aria-hidden="true" />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   sire *
                 </span>
                 <select
                   ref={firstFieldRef}
                   value={form.sireId}
                   onChange={patch('sireId')}
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 >
                   <option value="">— {t.selectMate} —</option>
                   {sireOptions.map((ind) => (
@@ -192,13 +192,13 @@ export function MateModal({
                 </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   dam *
                 </span>
                 <select
                   value={form.damId}
                   onChange={patch('damId')}
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 >
                   <option value="">— {t.selectMate} —</option>
                   {damOptions.map((ind) => (
@@ -211,13 +211,13 @@ export function MateModal({
             </div>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                 {t.matingStatus}
               </span>
               <select
                 value={form.status}
                 onChange={patch('status')}
-                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
               >
                 {MATING_STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -229,18 +229,18 @@ export function MateModal({
 
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   {t.matingDate}
                 </span>
                 <input
                   type="date"
                   value={form.matingDate}
                   onChange={patch('matingDate')}
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   {t.gestationDays}
                 </span>
                 <input
@@ -249,25 +249,25 @@ export function MateModal({
                   onChange={patch('gestationDays')}
                   min={1}
                   placeholder="e.g. 63"
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 />
               </label>
             </div>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                 {t.dueDate}
               </span>
               <input
                 type="date"
                 value={form.dueDate}
                 onChange={patch('dueDate')}
-                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
               />
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                 {t.notes}
               </span>
               <textarea
@@ -275,7 +275,7 @@ export function MateModal({
                 onChange={patch('notes')}
                 rows={3}
                 placeholder={t.noNotes}
-                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono resize-y"
+                className="panel-field w-full rounded px-3 py-2 text-sm font-mono resize-y"
               />
             </label>
 
@@ -287,17 +287,17 @@ export function MateModal({
 
             {/* Trial Mating COI Preview */}
             {form.sireId && form.damId && (
-              <div className={`mt-4 p-3 rounded-lg border ${
+              <div className={`mt-4 rounded-xl border px-4 py-3 ${
                 predictedCOI >= 0.125
-                  ? 'bg-red-50 border-red-300 dark:bg-red-900/20 dark:border-red-700'
+                  ? 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-900/80'
                   : predictedCOI >= 0.0625
-                  ? 'bg-amber-50 border-amber-300 dark:bg-amber-900/20 dark:border-amber-700'
+                  ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-900/80'
                   : predictedCOI > 0
-                  ? 'bg-indigo-50 border-indigo-300 dark:bg-indigo-900/20 dark:border-indigo-700'
-                  : 'bg-green-50 border-green-300 dark:bg-green-900/20 dark:border-green-700'
+                  ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-900/80'
+                  : 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-900/80'
               }`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-medium text-text-secondary">
                     {t.expectedOffspringCOI ?? 'Expected Offspring COI'}
                   </span>
                   <span className={`text-lg font-bold ${
@@ -325,11 +325,11 @@ export function MateModal({
             )}
           </div>
 
-          <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+          <div className="p-5 border-t border-border flex justify-end gap-3 bg-surface">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-brand transition"
+              className="panel-button rounded px-4 py-2 text-sm font-medium"
             >
               {t.cancel}
             </button>
@@ -337,7 +337,7 @@ export function MateModal({
               type="button"
               onClick={handleSubmit}
               disabled={form.sireId.trim().length === 0 || form.damId.trim().length === 0}
-              className="px-6 py-2 text-sm font-medium bg-brand text-white rounded hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+              className="panel-button panel-button-primary rounded px-6 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Heart className="w-4 h-4" aria-hidden="true" />
               {t.addMate}

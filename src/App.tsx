@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   Pencil,
   Trash2,
@@ -23,6 +25,7 @@ import { ContextMenu, type MenuEntry } from './components/ContextMenu';
 import { Footer } from './components/Footer';
 import { ImportModal } from './components/ImportModal';
 import { toCsv, downloadFile } from './services/pedigree-export';
+import { exportProject, parseProjectFile } from './services/project-io';
 import { NodeInspector } from './components/NodeInspector';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { PaperView } from './components/PaperView';
@@ -32,7 +35,8 @@ import {
 } from './components/PedigreeCanvas';
 import { TopBar } from './components/TopBar';
 import { Dashboard } from './components/Dashboard';
-import { hasF1Data, computeCohortStats, detectMissingData } from './services/cohort-analyzer';
+import { WorkbenchSidebar } from './components/WorkbenchSidebar';
+import { computeCohortStats, detectMissingData } from './services/cohort-analyzer';
 import { usePedigree } from './hooks/use-pedigree';
 import { useMatings } from './hooks/use-matings';
 import { useProjects } from './hooks/use-projects';
@@ -40,12 +44,16 @@ import { useUndo } from './hooks/use-undo';
 import { useSettings } from './hooks/use-settings';
 import { summarize } from './services/pedigree-layout';
 import { getNodePositions, setNodePositions } from './services/settings-store';
+import type { Species } from './services/settings-store';
 import { TRANSLATIONS } from './translations';
 import type { Individual } from './types/pedigree.types';
 import { useCanvasStore } from './stores/canvas-store';
 import { useUIStore } from './stores/ui-store';
 import { initBuiltInPlugins } from './plugins';
 import { isMale, isFemale } from './lib/sex-utils';
+import { computePopulationStats } from './services/population-genetics';
+import { validatePedigree } from './services/pedigree-validation';
+import { getSpeciesProfile } from './services/species-profiles';
 
 // Initialize built-in plugins on app start
 initBuiltInPlugins();
@@ -222,35 +230,50 @@ export default function App(): React.JSX.Element {
     mateModalPrefillDamId,
   } = useUIStore();
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
+  const [showWorkbenchSidebar, setShowWorkbenchSidebar] = useState<boolean>(true);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [relationshipMode, setRelationshipMode] = useState<
+    | { readonly kind: 'idle' }
+    | { readonly kind: 'assign-parent'; readonly parentRole: 'sire' | 'dam'; readonly sourceId: string }
+    | { readonly kind: 'create-mating'; readonly sourceId: string }
+  >({ kind: 'idle' });
   const uploadButtonRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<PedigreeCanvasHandle>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
   const t = TRANSLATIONS[language];
   const summary = useMemo(() => summarize(individuals), [individuals]);
   const cohortStats = useMemo(() => computeCohortStats(individuals), [individuals]);
   const missingAlerts = useMemo(() => detectMissingData(individuals), [individuals]);
-
-  // Smart view switching: on new import, auto-switch to dashboard if no F1 data,
-  // or workbench if F1 data exists. Track previous individuals length to detect imports.
-  const prevIndividualsLengthRef = useRef<number>(individuals.length);
-  useEffect(() => {
-    const prev = prevIndividualsLengthRef.current;
-    prevIndividualsLengthRef.current = individuals.length;
-    // Only trigger on meaningful data change (import), not on initial zero-length load
-    if (prev === individuals.length || individuals.length === 0) return;
-    if (!hasF1Data(individuals)) {
-      setActiveNav('dashboard');
-    } else {
-      setActiveNav('workbench');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [individuals]);
+  const populationStats = useMemo(() => computePopulationStats(individuals), [individuals]);
+  const validation = useMemo(() => validatePedigree(individuals), [individuals]);
+  const speciesProfile = useMemo(() => getSpeciesProfile(species), [species]);
 
   const selected = useMemo(
     () => individuals.find((i) => i.id === selectedId) ?? null,
     [individuals, selectedId],
   );
+  const relationshipSource = useMemo(
+    () => relationshipMode.kind === 'idle'
+      ? null
+      : individuals.find((i) => i.id === relationshipMode.sourceId) ?? null,
+    [individuals, relationshipMode],
+  );
+
+  useEffect(() => {
+    if (relationshipMode.kind === 'idle') return;
+    if (!individuals.some((individual) => individual.id === relationshipMode.sourceId)) {
+      setRelationshipMode({ kind: 'idle' });
+    }
+  }, [individuals, relationshipMode]);
+
+  useEffect(() => {
+    if (activeGroupId === null) return;
+    if (!individuals.some((individual) => individual.group === activeGroupId)) {
+      setActiveGroupId(null);
+    }
+  }, [activeGroupId, individuals]);
 
   // Search match count.
   const matchCount = useMemo(() => {
@@ -330,13 +353,83 @@ export default function App(): React.JSX.Element {
       e.preventDefault();
       setSearchQuery('');
       searchInputRef.current?.blur();
+      return;
     }
-  }, [undo, redo, toggleShortcutOverlay, setSearchQuery]);
+    if (e.key === 'Escape' && relationshipMode.kind !== 'idle') {
+      e.preventDefault();
+      setRelationshipMode({ kind: 'idle' });
+    }
+  }, [undo, redo, toggleShortcutOverlay, setSearchQuery, relationshipMode]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleGlobalKeyDown]);
+
+  const relationshipHint = useMemo(() => {
+    if (relationshipMode.kind === 'assign-parent') {
+      return relationshipMode.parentRole === 'sire'
+        ? 'Click a child node to assign the selected individual as sire.'
+        : 'Click a child node to assign the selected individual as dam.';
+    }
+    if (relationshipMode.kind === 'create-mating') {
+      return 'Click a partner node to start a mating record with the selected individual.';
+    }
+    return null;
+  }, [relationshipMode]);
+
+  const handleWorkbenchSelect = useCallback((id: string | null): void => {
+    if (id === null) {
+      setSelectedId(null);
+      return;
+    }
+
+    if (relationshipMode.kind === 'assign-parent') {
+      if (id === relationshipMode.sourceId) {
+        setSelectedId(id);
+        return;
+      }
+
+      void trackedUpdateOne(
+        id,
+        relationshipMode.parentRole === 'sire'
+          ? { sire: relationshipMode.sourceId }
+          : { dam: relationshipMode.sourceId },
+      );
+      setSelectedId(id);
+      setRelationshipMode({ kind: 'idle' });
+      return;
+    }
+
+    if (relationshipMode.kind === 'create-mating') {
+      if (id === relationshipMode.sourceId) {
+        setSelectedId(id);
+        return;
+      }
+
+      const source = individuals.find((individual) => individual.id === relationshipMode.sourceId);
+      const target = individuals.find((individual) => individual.id === id);
+      if (source !== undefined && target !== undefined) {
+        if (isFemale(source) && !isFemale(target)) {
+          openMateModal(target.id, source.id);
+        } else if (isFemale(target) && !isFemale(source)) {
+          openMateModal(source.id, target.id);
+        } else {
+          openMateModal(source.id, target.id);
+        }
+      } else {
+        openMateModal();
+      }
+      setSelectedId(id);
+      setRelationshipMode({ kind: 'idle' });
+      return;
+    }
+
+    setSelectedId(id);
+  }, [individuals, openMateModal, relationshipMode, trackedUpdateOne, setSelectedId]);
+
+  const showWorkbenchChrome =
+    activeView === 'workbench' && !isLoading && error === null && individuals.length > 0;
 
   // Apply dark mode class to <html> based on theme preference.
   useEffect(() => {
@@ -377,7 +470,10 @@ export default function App(): React.JSX.Element {
           const date = new Date().toISOString().slice(0, 10);
           downloadFile(csv, `${projName}-${date}.csv`, 'text/csv');
         }}
-        onAddNodeClick={() => openAddModal()}
+        onAddNodeClick={() => {
+          setActiveNav('workbench');
+          openAddModal();
+        }}
         language={language}
         setLanguage={setLanguage}
         t={t}
@@ -398,6 +494,7 @@ export default function App(): React.JSX.Element {
         activeProjectId={activeProjectId}
         onSwitchProject={(id) => void switchProject(id)}
         onNewProject={() => {
+          setActiveNav('workbench');
           void createProject(t.untitledProject, []);
         }}
         onDeleteProject={(id) => void removeProject(id)}
@@ -405,13 +502,18 @@ export default function App(): React.JSX.Element {
         onBackupProject={() => {
           const projName = projects.find((p) => p.id === activeProjectId)?.name ?? 'pedigree';
           const date = new Date().toISOString().slice(0, 10);
-          const backup = JSON.stringify({ name: projName, data: individuals, matings }, null, 2);
+          const backup = exportProject(projName, individuals, matings, nodePositions, species);
           downloadFile(backup, `${projName}-backup-${date}.json`, 'application/json');
         }}
+        onRestoreProject={() => restoreInputRef.current?.click()}
         hasMissingDataAlerts={missingAlerts.length > 0}
       />
 
-      <main className="grid grid-cols-[1fr_auto] min-h-0 overflow-hidden relative">
+      <main className={`grid min-h-0 overflow-hidden relative ${
+        showWorkbenchChrome
+          ? (showWorkbenchSidebar ? 'grid-cols-[320px_1fr_auto]' : 'grid-cols-[1fr_auto]')
+          : 'grid-cols-[1fr_auto]'
+      }`}>
         {activeView === 'paper' ? (
           <PaperView individuals={individuals} t={t} />
         ) : activeView === 'dashboard' ? (
@@ -426,6 +528,11 @@ export default function App(): React.JSX.Element {
               t={t}
               projectName={projects.find((p) => p.id === activeProjectId)?.name}
               individuals={individuals}
+              onSelectIndividual={setSelectedId}
+              populationStats={populationStats}
+              validation={validation}
+              speciesProfile={speciesProfile}
+              language={language}
             />
           )
         ) : isLoading ? (
@@ -439,21 +546,96 @@ export default function App(): React.JSX.Element {
             t={t}
           />
         ) : (
-          <PedigreeCanvas
-            ref={canvasRef}
-            individuals={individuals}
-            matings={matings}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onNodeContextMenu={(id, pos) => setCtxMenu({ kind: 'node', id, x: pos.x, y: pos.y })}
-            onCanvasContextMenu={(pos) => setCtxMenu({ kind: 'canvas', x: pos.x, y: pos.y })}
-            t={t}
-            searchQuery={searchQuery}
-            showNotesOnHover={showNotesOnHover}
-            generationFormat={generationFormat}
-            nodePositions={nodePositions}
-            onNodeDrag={handleNodeDrag}
-          />
+          <>
+            {showWorkbenchSidebar ? (
+              <WorkbenchSidebar
+                selected={selected}
+                stats={cohortStats}
+                missingAlerts={missingAlerts}
+                populationStats={populationStats}
+                validation={validation}
+                speciesProfile={speciesProfile}
+                individuals={individuals}
+                language={language}
+                relationshipMode={relationshipMode}
+                onAddChild={() => {
+                  if (selected === null) return;
+                  setActiveNav('workbench');
+                  openAddModal(buildAddChildPrefill(selected));
+                }}
+                onStartAssignSire={() => {
+                  if (selected === null) return;
+                  setRelationshipMode({ kind: 'assign-parent', parentRole: 'sire', sourceId: selected.id });
+                }}
+                onStartAssignDam={() => {
+                  if (selected === null) return;
+                  setRelationshipMode({ kind: 'assign-parent', parentRole: 'dam', sourceId: selected.id });
+                }}
+                onStartMating={() => {
+                  if (selected === null) return;
+                  setRelationshipMode({ kind: 'create-mating', sourceId: selected.id });
+                }}
+                onCancelRelationshipMode={() => setRelationshipMode({ kind: 'idle' })}
+                onSelectIndividual={(id) => {
+                  setActiveNav('workbench');
+                  setSelectedId(id);
+                }}
+                onFocusGeneration={(generation) => {
+                  setActiveNav('workbench');
+                  canvasRef.current?.focusGeneration(generation);
+                }}
+                activeGroupId={activeGroupId}
+                onFocusGroup={(groupId) => {
+                  setActiveNav('workbench');
+                  setActiveGroupId(groupId);
+                  if (groupId === null) {
+                    canvasRef.current?.fit();
+                    return;
+                  }
+                  canvasRef.current?.focusGroup(groupId);
+                }}
+                onCollapse={() => setShowWorkbenchSidebar(false)}
+              />
+            ) : null}
+            <PedigreeCanvas
+              ref={canvasRef}
+              individuals={individuals}
+              matings={matings}
+              selectedId={selectedId}
+              onSelect={handleWorkbenchSelect}
+              onNodeContextMenu={(id, pos) => setCtxMenu({ kind: 'node', id, x: pos.x, y: pos.y })}
+              onCanvasContextMenu={(pos) => setCtxMenu({ kind: 'canvas', x: pos.x, y: pos.y })}
+              t={t}
+              searchQuery={searchQuery}
+              showNotesOnHover={showNotesOnHover}
+              generationFormat={generationFormat}
+              nodePositions={nodePositions}
+              onNodeDrag={handleNodeDrag}
+              relationshipSourceId={relationshipSource?.id ?? null}
+              interactionHint={relationshipHint}
+              activeGroupId={activeGroupId}
+            />
+            <button
+              type="button"
+              onClick={() => setShowWorkbenchSidebar((open) => !open)}
+              aria-label={showWorkbenchSidebar
+                ? (language === 'ko' ? '좌측 패널 접기' : 'Collapse sidebar')
+                : (language === 'ko' ? '좌측 패널 열기' : 'Expand sidebar')}
+              title={showWorkbenchSidebar
+                ? (language === 'ko' ? '좌측 패널 접기' : 'Hide tools panel')
+                : (language === 'ko' ? '좌측 패널 열기' : 'Show tools panel')}
+              className="absolute top-1/2 z-40 flex h-16 w-6 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-border bg-surface/96 text-text-secondary shadow-lg backdrop-blur-sm transition-all hover:w-7 hover:border-[var(--color-border-strong)] hover:text-text-primary"
+              style={{
+                left: showWorkbenchSidebar ? 320 : 0,
+              }}
+            >
+              {showWorkbenchSidebar ? (
+                <ChevronLeft className="h-4 w-4 shrink-0" />
+              ) : (
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              )}
+            </button>
+          </>
         )}
 
         {activeView === 'workbench' && (
@@ -467,6 +649,8 @@ export default function App(): React.JSX.Element {
             matings={matings}
             onDeleteMating={(id) => void deleteMating(id)}
             onUpdateMating={(m) => void updateMating(m)}
+            species={species}
+            language={language}
           />
         )}
       </main>
@@ -481,12 +665,51 @@ export default function App(): React.JSX.Element {
       <ImportModal
         isOpen={showImportModal}
         onClose={() => closeImportModal()}
-        onImported={(projectName, importedIndividuals) => {
+        existingIndividuals={individuals}
+        activeProjectName={projects.find((project) => project.id === activeProjectId)?.name}
+        onImported={async ({ projectName, individuals: importedIndividuals, mode }) => {
           pushSnapshot(individuals);
           closeImportModal();
-          void createProject(projectName, importedIndividuals).then(() => refreshProjects());
+          setActiveNav('workbench');
+          if (mode === 'merge') {
+            await replaceAll(importedIndividuals);
+            await saveCurrentProject();
+            await refreshProjects();
+            return;
+          }
+          await createProject(projectName, importedIndividuals);
         }}
         t={t}
+      />
+
+      <input
+        ref={restoreInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file === undefined) return;
+          void file.text().then(async (json) => {
+            const parsed = parseProjectFile(json);
+            const projectId = await createProject(
+              parsed.project.name,
+              parsed.project.individuals,
+              parsed.project.matings,
+            );
+            setNodePositions(projectId, parsed.project.nodePositions);
+            setStoreNodePositions(parsed.project.nodePositions);
+            if (parsed.project.species !== undefined) {
+              setSpecies(parsed.project.species as Species);
+            }
+            setActiveNav('workbench');
+            await refreshProjects();
+          }).catch((cause) => {
+            console.error('Failed to restore project', cause);
+          }).finally(() => {
+            event.target.value = '';
+          });
+        }}
       />
 
       <AddNodeModal
@@ -503,8 +726,10 @@ export default function App(): React.JSX.Element {
             void trackedUpdateOne(addParentTarget, { [field]: id });
           }
           closeAddModal();
+          setActiveNav('workbench');
           setSelectedId(id);
         }}
+        generationFormat={generationFormat}
         t={t}
       />
 
@@ -767,9 +992,9 @@ function LoadingState(): React.JSX.Element {
       role="status"
       aria-label="Loading pedigree"
     >
-      <div className="w-12 h-12 rounded-full border-2 border-slate-300 bg-slate-200 animate-pulse" />
-      <div className="w-12 h-12 rounded-full border-2 border-slate-300 bg-slate-200 animate-pulse [animation-delay:150ms]" />
-      <div className="w-12 h-12 rounded-full border-2 border-slate-300 bg-slate-200 animate-pulse [animation-delay:300ms]" />
+      <div className="w-12 h-12 rounded-full border-2 border-border bg-surface-raised animate-pulse" />
+      <div className="w-12 h-12 rounded-full border-2 border-border bg-surface-raised animate-pulse [animation-delay:150ms]" />
+      <div className="w-12 h-12 rounded-full border-2 border-border bg-surface-raised animate-pulse [animation-delay:300ms]" />
     </div>
   );
 }
@@ -816,7 +1041,7 @@ function EmptyState({
           height="80"
           viewBox="0 0 80 80"
           aria-hidden="true"
-          className="text-slate-300"
+          className="text-text-muted"
         >
           <rect x="10" y="10" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" />
           <circle cx="60" cy="20" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -829,7 +1054,7 @@ function EmptyState({
           />
           <rect x="40" y="60" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" />
         </svg>
-        <p className="text-sm text-slate-500">No individuals yet.</p>
+        <p className="text-sm text-text-muted">No individuals yet.</p>
         <div className="flex gap-2">
           <button
             type="button"

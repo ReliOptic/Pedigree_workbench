@@ -3,6 +3,7 @@ import { X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { logger } from '../services/logger';
+import type { GenerationFormat } from '../services/settings-store';
 import type { Individual } from '../types/pedigree.types';
 import type { Translation } from '../types/translation.types';
 
@@ -14,6 +15,7 @@ interface AddNodeModalProps {
   readonly onClose: () => void;
   readonly onAdd: (ind: Individual) => Promise<void>;
   readonly onAdded: (id: string, individual: Individual) => void;
+  readonly generationFormat: GenerationFormat;
   readonly t: Translation;
 }
 
@@ -59,6 +61,7 @@ export function AddNodeModal({
   onClose,
   onAdd,
   onAdded,
+  generationFormat,
   t,
 }: AddNodeModalProps): React.JSX.Element | null {
   const [form, setForm] = useState<FormState>(() => prefillToForm(prefill));
@@ -96,12 +99,28 @@ export function AddNodeModal({
       setForm((f) => ({ ...f, [key]: value }));
     };
 
+  const validateGeneration = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (trimmed.length === 0 || generationFormat === 'Custom') return null;
+    if (generationFormat === 'F' && /^F-?\d+$/i.test(trimmed)) return null;
+    if (generationFormat === 'Gen' && /^Gen\s*-?\d+$/i.test(trimmed)) return null;
+    if (generationFormat === 'Roman' && /^(?=[IVXLCDM]+$)[IVXLCDM]+$/i.test(trimmed)) return null;
+    if (generationFormat === 'F') return 'Generation must look like F0, F1, F2.';
+    if (generationFormat === 'Gen') return 'Generation must look like Gen 0, Gen 1.';
+    return 'Generation must use Roman numerals in the current setting.';
+  };
+
   const handleSubmit = async (): Promise<void> => {
     setError(null);
     const id = form.id.trim();
     if (id.length === 0) {
       setError('ID is required.');
       firstFieldRef.current?.focus();
+      return;
+    }
+    const generationError = validateGeneration(form.generation);
+    if (generationError !== null) {
+      setError(generationError);
       return;
     }
     const next: Individual = {
@@ -149,25 +168,25 @@ export function AddNodeModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-node-title"
-          className="bg-surface-raised w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] rounded-lg overflow-hidden"
+          className="bg-surface-raised w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] rounded-xl overflow-hidden border border-border"
         >
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-            <h2 id="add-node-title" className="text-lg font-bold text-brand">
+          <div className="p-5 border-b border-border flex justify-between items-center">
+            <h2 id="add-node-title" className="text-lg font-semibold text-text-primary">
               {t.addNode}
             </h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close add node dialog"
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              className="panel-button rounded-full p-2"
             >
-              <X className="w-5 h-5" aria-hidden="true" />
+              <X className="w-5 h-5 text-text-secondary" aria-hidden="true" />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                 id *
               </span>
               <input
@@ -177,56 +196,67 @@ export function AddNodeModal({
                 value={form.id}
                 onChange={patch('id')}
                 placeholder="e.g. SNUDB #3-1"
-                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 required
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                 label
               </span>
               <input
                 type="text"
                 value={form.label}
                 onChange={patch('label')}
-                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
               />
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   sex
                 </span>
-                <input
-                  type="text"
+                <select
                   value={form.sex}
                   onChange={patch('sex')}
-                  placeholder="수컷 / 암컷 / M / F"
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
-                />
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
+                >
+                  <option value="">— none —</option>
+                  <option value="M">Male (M)</option>
+                  <option value="F">Female (F)</option>
+                  <option value="Unknown">Unknown</option>
+                </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   generation
                 </span>
                 <input
                   type="text"
                   value={form.generation}
                   onChange={patch('generation')}
-                  placeholder="F0 / F1 ..."
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  placeholder={
+                    generationFormat === 'F'
+                      ? 'F0 / F1 / F2'
+                      : generationFormat === 'Gen'
+                        ? 'Gen 0 / Gen 1'
+                        : generationFormat === 'Roman'
+                          ? 'I / II / III'
+                          : 'Custom generation label'
+                  }
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 />
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   sire
                 </span>
                 <select
                   value={form.sire}
                   onChange={patch('sire')}
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 >
                   <option value="">— none —</option>
                   {parentOptions.map((id) => (
@@ -237,13 +267,13 @@ export function AddNodeModal({
                 </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   dam
                 </span>
                 <select
                   value={form.dam}
                   onChange={patch('dam')}
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 >
                   <option value="">— none —</option>
                   {parentOptions.map((id) => (
@@ -256,18 +286,18 @@ export function AddNodeModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   group
                 </span>
                 <input
                   type="text"
                   value={form.group}
                   onChange={patch('group')}
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                   birth_date
                 </span>
                 <input
@@ -275,19 +305,19 @@ export function AddNodeModal({
                   value={form.birthDate}
                   onChange={patch('birthDate')}
                   placeholder="YYYY-MM-DD"
-                  className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                  className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
                 />
               </label>
             </div>
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-tight">
                 status
               </span>
               <input
                 type="text"
                 value={form.status}
                 onChange={patch('status')}
-                className="w-full p-2 text-sm bg-surface-raised border border-border rounded font-mono"
+                className="panel-field w-full rounded px-3 py-2 text-sm font-mono"
               />
             </label>
 
@@ -302,11 +332,11 @@ export function AddNodeModal({
             )}
           </div>
 
-          <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+          <div className="p-5 border-t border-border flex justify-end gap-3 bg-surface">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-brand transition"
+              className="panel-button rounded px-4 py-2 text-sm font-medium"
             >
               {t.cancel}
             </button>
@@ -317,7 +347,7 @@ export function AddNodeModal({
               onClick={() => {
                 void handleSubmit();
               }}
-              className="px-6 py-2 text-sm font-medium bg-brand text-white rounded hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+              className="panel-button panel-button-primary rounded px-6 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
               {t.addNode}

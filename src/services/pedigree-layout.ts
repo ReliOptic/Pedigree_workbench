@@ -32,6 +32,15 @@ export interface GenerationLabel {
   readonly y: number;
 }
 
+export interface GroupLabel {
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly count: number;
+}
+
 export interface MatingConnection {
   readonly id: string;
   readonly sireId: string;
@@ -53,6 +62,7 @@ export interface LayoutResult {
    * inside the transformed layer so they track pan/zoom with their row.
    */
   readonly generationLabels: readonly GenerationLabel[];
+  readonly groupLabels: readonly GroupLabel[];
   readonly matingConnections: readonly MatingConnection[];
 }
 
@@ -76,12 +86,139 @@ const MARRIAGE_OFFSET = 30;
 const NODE_HALF = 28;
 
 const UNSPECIFIED_GENERATION = '__unspecified__';
+const GROUP_CARD_PADDING_X = 28;
+const GROUP_CARD_PADDING_Y = 44;
 
 function parseGenerationOrder(label: string): number | null {
   const match = label.match(/-?\d+/);
   if (match === null) return null;
   const n = Number.parseInt(match[0], 10);
   return Number.isFinite(n) ? n : null;
+}
+
+function hasNoPedigreeEdges(individuals: readonly Individual[]): boolean {
+  return individuals.every((ind) => {
+    const sire = ind.sire?.trim();
+    const dam = ind.dam?.trim();
+    return (sire === undefined || sire === '') && (dam === undefined || dam === '');
+  });
+}
+
+function shouldUseGroupedFounderLayout(individuals: readonly Individual[]): boolean {
+  if (individuals.length === 0) return false;
+  if (!hasNoPedigreeEdges(individuals)) return false;
+  const generations = new Set(
+    individuals
+      .map((ind) => ind.generation?.trim())
+      .filter((value): value is string => value !== undefined && value !== ''),
+  );
+  const groups = new Set(
+    individuals
+      .map((ind) => ind.group?.trim())
+      .filter((value): value is string => value !== undefined && value !== ''),
+  );
+  return generations.size <= 1 && groups.size >= 2;
+}
+
+function computeGroupedFounderLayout(
+  individuals: readonly Individual[],
+  originX: number,
+  originY: number,
+  positionOverrides?: Readonly<Record<string, { x: number; y: number }>>,
+): LayoutResult {
+  const groupMap = new Map<string, Individual[]>();
+  for (const ind of individuals) {
+    const key = ind.group?.trim() || 'Ungrouped';
+    const bucket = groupMap.get(key) ?? [];
+    bucket.push(ind);
+    groupMap.set(key, bucket);
+  }
+
+  const groups = Array.from(groupMap.entries())
+    .map(([label, members]) => ({
+      label,
+      members: members.slice().sort((a, b) => (a.label ?? a.id).localeCompare(b.label ?? b.id)),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+
+  const laneCount = groups.length;
+  const lanesPerRow = laneCount >= 6 ? 3 : 2;
+  const laneGapX = 48;
+  const laneGapY = 56;
+  const nodes: NodePosition[] = [];
+  const groupLabels: GroupLabel[] = [];
+  const generationLabel = individuals.find((ind) => ind.generation?.trim())?.generation?.trim() ?? 'F0';
+
+  const groupFrames = groups.map((group, index) => {
+    const memberCount = group.members.length;
+    const columns = Math.min(4, Math.max(2, Math.ceil(Math.sqrt(memberCount))));
+    const rows = Math.max(1, Math.ceil(memberCount / columns));
+    const laneWidth = columns * NODE_WIDTH + (columns - 1) * 24 + GROUP_CARD_PADDING_X * 2;
+    const laneHeight = rows * NODE_HEIGHT + (rows - 1) * 36 + GROUP_CARD_PADDING_Y * 2;
+    return {
+      group,
+      index,
+      memberCount,
+      columns,
+      rows,
+      laneWidth,
+      laneHeight,
+    };
+  });
+
+  const rowHeights = new Map<number, number>();
+  for (const frame of groupFrames) {
+    const row = Math.floor(frame.index / lanesPerRow);
+    rowHeights.set(row, Math.max(rowHeights.get(row) ?? 0, frame.laneHeight));
+  }
+
+  const rowOffsets = new Map<number, number>();
+  let runningY = originY + 48;
+  const totalRows = Math.ceil(groupFrames.length / lanesPerRow);
+  for (let row = 0; row < totalRows; row += 1) {
+    rowOffsets.set(row, runningY);
+    runningY += (rowHeights.get(row) ?? 0) + laneGapY;
+  }
+
+  groupFrames.forEach((frame) => {
+    const row = Math.floor(frame.index / lanesPerRow);
+    const col = frame.index % lanesPerRow;
+    const laneX = originX + col * (frame.laneWidth + laneGapX);
+    const laneY = rowOffsets.get(row) ?? originY + 48;
+
+    groupLabels.push({
+      label: frame.group.label,
+      x: laneX,
+      y: laneY,
+      width: frame.laneWidth,
+      height: frame.laneHeight,
+      count: frame.memberCount,
+    });
+
+    frame.group.members.forEach((ind, memberIndex) => {
+      const memberRow = Math.floor(memberIndex / frame.columns);
+      const memberCol = memberIndex % frame.columns;
+      const x = laneX + GROUP_CARD_PADDING_X + memberCol * (NODE_WIDTH + 24);
+      const y = laneY + GROUP_CARD_PADDING_Y + memberRow * (NODE_HEIGHT + 36);
+      const override = positionOverrides?.[ind.id];
+      nodes.push({
+        id: ind.id,
+        x: override?.x ?? x,
+        y: override?.y ?? y,
+      });
+    });
+  });
+
+  return {
+    nodes,
+    connectors: [],
+    generations: generationLabel === '' ? [] : [generationLabel],
+    generationLabels: generationLabel === ''
+      ? []
+      : [{ label: generationLabel, y: originY + NODE_HALF }],
+    groupLabels,
+    matingConnections: [],
+  };
 }
 
 /**
@@ -107,6 +244,10 @@ export function computeLayout(
   const vGap = options.verticalGap ?? 240;
   const originX = options.originX ?? 100;
   const originY = options.originY ?? 100;
+
+  if (shouldUseGroupedFounderLayout(individuals)) {
+    return computeGroupedFounderLayout(individuals, originX, originY, positionOverrides);
+  }
 
   // ── Build dagre graph ────────────────────────────────────────────────────
   const g = new dagre.graphlib.Graph({ multigraph: false, compound: false });
@@ -324,7 +465,7 @@ export function computeLayout(
     });
   }
 
-  return { nodes, connectors, generations, generationLabels, matingConnections };
+  return { nodes, connectors, generations, generationLabels, groupLabels: [], matingConnections };
 }
 
 /**

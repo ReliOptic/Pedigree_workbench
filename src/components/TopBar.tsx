@@ -15,6 +15,7 @@ import {
   Save,
   Loader2,
   HardDriveDownload,
+  HardDriveUpload,
   Pencil,
 } from 'lucide-react';
 
@@ -52,6 +53,7 @@ interface TopBarProps {
   readonly onDeleteProject: (id: string) => void;
   readonly onRenameProject: (id: string, name: string) => void;
   readonly onBackupProject: () => void;
+  readonly onRestoreProject: () => void;
   readonly hasMissingDataAlerts?: boolean;
 }
 
@@ -86,6 +88,7 @@ export function TopBar({
   onDeleteProject,
   onRenameProject,
   onBackupProject,
+  onRestoreProject,
   hasMissingDataAlerts = false,
 }: TopBarProps): React.JSX.Element {
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
@@ -136,7 +139,7 @@ export function TopBar({
           <button
             type="button"
             onClick={() => setIsProjectMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition max-w-[200px]"
+            className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded max-w-[200px]"
             aria-label={t.projects}
           >
             <FolderOpen className="w-4 h-4 text-text-secondary flex-shrink-0" aria-hidden="true" />
@@ -146,16 +149,16 @@ export function TopBar({
             <ChevronDown className="w-3 h-3 text-text-secondary flex-shrink-0" aria-hidden="true" />
           </button>
           {isProjectMenuOpen && (
-            <div className="absolute top-full left-0 mt-1 w-64 bg-surface-raised border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+            <div className="absolute top-full left-0 mt-1 w-64 bg-surface-raised border border-border rounded-lg shadow-lg shadow-slate-950/40 z-50 overflow-hidden">
               <div className="max-h-60 overflow-y-auto">
                 {projects.length === 0 ? (
-                  <p className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{t.noProjects}</p>
+                  <p className="px-4 py-3 text-xs text-text-muted">{t.noProjects}</p>
                 ) : (
                   projects.map((proj) => (
                     <div
                       key={proj.id}
-                      className={`flex items-center justify-between px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer group ${
-                        proj.id === activeProjectId ? 'bg-blue-50' : ''
+                        className={`flex items-center justify-between px-4 py-2 hover:bg-surface transition cursor-pointer group ${
+                        proj.id === activeProjectId ? 'bg-blue-50 dark:bg-sky-950/50' : ''
                       }`}
                     >
                       {renamingId === proj.id ? (
@@ -191,7 +194,7 @@ export function TopBar({
                             <Check className="w-3.5 h-3.5 text-brand flex-shrink-0" aria-hidden="true" />
                           )}
                           <span className="text-sm truncate">{proj.name}</span>
-                          <span className="text-xs text-slate-400 flex-shrink-0">
+                          <span className="text-xs text-text-muted flex-shrink-0">
                             {proj.data.length}
                           </span>
                         </button>
@@ -204,10 +207,10 @@ export function TopBar({
                             setRenamingId(proj.id);
                             setRenameValue(proj.name);
                           }}
-                          className="p-1 rounded hover:bg-blue-100 transition"
+                          className="panel-button p-1 rounded"
                           aria-label={`${t.renameProject}: ${proj.name}`}
                         >
-                          <Pencil className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                          <Pencil className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
@@ -216,7 +219,7 @@ export function TopBar({
                             onDeleteProject(proj.id);
                             if (projects.length <= 1) setIsProjectMenuOpen(false);
                           }}
-                          className="p-1 rounded hover:bg-red-100 transition"
+                          className="panel-button p-1 rounded text-red-500"
                           aria-label={`${t.deleteProject}: ${proj.name}`}
                         >
                           <Trash2 className="w-3.5 h-3.5 text-red-500" aria-hidden="true" />
@@ -233,7 +236,7 @@ export function TopBar({
                     onNewProject();
                     setIsProjectMenuOpen(false);
                   }}
-                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-brand hover:bg-slate-50 transition"
+                  className="panel-button panel-button-primary flex items-center gap-2 w-full px-4 py-2.5 text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" aria-hidden="true" />
                   {t.newProject}
@@ -250,7 +253,7 @@ export function TopBar({
             className={`relative px-3 py-1 text-sm font-medium border-b-2 transition ${
               activeView === 'dashboard'
                 ? 'text-brand font-bold border-brand'
-                : 'text-slate-500 border-transparent hover:text-brand'
+                : 'text-text-muted border-transparent hover:text-brand'
             }`}
           >
             {t.dashboard}
@@ -264,7 +267,7 @@ export function TopBar({
             className={`px-3 py-1 text-sm font-medium border-b-2 transition ${
               activeView === 'workbench'
                 ? 'text-brand font-bold border-brand'
-                : 'text-slate-500 border-transparent hover:text-brand'
+                : 'text-text-muted border-transparent hover:text-brand'
             }`}
           >
             {t.workbench}
@@ -275,7 +278,7 @@ export function TopBar({
             className={`px-3 py-1 text-sm font-medium border-b-2 transition ${
               activeView === 'paper'
                 ? 'text-brand font-bold border-brand'
-                : 'text-slate-500 border-transparent hover:text-brand'
+                : 'text-text-muted border-transparent hover:text-brand'
             }`}
           >
             {t.paperView}
@@ -285,7 +288,7 @@ export function TopBar({
         {/* Search input */}
         <div className="relative ml-2 hidden md:flex items-center">
           <Search
-            className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none"
+            className="absolute left-3 w-4 h-4 text-text-muted pointer-events-none"
             aria-hidden="true"
           />
           <input
@@ -295,7 +298,7 @@ export function TopBar({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t.searchGenotypes}
             data-testid="search-input"
-            className="bg-slate-200 border-none h-9 pl-10 pr-4 text-xs font-mono w-64 rounded focus:outline-none focus:ring-2 focus:ring-brand/40"
+            className="bg-surface-raised text-text-primary placeholder:text-text-muted border border-border h-9 pl-10 pr-4 text-xs font-mono w-64 rounded focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-[var(--color-border-strong)]"
           />
           {searchQuery.length > 0 && (
             <span
@@ -317,7 +320,7 @@ export function TopBar({
           disabled={!canUndo}
           aria-label={t.undo}
           data-testid="undo-button"
-          className="flex items-center justify-center w-9 h-9 border border-border rounded hover:bg-surface transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="panel-button flex items-center justify-center w-9 h-9 rounded disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Undo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
         </button>
@@ -327,7 +330,7 @@ export function TopBar({
           disabled={!canRedo}
           aria-label={t.redo}
           data-testid="redo-button"
-          className="flex items-center justify-center w-9 h-9 border border-border rounded hover:bg-surface transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="panel-button flex items-center justify-center w-9 h-9 rounded disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Redo2 className="w-4 h-4 text-text-secondary" aria-hidden="true" />
         </button>
@@ -336,7 +339,7 @@ export function TopBar({
           type="button"
           onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
           aria-label={`Language: ${language === 'en' ? 'English' : 'Korean'}. Click to switch.`}
-          className="flex items-center gap-2 px-3 h-9 text-xs font-medium border border-border rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          className="panel-button flex items-center gap-2 px-3 h-9 text-xs font-medium rounded"
         >
           <Languages className="w-4 h-4" aria-hidden="true" />
           {language === 'en' ? 'KO' : 'EN'}
@@ -346,7 +349,7 @@ export function TopBar({
           type="button"
           onClick={onSettingsClick}
           aria-label={t.settings}
-          className="flex items-center justify-center w-9 h-9 border border-border rounded hover:bg-surface transition"
+          className="panel-button flex items-center justify-center w-9 h-9 rounded"
         >
           <Settings className="w-5 h-5 text-text-secondary" aria-hidden="true" />
         </button>
@@ -356,7 +359,7 @@ export function TopBar({
           onClick={onAddNodeClick}
           aria-label={t.addNode}
           data-testid="add-node-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-brand text-brand bg-surface-raised rounded hover:bg-surface transition"
+          className="panel-button panel-button-primary flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           {t.addNode}
@@ -367,7 +370,7 @@ export function TopBar({
           onClick={onExportClick}
           aria-label={t.exportCsv}
           data-testid="export-csv-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
         >
           <Download className="w-4 h-4" aria-hidden="true" />
           {t.exportCsv}
@@ -378,10 +381,21 @@ export function TopBar({
           onClick={onBackupProject}
           aria-label={t.backupProject}
           data-testid="backup-project-button"
-          className="flex items-center gap-2 px-3 h-9 text-sm font-medium border border-border text-text-secondary rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
         >
           <HardDriveDownload className="w-4 h-4" aria-hidden="true" />
           {t.backupProject}
+        </button>
+
+        <button
+          type="button"
+          onClick={onRestoreProject}
+          aria-label={t.restoreBackup}
+          data-testid="restore-project-button"
+          className="panel-button flex items-center gap-2 px-3 h-9 text-sm font-medium rounded"
+        >
+          <HardDriveUpload className="w-4 h-4" aria-hidden="true" />
+          {t.restoreBackup}
         </button>
 
         <button
@@ -389,7 +403,7 @@ export function TopBar({
           type="button"
           onClick={onUploadClick}
           aria-label={t.upload}
-          className="bg-brand text-white px-4 h-9 text-sm font-medium transition active:scale-95 flex items-center gap-2 rounded hover:brightness-110"
+          className="panel-button panel-button-primary px-4 h-9 text-sm font-medium active:scale-[0.99] flex items-center gap-2 rounded"
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
           {t.upload}
@@ -409,10 +423,10 @@ function SaveIndicator({
   if (status === 'idle') return null;
   return (
     <span
-      className={`flex items-center gap-1.5 px-2 py-1 text-xs font-mono rounded transition-opacity ${
+      className={`flex items-center gap-1.5 px-2 py-1 text-xs font-mono rounded border transition-opacity ${
         status === 'saving'
-          ? 'text-amber-600 bg-amber-50'
-          : 'text-green-600 bg-green-50'
+          ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-700'
+          : 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-700'
       }`}
       role="status"
       aria-live="polite"

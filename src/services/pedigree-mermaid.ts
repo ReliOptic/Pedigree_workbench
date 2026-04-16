@@ -24,20 +24,21 @@ function classifySex(sex: string | undefined): 'male' | 'female' | 'unknown' {
  * Build a display label for a node.  Includes name/id, sex symbol,
  * generation (when available), and status (when available).
  */
+function clampLabel(value: string, maxChars: number): string {
+  return value.length > maxChars ? `${value.slice(0, maxChars - 1)}…` : value;
+}
+
 function buildLabel(ind: Individual): string {
   const sexClass = classifySex(ind.sex);
   const symbol = sexClass === 'male' ? '\u2642' : sexClass === 'female' ? '\u2640' : '?';
-  const name = ind.label ?? ind.id;
-  const parts = [name];
+  const displayName = clampLabel(ind.label ?? ind.id, 12);
+  const generation = ind.generation !== undefined ? clampLabel(ind.generation, 6) : null;
+  const status = ind.status !== undefined && ind.status.length > 0
+    ? clampLabel(ind.status, 10)
+    : null;
 
-  const genPart = ind.generation !== undefined ? `${symbol} ${ind.generation}` : symbol;
-  parts.push(genPart);
-
-  if (ind.status !== undefined && ind.status.length > 0) {
-    parts.push(ind.status);
-  }
-
-  return parts.join('<br/>');
+  const sexAndGeneration = generation !== null ? `${symbol} ${generation}` : symbol;
+  return [displayName, sexAndGeneration, status].filter((part) => part !== null).join('<br/>');
 }
 
 /**

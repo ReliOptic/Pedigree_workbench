@@ -25,26 +25,32 @@
 
 /* Dark overrides when .dark class is on <html> */
 .dark {
-  --color-brand: #5ba3d1;
-  --color-brand-light: #7dbde5;
-  --color-surface: #0f172a;
-  --color-surface-raised: #1e293b;
-  --color-border: #334155;
-  --color-border-strong: #475569;
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-node-male-bg: #1e3a5f;
-  --color-node-male-border: #3b82f6;
-  --color-node-female-bg: #4a1942;
-  --color-node-female-border: #ec4899;
-  --color-node-unknown-bg: #1e293b;
-  --color-node-unknown-border: #94a3b8;
-  --color-dot-grid: rgba(148, 163, 184, 0.3);
-  --color-surface-band: rgba(15, 23, 42, 0.4);
+  --color-brand: #8dc7ea;
+  --color-brand-light: #b7dbf2;
+  --color-surface: #05070b;
+  --color-surface-raised: #0d1117;
+  --color-border: #273142;
+  --color-border-strong: #3a4960;
+  --color-text-primary: #f5f7fb;
+  --color-text-secondary: #c9d4e1;
+  --color-text-muted: #93a1b5;
+  --color-node-male-bg: #10233d;
+  --color-node-male-border: #71a9dd;
+  --color-node-female-bg: #311227;
+  --color-node-female-border: #d889b2;
+  --color-node-unknown-bg: #1a2330;
+  --color-node-unknown-border: #b7c2d0;
+  --color-dot-grid: rgba(151, 165, 184, 0.22);
+  --color-surface-band: rgba(13, 17, 23, 0.82);
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+  }
   *:focus {
     outline: none;
   }
@@ -52,5 +58,105 @@
     outline: 2px solid var(--color-brand);
     outline-offset: 2px;
     border-radius: 2px;
+  }
+}
+
+@layer components {
+  .panel-button {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      box-shadow 140ms ease,
+      transform 140ms ease;
+  }
+
+  .panel-button:hover {
+    background: color-mix(in srgb, var(--color-surface-raised) 82%, white 18%);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  .dark .panel-button:hover {
+    background: color-mix(in srgb, var(--color-surface-raised) 92%, white 8%);
+  }
+
+  .panel-button-primary {
+    background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised) 88%);
+    border: 1px solid color-mix(in srgb, var(--color-brand) 36%, var(--color-border) 64%);
+    color: var(--color-brand);
+  }
+
+  .panel-button-primary:hover {
+    background: color-mix(in srgb, var(--color-brand) 18%, var(--color-surface-raised) 82%);
+    color: var(--color-brand-light);
+  }
+
+  .panel-choice {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .panel-choice:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  .panel-choice-active {
+    background: color-mix(in srgb, var(--color-brand) 12%, var(--color-surface-raised) 88%);
+    border-color: color-mix(in srgb, var(--color-brand) 36%, var(--color-border) 64%);
+    color: var(--color-brand);
+  }
+
+  .panel-field {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      background-color 140ms ease;
+  }
+
+  .panel-field::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  .panel-field:hover {
+    border-color: var(--color-border-strong);
+  }
+
+  .panel-field:focus {
+    border-color: color-mix(in srgb, var(--color-brand) 50%, var(--color-border) 50%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 18%, transparent);
+  }
+
+  .panel-switch {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease;
+  }
+
+  .panel-switch[data-state='on'] {
+    background: color-mix(in srgb, var(--color-brand) 18%, var(--color-surface-raised) 82%);
+    border-color: color-mix(in srgb, var(--color-brand) 38%, var(--color-border) 62%);
+  }
+
+  .panel-switch-thumb {
+    background: var(--color-surface-raised);
+    box-shadow:
+      0 1px 1px rgba(15, 23, 42, 0.08),
+      0 1px 4px rgba(15, 23, 42, 0.12);
   }
 }

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, Upload, AlertTriangle, FileUp, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import { usePedigree } from '../hooks/use-pedigree';
 import { logger } from '../services/logger';
 import {
   analyzePedigreeWarnings,
@@ -24,7 +23,13 @@ import type { Translation } from '../types/translation.types';
 interface ImportModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onImported: (projectName: string, individuals: readonly Individual[]) => void;
+  readonly existingIndividuals: readonly Individual[];
+  readonly activeProjectName?: string;
+  readonly onImported: (result: {
+    projectName: string;
+    individuals: readonly Individual[];
+    mode: 'new-project' | 'merge';
+  }) => Promise<void>;
   readonly t: Translation;
 }
 
@@ -101,6 +106,7 @@ interface PendingImport {
 }
 
 type Step = 'input' | 'sheet-select' | 'mapping' | 'confirm';
+type ImportMode = 'new-project' | 'merge';
 
 function formatWarning(w: ImportWarning): string {
   switch (w.kind) {
@@ -109,7 +115,9 @@ function formatWarning(w: ImportWarning): string {
     case 'orphan-dam':
       return `${w.id} → missing dam "${w.detail ?? ''}"`;
     case 'duplicate-id':
-      return `duplicate id "${w.id}"`;
+      return w.detail === 'existing-project'
+        ? `existing project already contains "${w.id}"`
+        : `duplicate id "${w.id}"`;
     case 'self-reference':
       return `${w.id} references itself as ${w.detail ?? 'parent'}`;
     default:
@@ -131,10 +139,11 @@ function formatWarning(w: ImportWarning): string {
 export function ImportModal({
   isOpen,
   onClose,
+  existingIndividuals,
+  activeProjectName,
   onImported,
   t,
 }: ImportModalProps): React.JSX.Element | null {
-  const { replaceAll } = usePedigree();
   const [raw, setRaw] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -147,6 +156,7 @@ export function ImportModal({
   const [sheetNames, setSheetNames] = useState<readonly string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [pendingExcelBuffer, setPendingExcelBuffer] = useState<ArrayBuffer | null>(null);
+  const [importMode, setImportMode] = useState<ImportMode>('new-project');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -164,6 +174,7 @@ export function ImportModal({
       setSheetNames([]);
       setSelectedSheet('');
       setPendingExcelBuffer(null);
+      setImportMode('new-project');
     }
   }, [isOpen]);
 
@@ -185,13 +196,43 @@ export function ImportModal({
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
+  const getCollisionIds = useCallback(
+    (incoming: readonly Individual[]): string[] => {
+      if (importMode !== 'merge') return [];
+      const existingIds = new Set(existingIndividuals.map((individual) => individual.id));
+      return incoming
+        .map((individual) => individual.id)
+        .filter((id) => existingIds.has(id));
+    },
+    [existingIndividuals, importMode],
+  );
+
+  const buildFinalIndividuals = useCallback(
+    (incoming: readonly Individual[]): readonly Individual[] => {
+      if (importMode !== 'merge') return incoming;
+      const merged = new Map(existingIndividuals.map((individual) => [individual.id, individual]));
+      for (const individual of incoming) {
+        merged.set(individual.id, individual);
+      }
+      return Array.from(merged.values());
+    },
+    [existingIndividuals, importMode],
+  );
+
   const commit = useCallback(
     async (individuals: readonly Individual[]): Promise<void> => {
       // Derive project name from file name, or use a default.
       const projName = importFileName
         ? importFileName.replace(/\.(csv|tsv|json|xlsx|xls)$/i, '')
-        : `Import ${new Date().toLocaleDateString()}`;
-      logger.info('import-modal.success', { count: individuals.length, project: projName });
+        : importMode === 'merge'
+          ? activeProjectName ?? 'Current Project'
+          : `Import ${new Date().toLocaleDateString()}`;
+      const finalIndividuals = buildFinalIndividuals(individuals);
+      logger.info('import-modal.success', {
+        count: finalIndividuals.length,
+        project: projName,
+        mode: importMode,
+      });
       setRaw('');
       setPending(null);
       setCsvResult(null);
@@ -200,10 +241,11 @@ export function ImportModal({
       setSheetNames([]);
       setSelectedSheet('');
       setPendingExcelBuffer(null);
+      setImportMode('new-project');
       setStep('input');
-      onImported(projName, individuals);
+      await onImported({ projectName: projName, individuals: finalIndividuals, mode: importMode });
     },
-    [importFileName, onImported],
+    [activeProjectName, buildFinalIndividuals, importFileName, importMode, onImported],
   );
 
   /** Process a file based on its extension. */
@@ -317,7 +359,11 @@ export function ImportModal({
         return;
       }
       const parsed = parsePedigreeImport(raw);
-      const warnings = analyzePedigreeWarnings(parsed);
+      const warnings = [...analyzePedigreeWarnings(parsed)];
+      const collisionIds = getCollisionIds(parsed);
+      for (const id of collisionIds) {
+        warnings.push({ kind: 'duplicate-id', id, detail: 'existing-project' });
+      }
       if (warnings.length > 0) {
         setPending({ individuals: parsed, warnings });
         logger.warn('import-modal.warnings', { count: warnings.length });
@@ -354,7 +400,11 @@ export function ImportModal({
         setError('No valid rows found. Make sure the "id" column is mapped.');
         return;
       }
-      const warnings = analyzePedigreeWarnings(individuals);
+      const warnings = [...analyzePedigreeWarnings(individuals)];
+      const collisionIds = getCollisionIds(individuals);
+      for (const id of collisionIds) {
+        warnings.push({ kind: 'duplicate-id', id, detail: 'existing-project' });
+      }
       if (warnings.length > 0) {
         setPending({ individuals, warnings });
         setStep('confirm');
@@ -392,33 +442,34 @@ export function ImportModal({
   if (!isOpen) return null;
 
   const hasPending = pending !== null;
+  const canMerge = activeProjectName !== undefined && activeProjectName.trim().length > 0;
 
   const renderInputStep = (): React.JSX.Element => (
     <>
       <div
         className={`flex-1 overflow-y-auto p-6 space-y-4 transition-colors ${
-          isDragOver ? 'bg-blue-50 border-2 border-dashed border-blue-400' : ''
+          isDragOver ? 'bg-surface border-2 border-dashed border-brand/50' : ''
         }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         {/* File upload zone */}
-        <div className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-slate-300 rounded-lg hover:border-brand transition-colors">
+        <div className="flex flex-col items-center gap-3 p-6 border-2 border-dashed border-border rounded-lg hover:border-[var(--color-border-strong)] transition-colors">
           {isDragOver ? (
-            <p className="text-sm font-medium text-blue-600">{t.dropFileHere}</p>
+            <p className="text-sm font-medium text-brand">{t.dropFileHere}</p>
           ) : (
             <>
-              <FileUp className="w-8 h-8 text-slate-400" aria-hidden="true" />
+              <FileUp className="w-8 h-8 text-text-muted" aria-hidden="true" />
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-1.5 text-sm font-medium bg-brand text-white rounded hover:brightness-110 transition"
+                  className="panel-button panel-button-primary px-4 py-1.5 text-sm font-medium rounded"
                 >
                   {t.browseFile}
                 </button>
-                <span className="text-xs text-slate-400">.json, .csv, .tsv, .xlsx, .xls</span>
+                <span className="text-xs text-text-muted">.json, .csv, .tsv, .xlsx, .xls</span>
               </div>
               <button
                 type="button"
@@ -441,7 +492,48 @@ export function ImportModal({
           />
         </div>
 
-        <p className="text-xs text-center text-slate-400">{t.orPasteJson}</p>
+        <section className="rounded-xl border border-border bg-surface px-4 py-3 space-y-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+              Import destination
+            </div>
+            <div className="mt-1 text-sm text-text-secondary">
+              Choose whether this import creates a separate project or merges into the current one.
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <label className={`panel-choice flex items-center gap-2 rounded px-3 py-2 text-sm cursor-pointer ${importMode === 'new-project' ? 'panel-choice-active font-medium' : ''}`}>
+              <input
+                type="radio"
+                name="import-mode"
+                checked={importMode === 'new-project'}
+                onChange={() => setImportMode('new-project')}
+                className="sr-only"
+              />
+              Create new project
+            </label>
+            <label className={`panel-choice flex items-center gap-2 rounded px-3 py-2 text-sm cursor-pointer ${importMode === 'merge' ? 'panel-choice-active font-medium' : ''} ${!canMerge ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <input
+                type="radio"
+                name="import-mode"
+                checked={importMode === 'merge'}
+                onChange={() => {
+                  if (canMerge) setImportMode('merge');
+                }}
+                disabled={!canMerge}
+                className="sr-only"
+              />
+              Merge into current project
+            </label>
+          </div>
+          <div className="text-xs text-text-muted">
+            {importMode === 'merge'
+              ? `Imported rows will overwrite matching IDs in ${activeProjectName ?? 'the current project'}.`
+              : 'Imported rows will be stored in a separate project.'}
+          </div>
+        </section>
+
+        <p className="text-xs text-center text-text-muted">{t.orPasteJson}</p>
 
         {/* JSON textarea */}
         <label htmlFor="import-textarea" className="sr-only">
@@ -455,7 +547,7 @@ export function ImportModal({
           onChange={(e) => setRaw(e.target.value)}
           placeholder={PLACEHOLDER}
           spellCheck={false}
-          className="w-full h-48 p-3 font-mono text-xs bg-slate-50 border border-border rounded resize-none"
+          className="w-full h-48 p-3 font-mono text-xs bg-surface text-text-primary border border-border rounded resize-none"
         />
 
         {error !== null && (
@@ -485,16 +577,21 @@ export function ImportModal({
                   <li key={`${w.kind}-${w.id}-${i}`}>{formatWarning(w)}</li>
                 ))}
               </ul>
+              {importMode === 'merge' && (
+                <p className="text-xs">
+                  Matching IDs in the current project will be overwritten by the imported rows.
+                </p>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+      <div className="p-6 border-t border-border flex justify-end gap-3 bg-surface">
         <button
           type="button"
           onClick={onClose}
-          className="px-6 py-2 text-sm font-medium text-slate-500 hover:text-brand transition-colors"
+          className="panel-button px-6 py-2 text-sm font-medium rounded"
         >
           {t.cancel}
         </button>
@@ -507,8 +604,8 @@ export function ImportModal({
           }}
           className={
             hasPending
-              ? 'px-8 py-2 text-sm font-medium bg-amber-500 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition rounded flex items-center gap-2'
-              : 'px-8 py-2 text-sm font-medium bg-brand text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition rounded flex items-center gap-2'
+              ? 'panel-button px-8 py-2 text-sm font-medium rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-amber-200 border-amber-700'
+              : 'panel-button panel-button-primary px-8 py-2 text-sm font-medium rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
           }
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
@@ -530,13 +627,13 @@ export function ImportModal({
             {error}
           </p>
         )}
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-text-secondary">
           {sheetNames.length} {t.sheetsFound}. {t.selectSheet}:
         </p>
         <ul className="space-y-2">
           {sheetNames.map((name) => (
             <li key={name}>
-              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+              <label className="panel-button flex items-center gap-3 p-3 rounded-lg cursor-pointer">
                 <input
                   type="radio"
                   name="sheet-select"
@@ -545,13 +642,13 @@ export function ImportModal({
                   onChange={() => setSelectedSheet(name)}
                   className="accent-brand"
                 />
-                <span className="text-sm font-medium text-slate-700">{name}</span>
+                <span className="text-sm font-medium text-text-primary">{name}</span>
               </label>
             </li>
           ))}
         </ul>
       </div>
-      <div className="p-6 border-t border-slate-100 flex justify-between gap-3 bg-slate-50">
+      <div className="p-6 border-t border-border flex justify-between gap-3 bg-surface">
         <button
           type="button"
           onClick={() => {
@@ -561,7 +658,7 @@ export function ImportModal({
             setPendingExcelBuffer(null);
             setError(null);
           }}
-          className="px-6 py-2 text-sm font-medium text-slate-500 hover:text-brand transition-colors"
+          className="panel-button px-6 py-2 text-sm font-medium rounded"
         >
           {t.back}
         </button>
@@ -569,7 +666,7 @@ export function ImportModal({
           type="button"
           disabled={selectedSheet === ''}
           onClick={handleSheetSelect}
-          className="px-8 py-2 text-sm font-medium bg-brand text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition rounded flex items-center gap-2"
+          className="panel-button panel-button-primary px-8 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed rounded flex items-center gap-2"
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
           {t.selectSheet}
@@ -634,17 +731,22 @@ export function ImportModal({
                   <li key={`${w.kind}-${w.id}-${i}`}>{formatWarning(w)}</li>
                 ))}
               </ul>
+              {importMode === 'merge' && (
+                <p className="text-xs">
+                  Matching IDs in the current project will be overwritten by the imported rows.
+                </p>
+              )}
             </div>
           </div>
         </div>
-        <div className="p-6 border-t border-slate-100 flex justify-between gap-3 bg-slate-50">
+        <div className="p-6 border-t border-border flex justify-between gap-3 bg-surface">
           <button
             type="button"
             onClick={() => {
               setStep('mapping');
               setPending(null);
             }}
-            className="px-6 py-2 text-sm font-medium text-slate-500 hover:text-brand transition-colors"
+            className="panel-button px-6 py-2 text-sm font-medium rounded"
           >
             {t.back}
           </button>
@@ -655,7 +757,7 @@ export function ImportModal({
             onClick={() => {
               void handleCsvSubmit();
             }}
-            className="px-8 py-2 text-sm font-medium bg-amber-500 text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition rounded flex items-center gap-2"
+            className="panel-button px-8 py-2 text-sm font-medium rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-amber-200 border-amber-700"
           >
             <Upload className="w-4 h-4" aria-hidden="true" />
             Import with warnings
@@ -684,7 +786,7 @@ export function ImportModal({
           aria-labelledby="import-title"
           className="bg-surface-raised w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] rounded-lg overflow-hidden"
         >
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div className="p-6 border-b border-border flex justify-between items-center">
             <div>
               <h2 id="import-title" className="text-lg font-bold text-brand">
                 {step === 'sheet-select'
@@ -693,7 +795,7 @@ export function ImportModal({
                     ? t.csvImport
                     : t.importGeneticData}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-text-muted">
                 {step === 'sheet-select'
                   ? t.selectSheet
                   : step === 'mapping' || step === 'confirm'
@@ -705,7 +807,7 @@ export function ImportModal({
               type="button"
               onClick={onClose}
               aria-label="Close import dialog"
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              className="panel-button p-2 rounded-full"
             >
               <X className="w-5 h-5" aria-hidden="true" />
             </button>

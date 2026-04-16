@@ -28,6 +28,8 @@ export interface PedigreeCanvasHandle {
   readonly fit: () => void;
   readonly zoomIn: () => void;
   readonly zoomOut: () => void;
+  readonly focusGeneration: (generation: string) => void;
+  readonly focusGroup: (groupId: string) => void;
 }
 
 interface PedigreeCanvasProps {
@@ -43,6 +45,39 @@ interface PedigreeCanvasProps {
   readonly generationFormat?: GenerationFormat;
   readonly nodePositions?: Readonly<Record<string, { x: number; y: number }>>;
   readonly onNodeDrag?: (id: string, x: number, y: number) => void;
+  readonly relationshipSourceId?: string | null;
+  readonly interactionHint?: string | null;
+  readonly activeGroupId?: string | null;
+}
+
+type StatusTone = {
+  shell: string;
+  badge: string;
+};
+
+const STATUS_TONES: Array<{ match: RegExp; tone: StatusTone }> = [
+  { match: /교배예정|planned|candidate/i, tone: { shell: 'ring-green-400/45 ring-2 ring-offset-1 ring-offset-surface', badge: 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-200 border-green-300 dark:border-green-800' } },
+  { match: /합사|mated|paired/i, tone: { shell: 'ring-sky-400/45 ring-2 ring-offset-1 ring-offset-surface', badge: 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-200 border-sky-300 dark:border-sky-800' } },
+  { match: /폐사|사산|dead|died|stillbirth/i, tone: { shell: 'ring-red-400/45 ring-2 ring-offset-1 ring-offset-surface opacity-80', badge: 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-200 border-red-300 dark:border-red-800' } },
+  { match: /도태|기형|culled|discard/i, tone: { shell: 'ring-slate-400/40 ring-2 ring-offset-1 ring-offset-surface opacity-80', badge: 'bg-slate-100 dark:bg-slate-900/70 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700' } },
+];
+
+function getStatusTone(status: string | undefined): StatusTone | null {
+  if (status === undefined || status.trim().length === 0) return null;
+  return STATUS_TONES.find((entry) => entry.match.test(status))?.tone ?? {
+    shell: 'ring-amber-300/40 ring-2 ring-offset-1 ring-offset-surface',
+    badge: 'bg-surface-raised text-text-secondary border-border',
+  };
+}
+
+function getMissingFieldCount(ind: Individual): number {
+  let count = 0;
+  if (ind.sex === undefined || ind.sex.trim() === '') count += 1;
+  if (ind.birthDate === undefined || ind.birthDate.trim() === '') count += 1;
+  if (ind.generation === undefined || ind.generation.trim() === '') count += 1;
+  const genotype = ind.fields['CD163'] ?? ind.fields['genotype'];
+  if (genotype === undefined || genotype.trim() === '') count += 1;
+  return count;
 }
 
 function toRoman(n: number): string {
@@ -89,7 +124,7 @@ const INITIAL_FIT_MAX = 1.0;
 const ZOOM_STEP = 0.1;
 const WHEEL_STEP = 0.1;
 const PAN_STEP = 40;
-const NODE_SIZE = 56; // px; matches w-14 h-14
+const NODE_SIZE = 52; // px; matches compact node shell
 const PADDING = 160; // fit-to-screen padding (extra room for labels below shapes)
 
 type SexShape = 'male' | 'female' | 'unknown';
@@ -115,7 +150,23 @@ function describeSex(shape: SexShape): string {
  */
 export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasProps>(
   function PedigreeCanvas(
-    { individuals, matings = [], selectedId, onSelect, onNodeContextMenu, onCanvasContextMenu, t, searchQuery, showNotesOnHover = true, generationFormat = 'F', nodePositions, onNodeDrag },
+    {
+      individuals,
+      matings = [],
+      selectedId,
+      onSelect,
+      onNodeContextMenu,
+      onCanvasContextMenu,
+      t,
+      searchQuery,
+      showNotesOnHover = true,
+      generationFormat = 'F',
+      nodePositions,
+      onNodeDrag,
+      relationshipSourceId = null,
+      interactionHint = null,
+      activeGroupId = null,
+    },
     ref,
   ): React.JSX.Element {
   const [zoom, setZoom] = useState<number>(1);
@@ -308,6 +359,42 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
     [],
   );
 
+  const handleFocusGeneration = useCallback((generation: string): void => {
+    const viewport = viewportRef.current;
+    if (viewport === null) return;
+    const targets = individuals
+      .filter((individual) => individual.generation === generation)
+      .map((individual) => positionById.get(individual.id))
+      .filter((pos): pos is { x: number; y: number } => pos !== undefined);
+    if (targets.length === 0) return;
+
+    const avgX = targets.reduce((sum, pos) => sum + pos.x, 0) / targets.length + NODE_SIZE / 2;
+    const avgY = targets.reduce((sum, pos) => sum + pos.y, 0) / targets.length + NODE_SIZE / 2;
+
+    setOffset({
+      x: viewport.clientWidth * 0.42 - avgX * zoom,
+      y: viewport.clientHeight * 0.28 - avgY * zoom,
+    });
+  }, [individuals, positionById, zoom]);
+
+  const handleFocusGroup = useCallback((groupId: string): void => {
+    const viewport = viewportRef.current;
+    if (viewport === null) return;
+    const targets = individuals
+      .filter((individual) => individual.group === groupId)
+      .map((individual) => positionById.get(individual.id))
+      .filter((pos): pos is { x: number; y: number } => pos !== undefined);
+    if (targets.length === 0) return;
+
+    const avgX = targets.reduce((sum, pos) => sum + pos.x, 0) / targets.length + NODE_SIZE / 2;
+    const avgY = targets.reduce((sum, pos) => sum + pos.y, 0) / targets.length + NODE_SIZE / 2;
+
+    setOffset({
+      x: viewport.clientWidth * 0.42 - avgX * zoom,
+      y: viewport.clientHeight * 0.28 - avgY * zoom,
+    });
+  }, [individuals, positionById, zoom]);
+
   // Expose view operations to the parent (for canvas context menu).
   useImperativeHandle(
     ref,
@@ -315,8 +402,10 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
       fit: handleFit,
       zoomIn: handleZoomIn,
       zoomOut: handleZoomOut,
+      focusGeneration: handleFocusGeneration,
+      focusGroup: handleFocusGroup,
     }),
-    [handleFit, handleZoomIn, handleZoomOut],
+    [handleFit, handleZoomIn, handleZoomOut, handleFocusGeneration, handleFocusGroup],
   );
 
   // Mouse drag to pan (suppressed when a node drag is in progress).
@@ -460,6 +549,29 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           ) : null
         ))}
 
+        {layout.groupLabels.map((group) => (
+          <div
+            key={`group-${group.label}`}
+            className="absolute overflow-hidden rounded-2xl border border-border/90 bg-surface-raised/55 shadow-sm"
+            style={{
+              left: group.x - 12,
+              top: group.y - 12,
+              width: group.width + 24,
+              height: group.height + 24,
+            }}
+            aria-hidden="true"
+          >
+            <div className="relative z-10 flex items-center justify-between gap-3 rounded-t-2xl border-b border-border bg-surface/92 px-4 py-2">
+              <span className="truncate font-mono text-xs font-semibold text-text-primary">
+                {group.label}
+              </span>
+              <span className="shrink-0 rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                {group.count}
+              </span>
+            </div>
+          </div>
+        ))}
+
         {/* Connectors (parent-child). */}
         {(() => {
           const allX = layout.nodes.map((n) => n.x);
@@ -545,35 +657,44 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
             style={{ left: 0, top: gl.y - 10 }}
             aria-hidden="true"
           >
-            <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 px-2 py-0.5 rounded border border-border shadow-sm" style={{ borderLeft: '2px solid var(--color-brand)' }}>
-              <span className="font-mono text-base font-bold text-slate-700 dark:text-slate-300 tracking-wide">
-                {t.generation}
+            <div className="flex max-w-[132px] items-center gap-1.5 rounded border border-border bg-surface-raised/92 px-2 py-1 shadow-md" style={{ borderLeft: '2px solid var(--color-brand)' }}>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
+                Gen
               </span>
-              <span className="font-mono text-base font-extrabold text-slate-900 dark:text-slate-100 tracking-wide">
+              <span className="truncate font-mono text-sm font-bold text-text-primary tracking-wide">
                 {formatGeneration(gl.label, generationFormat)}
               </span>
             </div>
-            <span className="h-[1px] w-16 bg-slate-300" />
+            <span className="h-[1px] w-16 bg-border" />
           </div>
         ))}
 
-        {/* Notes tooltip — rendered inside transform group so it pans/zooms with the canvas. */}
-        {showNotesOnHover && hoveredId !== null && hoverPos !== null && (() => {
+        {/* Hover tooltip — rendered inside transform group so it pans/zooms with the canvas. */}
+        {hoveredId !== null && hoverPos !== null && (() => {
           const hoveredInd = individualsMap.get(hoveredId);
-          const notes = hoveredInd?.notes;
-          if (notes === undefined || notes.trim().length === 0) return null;
-          const truncated = notes.length > 200 ? `${notes.slice(0, 200)}...` : notes;
+          if (hoveredInd === undefined) return null;
+          const notes = hoveredInd.notes?.trim();
           return (
             <div
-              className="absolute z-50 max-w-64 bg-slate-800 text-white text-xs rounded shadow-lg p-2 pointer-events-none whitespace-pre-wrap break-words"
+              className="absolute z-50 max-w-72 rounded-lg border border-border bg-surface-raised px-3 py-2.5 text-xs text-text-primary shadow-xl pointer-events-none"
               style={{
                 left: hoverPos.x + NODE_SIZE / 2,
-                top: hoverPos.y - 60,
+                top: hoverPos.y - 74,
                 transform: 'translateX(-50%)',
               }}
               aria-hidden="true"
             >
-              {truncated}
+              <div className="space-y-1">
+                <p className="break-words font-semibold">{hoveredInd.label ?? hoveredInd.id}</p>
+                {(hoveredInd.label ?? hoveredInd.id) !== hoveredInd.id && (
+                  <p className="break-all font-mono text-[11px] text-text-secondary">{hoveredInd.id}</p>
+                )}
+                {showNotesOnHover && notes !== undefined && notes.length > 0 && (
+                  <p className="max-h-28 whitespace-pre-wrap break-words overflow-hidden text-text-secondary">
+                    {notes.length > 220 ? `${notes.slice(0, 220)}...` : notes}
+                  </p>
+                )}
+              </div>
               {/* Caret pointing down */}
               <span
                 className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0"
@@ -594,10 +715,14 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
             const shape = classifySex(ind.sex);
             const display = ind.label ?? ind.id;
             const isSelected = selectedId === ind.id;
+            const isRelationshipSource = relationshipSourceId === ind.id;
             const isMatch = isSearching && matchingIds.has(ind.id);
-            const isDimmed = isSearching && !matchingIds.has(ind.id);
+            const isGroupDimmed = activeGroupId !== null && ind.group !== activeGroupId;
+            const isDimmed = (isSearching && !matchingIds.has(ind.id)) || isGroupDimmed;
             const isRoving = rovingId === ind.id;
             const isInbred = inbredIds.has(ind.id);
+            const statusTone = getStatusTone(ind.status);
+            const missingFieldCount = getMissingFieldCount(ind);
             const ariaLabel = `${display}, ${describeSex(shape)}${
               ind.generation !== undefined ? `, generation ${ind.generation}` : ''
             }`;
@@ -610,7 +735,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                 tabIndex={isRoving ? 0 : -1}
                 aria-pressed={isSelected}
                 aria-label={ariaLabel}
-                title={ind.id}
+                title={display !== ind.id ? `${display} (${ind.id})` : display}
                 onMouseEnter={() => {
                   setHoveredId(ind.id);
                   setHoverPos({ x: pos.x, y: pos.y });
@@ -653,8 +778,8 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                 }}
                 className={cn(
                   'flex flex-col items-center group bg-transparent border-none p-0 transition-opacity',
-                  isDimmed && 'opacity-30',
-                  draggingId === ind.id ? 'cursor-grabbing scale-105' : 'cursor-grab',
+                  isDimmed && 'opacity-20',
+                  draggingId === ind.id ? 'cursor-grabbing scale-105' : 'cursor-pointer',
                 )}
                 style={{ position: 'absolute', left: pos.x, top: pos.y }}
               >
@@ -662,19 +787,21 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                 <div className="relative">
                   <div
                     className={cn(
-                      'w-14 h-14 border-2 transition-transform group-hover:scale-110 shadow-sm',
+                      'w-[52px] h-[52px] border-2 transition-transform group-hover:scale-[1.04] shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_28px_rgba(2,6,23,0.38)]',
                       shape === 'male' && 'bg-node-male-bg border-node-male-border',
                       shape === 'female' && 'bg-node-female-bg border-node-female-border rounded-full',
                       shape === 'unknown' &&
                         'bg-node-unknown-bg border-node-unknown-border [clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]',
-                      isSelected && 'ring-4 ring-yellow-400 ring-offset-2',
-                      isMatch && !isSelected && 'ring-2 ring-yellow-500/70',
-                      isInbred && !isSelected && 'ring-2 ring-indigo-400 ring-offset-1',
+                      statusTone?.shell,
+                      isSelected && 'ring-2 ring-brand/50 ring-offset-2 ring-offset-surface',
+                      isRelationshipSource && !isSelected && 'ring-2 ring-brand/35 ring-offset-2 ring-offset-surface',
+                      isMatch && !isSelected && 'ring-2 ring-brand/30 ring-offset-1 ring-offset-surface',
+                      isInbred && !isSelected && 'ring-2 ring-indigo-300/60 ring-offset-1 ring-offset-surface',
                     )}
                   />
                   <span
                     className={cn(
-                      'absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white border shadow-sm',
+                      'absolute -top-1 -right-1 h-[18px] w-[18px] rounded-full flex items-center justify-center text-[10px] font-bold bg-surface-raised border shadow-sm',
                       shape === 'male' && 'border-node-male-border text-node-male-border',
                       shape === 'female' && 'border-node-female-border text-node-female-border',
                       shape === 'unknown' && 'border-node-unknown-border text-node-unknown-border',
@@ -685,11 +812,20 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                   </span>
                   {isInbred && (
                     <span
-                      className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-indigo-400 flex items-center justify-center text-[9px] text-white font-bold shadow-sm"
+                      className="absolute -bottom-1 -left-1 h-3.5 min-w-3.5 rounded-full bg-indigo-400 px-1 flex items-center justify-center text-[8px] text-white font-bold shadow-sm"
                       aria-label="Shared ancestry"
                       title="Shared ancestry detected"
                     >
                       i
+                    </span>
+                  )}
+                  {missingFieldCount > 0 && (
+                    <span
+                      className="absolute -bottom-1.5 -right-1.5 h-4 min-w-4 rounded-full bg-amber-500 px-1 flex items-center justify-center text-[8px] text-white font-bold shadow-sm"
+                      aria-label={`Missing ${missingFieldCount} key fields`}
+                      title={`Missing ${missingFieldCount} key fields`}
+                    >
+                      !
                     </span>
                   )}
                   {/* COI badge — only show if individual has inbreeding */}
@@ -699,7 +835,7 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                     const color = coi.risk === 'high' ? 'bg-red-500' : coi.risk === 'moderate' ? 'bg-amber-500' : 'bg-indigo-400';
                     return (
                       <span
-                        className={`absolute -top-1 -left-1 ${color} text-white text-[9px] font-bold px-1 rounded-full`}
+                        className={`absolute -top-1 -left-1 ${color} text-white text-[8px] font-bold px-1 rounded-full shadow-sm`}
                         title={`COI: ${(coi.coefficient * 100).toFixed(1)}%`}
                       >
                         F:{(coi.coefficient * 100).toFixed(0)}%
@@ -709,26 +845,26 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
                 </div>
                 {/* Primary label below the shape, truncated, full value in title tooltip. */}
                 <span
-                  className="mt-2 max-w-[96px] truncate text-xs font-semibold text-text-primary"
+                  className="mt-1.5 max-w-[92px] truncate text-[11px] font-semibold leading-tight text-text-primary"
                   aria-hidden="true"
+                  title={display}
                 >
                   {display}
                 </span>
                 {/* Secondary: id when it differs from the label, else group. */}
                 {display !== ind.id && (
                   <span
-                    className="max-w-[96px] truncate font-mono text-[11px] text-text-secondary"
+                    className="max-w-[92px] truncate font-mono text-[10px] leading-tight text-text-secondary"
                     aria-hidden="true"
+                    title={ind.id}
                   >
                     {ind.id}
                   </span>
                 )}
                 {ind.status !== undefined && (
                   <span className={cn(
-                    'mt-0.5 px-1.5 py-0 rounded-full text-[10px] font-bold border',
-                    ind.status === '\uD3D0\uC0AC' && 'bg-red-50 text-red-700 border-red-300',
-                    ind.status === '\uAD50\uBC30\uC608\uC815\uB3C8' && 'bg-green-50 text-green-700 border-green-300',
-                    ind.status !== '\uD3D0\uC0AC' && ind.status !== '\uAD50\uBC30\uC608\uC815\uB3C8' && 'bg-slate-50 text-slate-600 border-slate-300',
+                    'mt-1 max-w-[88px] truncate px-1.5 py-0.5 rounded-full text-[9px] font-semibold border',
+                    statusTone?.badge ?? 'bg-surface-raised text-text-secondary border-border',
                   )}>
                     {ind.status}
                   </span>
@@ -740,8 +876,14 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
       </div>
 
       {/* Zoom toolbar — absolute within viewport, no fixed offsets. */}
+      {interactionHint !== null && (
+        <div className="absolute top-4 left-4 z-30 max-w-sm rounded-xl border border-brand/20 bg-surface-raised/95 px-4 py-3 shadow-xl backdrop-blur-md">
+          <p className="text-xs font-medium leading-5 text-text-primary">{interactionHint}</p>
+        </div>
+      )}
+
       <div
-        className="absolute bottom-4 left-20 flex gap-2 p-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded border border-border shadow-xl z-30"
+        className="absolute bottom-4 left-20 flex gap-2 p-2 bg-surface-raised/92 backdrop-blur-md rounded border border-border shadow-xl z-30"
         role="toolbar"
         aria-label="Canvas zoom controls"
       >
@@ -749,32 +891,32 @@ export const PedigreeCanvas = forwardRef<PedigreeCanvasHandle, PedigreeCanvasPro
           type="button"
           onClick={handleZoomIn}
           aria-label="Zoom in"
-          className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+          className="panel-button p-2 rounded transition-colors"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
         </button>
-        <div className="w-[1px] bg-slate-200" aria-hidden="true" />
+        <div className="w-[1px] bg-border" aria-hidden="true" />
         <span
-          className="px-2 flex items-center justify-center font-mono text-xs min-w-[40px] text-slate-700"
+          className="px-2 flex items-center justify-center font-mono text-xs min-w-[40px] text-text-secondary"
           aria-label={`Current zoom: ${Math.round(zoom * 100)} percent`}
         >
           {Math.round(zoom * 100)}%
         </span>
-        <div className="w-[1px] bg-slate-200" aria-hidden="true" />
+        <div className="w-[1px] bg-border" aria-hidden="true" />
         <button
           type="button"
           onClick={handleZoomOut}
           aria-label="Zoom out"
-          className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+          className="panel-button p-2 rounded transition-colors"
         >
           <Minus className="w-4 h-4" aria-hidden="true" />
         </button>
-        <div className="w-[1px] bg-slate-200 ml-2" aria-hidden="true" />
+        <div className="w-[1px] bg-border ml-2" aria-hidden="true" />
         <button
           type="button"
           onClick={handleFit}
           aria-label="Fit to screen"
-          className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+          className="panel-button p-2 rounded transition-colors"
         >
           <Focus className="w-4 h-4" aria-hidden="true" />
         </button>

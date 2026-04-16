@@ -27,7 +27,7 @@ export function Footer({ t, summary, saveStatus }: FooterProps): React.JSX.Eleme
         <span className="font-mono text-xs">
           {t.totalIndividuals}: {summary.totalIndividuals} · {t.generations}:{' '}
           {summary.generations}
-          {summary.groups !== undefined ? ` · litters: ${summary.groups}` : ''}
+          {summary.groups !== undefined ? ` · ${t.litters}: ${summary.groups}` : ''}
         </span>
         <div className="h-3 w-[1px] bg-slate-300" aria-hidden="true" />
         {saveStatus === 'saving' ? (

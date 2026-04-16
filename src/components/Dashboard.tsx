@@ -1,6 +1,9 @@
 import type { Individual } from '../types/pedigree.types';
 import type { CohortStats, MissingDataAlert } from '../types/breeding.types';
-import type { Translation } from '../types/translation.types';
+import type { Language, Translation } from '../types/translation.types';
+import type { PopulationStats } from '../services/population-genetics';
+import type { ValidationResult } from '../services/pedigree-validation';
+import type { SpeciesProfile } from '../services/species-profiles';
 import { LitterGroupCard } from './dashboard/LitterGroupCard';
 import { StatusSummary } from './dashboard/StatusSummary';
 import { GenotypeHeatmap } from './dashboard/GenotypeHeatmap';
@@ -15,6 +18,10 @@ interface DashboardProps {
   readonly projectName?: string;
   readonly individuals: readonly Individual[];
   readonly onSelectIndividual?: (id: string) => void;
+  readonly populationStats: PopulationStats;
+  readonly validation: ValidationResult;
+  readonly speciesProfile: SpeciesProfile;
+  readonly language: Language;
 }
 
 /**
@@ -29,13 +36,17 @@ export function Dashboard({
   projectName,
   individuals,
   onSelectIndividual,
+  populationStats,
+  validation,
+  speciesProfile,
+  language,
 }: DashboardProps): React.JSX.Element {
   if (stats.totalCount === 0) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center p-8 flex flex-col items-center gap-3">
           <p className="text-lg font-semibold text-text-primary">{t.noDataYet}</p>
-          <p className="text-sm text-slate-500">{t.importToStart}</p>
+          <p className="text-sm text-text-muted">{t.importToStart}</p>
         </div>
       </div>
     );
@@ -50,7 +61,7 @@ export function Dashboard({
         <h1 className="text-2xl font-bold text-brand tracking-tight">
           {projectName !== undefined && projectName !== '' ? projectName : t.founderCohort}
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-text-muted mt-1">
           {t.individuals}: {totalCount} &nbsp;·&nbsp;
           {t.litterGroups}: {litterGroups.length} &nbsp;·&nbsp;
           <span className="text-blue-600">{sexDistribution.male}M</span>
@@ -70,8 +81,18 @@ export function Dashboard({
           highlight={breedingCandidateCount > 0}
         />
         <SummaryCard
-          label="Sex known"
+          label={t.sexKnown}
           value={`${totalCount - sexDistribution.unknown}/${totalCount}`}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <SummaryCard label={t.species} value={`${speciesProfile.icon} ${speciesProfile.name[language]}`} />
+        <SummaryCard label={t.meanCoi} value={`${(populationStats.meanCOI * 100).toFixed(2)}%`} />
+        <SummaryCard
+          label={t.validationLabel}
+          value={validation.valid ? t.clean : `${validation.errors.length} error(s)`}
+          highlight={!validation.valid}
         />
       </div>
 
@@ -89,7 +110,7 @@ export function Dashboard({
         <section className="bg-surface-raised border border-border rounded-lg p-4 flex flex-col gap-3 max-h-80 overflow-y-auto">
           <h2 className="text-sm font-semibold text-text-primary sticky top-0 bg-surface-raised pb-1">{t.litterGroups}</h2>
           {litterGroups.length === 0 ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">No litter groups assigned</p>
+            <p className="text-xs text-text-muted">{t.noLitterGroupsAssigned}</p>
           ) : (
             litterGroups.map((lg) => (
               <LitterGroupCard
@@ -113,7 +134,7 @@ export function Dashboard({
 
           <section className="bg-surface-raised border border-border rounded-lg p-4">
             <h2 className="text-sm font-semibold text-text-primary mb-3">{t.genotypeHeatmap}</h2>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-2">{t.koEfficiency} &nbsp; <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-red-400"/> 0%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-yellow-300"/>50%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-green-400"/>100%</span></p>
+            <p className="text-[10px] text-text-muted mb-2">{t.koEfficiency} &nbsp; <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-red-400"/> 0%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-yellow-300"/>50%</span> → <span className="inline-flex gap-1 items-center"><span className="w-3 h-3 rounded-sm inline-block bg-green-400"/>100%</span></p>
             <GenotypeHeatmap
               individuals={individuals}
               onSelectIndividual={onSelectIndividual}
@@ -145,6 +166,64 @@ export function Dashboard({
             totalCount={totalCount}
           />
         </section>
+
+        <section className="bg-surface-raised border border-border rounded-lg p-4 md:col-span-2">
+          <h2 className="text-sm font-semibold text-text-primary mb-3">{t.populationGenetics}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <SummaryCard label={t.population} value={populationStats.populationSize} />
+            <SummaryCard label={t.foundersLabel} value={populationStats.founderCount} />
+            <SummaryCard label={t.maxCoi} value={`${(populationStats.maxCOI * 100).toFixed(2)}%`} />
+            <SummaryCard label={t.inbredLabel} value={`${(populationStats.inbredProportion * 100).toFixed(1)}%`} />
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-text-muted border-b border-border">
+                  <th className="py-2 pr-3">{t.generation}</th>
+                  <th className="py-2 pr-3">{t.countLabel}</th>
+                  <th className="py-2 pr-3">{t.meanCoi}</th>
+                  <th className="py-2 pr-3">{t.foundersLabel}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {populationStats.generationStats.map((row) => (
+                  <tr key={row.generation} className="border-b border-border">
+                    <td className="py-2 pr-3 font-mono text-text-primary">{row.generation}</td>
+                    <td className="py-2 pr-3 text-text-secondary">{row.count}</td>
+                    <td className="py-2 pr-3 text-text-secondary">{(row.meanCOI * 100).toFixed(2)}%</td>
+                    <td className="py-2 pr-3 text-text-secondary">{row.founderCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="bg-surface-raised border border-border rounded-lg p-4 md:col-span-2">
+          <h2 className="text-sm font-semibold text-text-primary mb-3">{t.validationLabel}</h2>
+          {validation.valid ? (
+            <p className="text-sm text-green-700 dark:text-green-400">{t.noValidationErrors}</p>
+          ) : (
+            <div className="space-y-2">
+              {validation.errors.map((error, index) => (
+                <div key={`${error.type}-${index}`} className="rounded border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3 text-xs">
+                  <div className="font-semibold text-red-700 dark:text-red-300">{error.message}</div>
+                  <div className="mt-1 font-mono text-red-600 dark:text-red-400">{error.ids.join(', ')}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {validation.warnings.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {validation.warnings.map((warning, index) => (
+                <div key={`${warning.type}-${index}`} className="rounded border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-xs">
+                  <div className="font-semibold text-amber-700 dark:text-amber-300">{warning.message}</div>
+                  <div className="mt-1 font-mono text-amber-600 dark:text-amber-400">{warning.ids.join(', ')}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
@@ -161,7 +240,7 @@ function SummaryCard({
 }): React.JSX.Element {
   return (
     <div className={`bg-surface-raised border rounded-lg p-4 flex flex-col gap-1 ${highlight ? 'border-brand' : 'border-border'}`}>
-      <span className="text-xs text-slate-500 uppercase tracking-wide">{label}</span>
+      <span className="text-xs text-text-muted uppercase tracking-wide">{label}</span>
       <span className={`text-2xl font-bold ${highlight ? 'text-brand' : 'text-text-primary'}`}>{value}</span>
     </div>
   );

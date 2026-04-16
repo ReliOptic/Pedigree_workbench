@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { APP_CONFIG } from '../config';
 import type { AutoBackupInterval, ConnectorLineStyle, GenerationFormat, NodeSize, Species, Theme } from '../services/settings-store';
 import { getSpeciesGestation } from '../services/settings-store';
 import type { Language, Translation } from '../types/translation.types';
@@ -69,6 +70,9 @@ export function SettingsModal({
   species,
   setSpecies,
 }: SettingsModalProps): React.JSX.Element | null {
+  const switchClass = (checked: boolean): string =>
+    `panel-switch relative inline-flex h-6 w-11 items-center rounded-full px-0.5 ${checked ? 'justify-end' : 'justify-start'}`;
+
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent): void => {
@@ -103,7 +107,7 @@ export function SettingsModal({
             role="dialog"
             aria-modal="true"
             aria-label={t.settings}
-            className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface-raised shadow-xl max-h-[90vh] flex flex-col"
+            className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface-raised shadow-xl shadow-slate-950/50 max-h-[90vh] flex flex-col"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
@@ -116,7 +120,7 @@ export function SettingsModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="p-1 rounded hover:bg-surface transition"
+                className="panel-button rounded-full p-2"
               >
                 <X className="w-5 h-5 text-text-secondary" />
               </button>
@@ -138,10 +142,10 @@ export function SettingsModal({
                     return (
                       <label
                         key={value}
-                        className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                        className={`panel-choice flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm ${
                           theme === value
-                            ? 'border-brand bg-brand/10 text-brand font-medium'
-                            : 'border-border text-text-secondary hover:border-border-strong'
+                            ? 'panel-choice-active font-medium'
+                            : ''
                         }`}
                       >
                         <input
@@ -168,10 +172,10 @@ export function SettingsModal({
                     return (
                       <label
                         key={value}
-                        className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                        className={`panel-choice flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm ${
                           language === value
-                            ? 'border-brand bg-brand/10 text-brand font-medium'
-                            : 'border-border text-text-secondary hover:border-border-strong'
+                            ? 'panel-choice-active font-medium'
+                            : ''
                         }`}
                       >
                         <input
@@ -202,10 +206,10 @@ export function SettingsModal({
                       return (
                         <label
                           key={value}
-                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                          className={`panel-choice flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm ${
                             nodeSize === value
-                              ? 'border-brand bg-brand/10 text-brand font-medium'
-                              : 'border-border text-text-secondary hover:border-border-strong'
+                              ? 'panel-choice-active font-medium'
+                              : ''
                           }`}
                         >
                           <input
@@ -231,15 +235,10 @@ export function SettingsModal({
                     role="switch"
                     aria-checked={showStatusBadges}
                     onClick={() => setShowStatusBadges(!showStatusBadges)}
-                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
-                      showStatusBadges ? 'bg-brand border-brand' : 'bg-surface border-border'
-                    }`}
+                    className={switchClass(showStatusBadges)}
+                    data-state={showStatusBadges ? 'on' : 'off'}
                   >
-                    <span
-                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        showStatusBadges ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
+                    <span className="panel-switch-thumb h-4 w-4 rounded-full" />
                   </button>
                 </div>
 
@@ -251,15 +250,10 @@ export function SettingsModal({
                     role="switch"
                     aria-checked={showGenerationLabels}
                     onClick={() => setShowGenerationLabels(!showGenerationLabels)}
-                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
-                      showGenerationLabels ? 'bg-brand border-brand' : 'bg-surface border-border'
-                    }`}
+                    className={switchClass(showGenerationLabels)}
+                    data-state={showGenerationLabels ? 'on' : 'off'}
                   >
-                    <span
-                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        showGenerationLabels ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
+                    <span className="panel-switch-thumb h-4 w-4 rounded-full" />
                   </button>
                 </div>
 
@@ -271,15 +265,10 @@ export function SettingsModal({
                     role="switch"
                     aria-checked={autoFitOnImport}
                     onClick={() => setAutoFitOnImport(!autoFitOnImport)}
-                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
-                      autoFitOnImport ? 'bg-brand border-brand' : 'bg-surface border-border'
-                    }`}
+                    className={switchClass(autoFitOnImport)}
+                    data-state={autoFitOnImport ? 'on' : 'off'}
                   >
-                    <span
-                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        autoFitOnImport ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
+                    <span className="panel-switch-thumb h-4 w-4 rounded-full" />
                   </button>
                 </div>
 
@@ -296,10 +285,10 @@ export function SettingsModal({
                       return (
                         <label
                           key={value}
-                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                          className={`panel-choice flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm ${
                             generationFormat === value
-                              ? 'border-brand bg-brand/10 text-brand font-medium'
-                              : 'border-border text-text-secondary hover:border-border-strong'
+                              ? 'panel-choice-active font-medium'
+                              : ''
                           }`}
                         >
                           <input
@@ -334,7 +323,7 @@ export function SettingsModal({
                         setDefaultGestationDays(getSpeciesGestation(s));
                       }
                     }}
-                    className="px-2 py-1 text-sm border border-border rounded bg-surface"
+                    className="panel-field px-2 py-1 text-sm rounded"
                   >
                     {(['pig', 'dog', 'cattle', 'horse', 'sheep', 'goat', 'cat', 'rabbit', 'custom'] as const).map((s) => {
                       const label =
@@ -364,7 +353,7 @@ export function SettingsModal({
                       const n = Number.parseInt(e.target.value, 10);
                       if (!Number.isNaN(n) && n > 0) setDefaultGestationDays(n);
                     }}
-                    className="w-20 px-2 py-1 text-sm text-right border border-border rounded bg-surface font-mono"
+                    className="panel-field w-20 px-2 py-1 text-sm text-right rounded font-mono"
                   />
                 </div>
 
@@ -381,10 +370,10 @@ export function SettingsModal({
                       return (
                         <label
                           key={value}
-                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                          className={`panel-choice flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm ${
                             autoBackupInterval === value
-                              ? 'border-brand bg-brand/10 text-brand font-medium'
-                              : 'border-border text-text-secondary hover:border-border-strong'
+                              ? 'panel-choice-active font-medium'
+                              : ''
                           }`}
                         >
                           <input
@@ -415,15 +404,10 @@ export function SettingsModal({
                     role="switch"
                     aria-checked={showNotesOnHover}
                     onClick={() => setShowNotesOnHover(!showNotesOnHover)}
-                    className={`w-10 h-6 rounded-full border-2 transition-colors flex items-center px-0.5 ${
-                      showNotesOnHover ? 'bg-brand border-brand' : 'bg-surface border-border'
-                    }`}
+                    className={switchClass(showNotesOnHover)}
+                    data-state={showNotesOnHover ? 'on' : 'off'}
                   >
-                    <span
-                      className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                        showNotesOnHover ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
+                    <span className="panel-switch-thumb h-4 w-4 rounded-full" />
                   </button>
                 </div>
 
@@ -436,10 +420,10 @@ export function SettingsModal({
                       return (
                         <label
                           key={value}
-                          className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition text-sm ${
+                          className={`panel-choice flex items-center gap-2 px-3 py-2 rounded cursor-pointer text-sm ${
                             connectorLineStyle === value
-                              ? 'border-brand bg-brand/10 text-brand font-medium'
-                              : 'border-border text-text-secondary hover:border-border-strong'
+                              ? 'panel-choice-active font-medium'
+                              : ''
                           }`}
                         >
                           <input
@@ -457,6 +441,23 @@ export function SettingsModal({
                   </div>
                 </div>
               </fieldset>
+
+              <section className="rounded-xl border border-border bg-surface px-4 py-3">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+                  Product
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-text-primary">Pedigree Workbench</div>
+                    <div className="text-xs text-text-secondary">
+                      Local pedigree decision workstation
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-border bg-surface-raised px-2.5 py-1 font-mono text-xs text-text-secondary">
+                    v{APP_CONFIG.version}
+                  </div>
+                </div>
+              </section>
             </div>
           </motion.div>
         </motion.div>

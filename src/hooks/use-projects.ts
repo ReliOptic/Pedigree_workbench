@@ -67,48 +67,53 @@ export function useProjects(
     let cancelled = false;
     void (async () => {
       try {
-        const [projectList, individuals] = await Promise.all([
-          listProjects(),
-          listAll(),
-        ]);
+        let projectList = await listProjects();
 
-        if (projectList.length === 0 && individuals.length > 0) {
-          // Migrate: create a default project from existing data.
-          const id = generateId();
-          const project: Project = {
-            id,
-            name: 'Default Project',
-            createdAt: new Date().toISOString(),
-            data: individuals,
-          };
-          await saveProject(project);
-          setActiveProjectId(id);
-          if (!cancelled) {
-            setActiveState(id);
-            setProjects([project]);
+        if (projectList.length === 0) {
+          const individuals = await listAll();
+          if (individuals.length > 0) {
+            // Re-check after reading individuals so a concurrent import/project
+            // creation cannot race this migration path and create a duplicate
+            // default project.
+            projectList = await listProjects();
+            if (projectList.length === 0) {
+              const id = generateId();
+              const project: Project = {
+                id,
+                name: 'Default Project',
+                createdAt: new Date().toISOString(),
+                data: individuals,
+              };
+              await saveProject(project);
+              projectList = [project];
+              setActiveProjectId(id);
+              if (!cancelled) {
+                setActiveState(id);
+              }
+            }
           }
-        } else {
-          if (!cancelled) {
-            setProjects(projectList);
-            // Validate active project still exists.
-            const storedId = getActiveProjectId();
-            if (storedId !== null && !projectList.some((p) => p.id === storedId)) {
-              // Active project was deleted; fall back.
-              const fallback = projectList[0]?.id ?? null;
-              setActiveProjectId(fallback);
-              setActiveState(fallback);
-              if (fallback !== null) {
-                const proj = await getProject(fallback);
-                if (proj !== undefined) {
-                  const fallbackMatings = proj.matings ?? [];
-                  await Promise.all([
-                    bulkImport(proj.data),
-                    bulkImportMatings(fallbackMatings),
-                  ]);
-                  await onWorkspaceChanged();
-                  if (onMatingsChanged !== undefined) {
-                    await onMatingsChanged(fallbackMatings);
-                  }
+        }
+
+        if (!cancelled) {
+          setProjects(projectList);
+          // Validate active project still exists.
+          const storedId = getActiveProjectId();
+          if (storedId !== null && !projectList.some((p) => p.id === storedId)) {
+            // Active project was deleted; fall back.
+            const fallback = projectList[0]?.id ?? null;
+            setActiveProjectId(fallback);
+            setActiveState(fallback);
+            if (fallback !== null) {
+              const proj = await getProject(fallback);
+              if (proj !== undefined) {
+                const fallbackMatings = proj.matings ?? [];
+                await Promise.all([
+                  bulkImport(proj.data),
+                  bulkImportMatings(fallbackMatings),
+                ]);
+                await onWorkspaceChanged();
+                if (onMatingsChanged !== undefined) {
+                  await onMatingsChanged(fallbackMatings);
                 }
               }
             }

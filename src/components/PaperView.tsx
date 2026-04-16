@@ -35,7 +35,15 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
     (async () => {
       try {
         const mermaid = (await import('mermaid')).default;
-        mermaid.initialize({ startOnLoad: false, theme: 'neutral', flowchart: { curve: 'basis' } });
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'neutral',
+          flowchart: {
+            curve: 'basis',
+            nodeSpacing: 28,
+            rankSpacing: 52,
+          },
+        });
 
         if (cancelled || currentRender !== renderIdRef.current) return;
 
@@ -43,7 +51,51 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
 
         if (cancelled || currentRender !== renderIdRef.current) return;
 
-        setSvgHtml(svg);
+        const styledSvg = svg.replace(
+          '</svg>',
+          `<style>
+            svg {
+              background: transparent;
+            }
+            .node rect,
+            .node polygon,
+            .node circle,
+            .node path {
+              stroke-width: 2px;
+            }
+            .edgePath path {
+              stroke-width: 2px;
+            }
+            .nodeLabel,
+            .label text,
+            .node foreignObject div {
+              max-width: 120px;
+            }
+            .node foreignObject div {
+              width: 120px !important;
+              min-width: 120px !important;
+              max-width: 120px !important;
+              min-height: 56px !important;
+              text-align: center;
+              white-space: normal;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              line-height: 1.2;
+              word-break: break-word;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto;
+              padding: 4px 6px;
+              box-sizing: border-box;
+            }
+            .node .label {
+              max-width: 120px;
+            }
+          </style></svg>`,
+        );
+
+        setSvgHtml(styledSvg);
       } catch (e) {
         if (!cancelled && currentRender === renderIdRef.current) {
           setError(e instanceof Error ? e.message : String(e));
@@ -115,7 +167,7 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
           type="button"
           onClick={handleDownloadSvg}
           disabled={svgHtml === null}
-          className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium border border-border rounded hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Download className="w-3.5 h-3.5" aria-hidden="true" />
           {t.downloadSvg}
@@ -124,7 +176,7 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
           type="button"
           onClick={handleDownloadPng}
           disabled={svgHtml === null}
-          className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium border border-border rounded hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Download className="w-3.5 h-3.5" aria-hidden="true" />
           {t.downloadPng}
@@ -132,7 +184,7 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
         <button
           type="button"
           onClick={handleCopySource}
-          className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium border border-border rounded hover:bg-slate-100 transition"
+          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded"
         >
           <ClipboardCopy className="w-3.5 h-3.5" aria-hidden="true" />
           {t.copyMermaidSource}
@@ -141,7 +193,7 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
           type="button"
           onClick={handleCopySvg}
           disabled={svgHtml === null}
-          className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium border border-border rounded hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ClipboardCopy className="w-3.5 h-3.5" aria-hidden="true" />
           {t.copySvg}
@@ -149,12 +201,12 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
       </div>
 
       {/* Diagram area */}
-      <div className="flex-1 overflow-auto flex items-start justify-center p-8">
+      <div className="flex-1 overflow-auto flex items-start justify-center bg-surface-raised/40 p-8">
         {loading ? (
           <div className="flex items-center justify-center gap-3 pt-16" role="status" aria-label="Loading diagram">
-            <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-slate-200 animate-pulse" />
-            <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-slate-200 animate-pulse [animation-delay:150ms]" />
-            <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-slate-200 animate-pulse [animation-delay:300ms]" />
+            <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-raised animate-pulse" />
+            <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-raised animate-pulse [animation-delay:150ms]" />
+            <div className="w-8 h-8 rounded-full border-2 border-border bg-surface-raised animate-pulse [animation-delay:300ms]" />
           </div>
         ) : error !== null ? (
           <div className="text-red-600 text-sm font-mono p-4" role="alert">
@@ -163,7 +215,7 @@ export function PaperView({ individuals, t }: PaperViewProps): React.JSX.Element
         ) : svgHtml !== null ? (
           <div
             ref={containerRef}
-            className="max-w-full"
+            className="paper-mermaid min-w-fit rounded-2xl border border-border bg-surface p-6 shadow-sm"
             dangerouslySetInnerHTML={{ __html: svgHtml }}
           />
         ) : null}

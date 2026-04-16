@@ -178,21 +178,21 @@ export function ContextMenu({
     >
       {items.map((entry, idx) => {
         if (entry.kind === 'separator') {
-          return <div key={entry.id} role="separator" className="my-1 h-px bg-slate-200" />;
+          return <div key={entry.id} role="separator" className="my-1 h-px bg-border" />;
         }
         const isFocused = idx === focusedIdx;
         const Icon = entry.icon;
         const baseCls =
           'flex items-center w-full gap-2 px-3 py-1.5 text-left transition-colors';
         const stateCls = entry.disabled
-          ? 'text-slate-300 cursor-not-allowed'
+          ? 'text-text-muted cursor-not-allowed'
           : entry.destructive
             ? isFocused
-              ? 'bg-red-50 text-red-700 cursor-pointer'
-              : 'text-red-700 hover:bg-red-50 cursor-pointer'
+              ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-200 cursor-pointer'
+              : 'text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer'
             : isFocused
-              ? 'bg-slate-100 text-slate-900 cursor-pointer'
-              : 'text-slate-800 hover:bg-slate-100 cursor-pointer';
+              ? 'bg-surface text-text-primary cursor-pointer'
+              : 'text-text-secondary hover:bg-surface hover:text-text-primary cursor-pointer';
         return (
           <button
             key={entry.id}
@@ -215,7 +215,7 @@ export function ContextMenu({
             {Icon !== undefined && <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />}
             <span className="flex-1">{entry.label}</span>
             {entry.shortcut !== undefined && (
-              <span className="font-mono text-[11px] text-slate-400">{entry.shortcut}</span>
+              <span className="font-mono text-[11px] text-text-muted">{entry.shortcut}</span>
             )}
           </button>
         );

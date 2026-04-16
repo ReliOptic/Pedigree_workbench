@@ -174,6 +174,19 @@ export interface Translation {
   readonly genotypeHeatmap: string;
   readonly breedingCandidates2: string;
   readonly expectedOffspringCOI: string;
+  readonly litters: string;
+  readonly sexKnown: string;
+  readonly meanCoi: string;
+  readonly validationLabel: string;
+  readonly clean: string;
+  readonly noLitterGroupsAssigned: string;
+  readonly populationGenetics: string;
+  readonly population: string;
+  readonly foundersLabel: string;
+  readonly maxCoi: string;
+  readonly inbredLabel: string;
+  readonly countLabel: string;
+  readonly noValidationErrors: string;
 }
 
 export type TranslationDictionary = Readonly<Record<Language, Translation>>;

@@ -12,7 +12,9 @@ import {
   type Mating,
   type SequenceSource,
 } from '../types/pedigree.types';
-import type { Translation } from '../types/translation.types';
+import type { Language, Translation } from '../types/translation.types';
+import { generateCertificate } from '../services/pedigree-certificate';
+import { downloadFile } from '../services/pedigree-export';
 
 interface NodeInspectorProps {
   readonly individual: Individual | null;
@@ -24,6 +26,8 @@ interface NodeInspectorProps {
   readonly matings: readonly Mating[];
   readonly onDeleteMating: (id: string) => void;
   readonly onUpdateMating: (mating: Mating) => void;
+  readonly species: string;
+  readonly language: Language;
 }
 
 interface FormState {
@@ -98,6 +102,8 @@ export function NodeInspector({
   matings,
   onDeleteMating,
   onUpdateMating,
+  species,
+  language,
 }: NodeInspectorProps): React.JSX.Element {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [form, setForm] = useState<FormState | null>(null);
@@ -135,6 +141,11 @@ export function NodeInspector({
     if (individual === null) return 0;
     return computeInbreedingCoefficient(individual.id, allIndividuals);
   }, [individual, allIndividuals]);
+
+  const certificate = useMemo(() => {
+    if (individual === null) return null;
+    return generateCertificate(individual, allIndividuals, { species, language });
+  }, [individual, allIndividuals, species, language]);
 
   const beginEdit = (): void => {
     if (individual === null) return;
@@ -213,12 +224,12 @@ export function NodeInspector({
                 type="button"
                 onClick={onClose}
                 aria-label="Close inspector"
-                className="text-slate-400 hover:text-brand transition-colors"
+                className="text-text-muted hover:text-brand transition-colors"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
-            <p className="font-mono text-sm text-slate-900 font-bold break-all">
+            <p className="font-mono text-sm text-text-primary font-bold break-all">
               {individual.id}
               {individual.generation !== undefined ? ` (${individual.generation})` : ''}
             </p>
@@ -238,7 +249,7 @@ export function NodeInspector({
                     onClick={() => void saveEdit()}
                     disabled={isSaving}
                     data-testid="inspector-save"
-                    className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium bg-brand text-white rounded hover:brightness-110 disabled:opacity-50 transition"
+                    className="panel-button panel-button-primary inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" aria-hidden="true" />
                     {t.save}
@@ -246,7 +257,7 @@ export function NodeInspector({
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium text-slate-600 hover:text-brand transition"
+                    className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded"
                   >
                     {t.cancel}
                   </button>
@@ -257,7 +268,7 @@ export function NodeInspector({
                     type="button"
                     onClick={beginEdit}
                     data-testid="inspector-edit"
-                    className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium bg-brand text-white rounded hover:brightness-110 transition"
+                    className="panel-button panel-button-primary inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded"
                   >
                     <Pencil className="w-4 h-4" aria-hidden="true" />
                     {t.edit}
@@ -266,7 +277,7 @@ export function NodeInspector({
                     type="button"
                     onClick={() => setConfirmingDelete(true)}
                     data-testid="inspector-delete"
-                    className="inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium text-red-600 border border-red-200 rounded hover:bg-red-50 transition"
+                    className="panel-button inline-flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded text-red-600 dark:text-red-300"
                   >
                     <Trash2 className="w-4 h-4" aria-hidden="true" />
                     {t.delete}
@@ -279,7 +290,7 @@ export function NodeInspector({
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {formError !== null && (
-              <div role="alert" className="p-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded">
+              <div role="alert" className="p-2 text-xs text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded">
                 {formError}
               </div>
             )}
@@ -296,8 +307,8 @@ export function NodeInspector({
 
             {/* COI Section */}
             {individual !== null && (
-              <div className="mt-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+              <div className="mt-3 px-3 py-2 rounded-lg bg-surface-raised border border-border">
+                <div className="text-xs font-semibold text-text-muted mb-1">
                   Inbreeding Coefficient (COI)
                 </div>
                 <div className={`text-lg font-bold ${
@@ -319,13 +330,43 @@ export function NodeInspector({
               </div>
             )}
 
+            {certificate !== null && (
+              <section className="pt-2 border-t border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wide">
+                    Pedigree Certificate
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadFile(
+                        JSON.stringify(certificate, null, 2),
+                        `${certificate.subject.id}-certificate.json`,
+                        'application/json',
+                      );
+                    }}
+                    className="panel-button inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium rounded"
+                  >
+                    <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                    Export JSON
+                  </button>
+                </div>
+                <div className="rounded-lg bg-surface-raised border border-border px-3 py-2 text-xs text-text-secondary space-y-1">
+                  <div><span className="font-semibold">Species:</span> {certificate.speciesName}</div>
+                  <div><span className="font-semibold">Ancestor slots:</span> {certificate.ancestors.length}</div>
+                  <div><span className="font-semibold">COI:</span> {(certificate.coi * 100).toFixed(2)}%</div>
+                  <div><span className="font-semibold">Generated:</span> {new Date(certificate.generatedAt).toLocaleString()}</div>
+                </div>
+              </section>
+            )}
+
             {/* Notes section */}
             <section aria-labelledby="notes-heading" className="pt-2 border-t border-border">
               <button
                 type="button"
                 id="notes-heading"
                 onClick={() => setNotesOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 w-full text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 hover:text-brand transition-colors"
+                className="flex items-center gap-1.5 w-full text-xs font-bold text-text-secondary uppercase tracking-wide mb-2 hover:text-brand transition-colors"
                 aria-expanded={notesOpen}
               >
                 {notesOpen ? (
@@ -348,7 +389,7 @@ export function NodeInspector({
                   }}
                   placeholder={t.noNotes}
                   rows={4}
-                  className="w-full p-2 text-xs bg-white dark:bg-slate-800 border border-border rounded resize-y font-mono"
+                  className="w-full p-2 text-xs bg-surface-raised text-text-primary border border-border rounded resize-y font-mono"
                 />
               )}
             </section>
@@ -370,7 +411,7 @@ export function NodeInspector({
               <div className="flex items-center justify-between mb-2">
                 <h3
                   id="sequence-heading"
-                  className="text-xs font-bold text-slate-700 uppercase tracking-wide"
+                  className="text-xs font-bold text-text-secondary uppercase tracking-wide"
                 >
                   {t.sequence} (PCR)
                 </h3>
@@ -388,7 +429,7 @@ export function NodeInspector({
                     onChange={(e) =>
                       setForm((f) => (f === null ? f : { ...f, sequenceSource: e.target.value }))
                     }
-                    className="w-full p-2 text-xs bg-white dark:bg-slate-800 border border-border rounded"
+                    className="w-full p-2 text-xs bg-surface-raised text-text-primary border border-border rounded"
                     aria-label={t.sequenceSource}
                   >
                     <option value="">— {t.none} —</option>
@@ -407,19 +448,19 @@ export function NodeInspector({
                     placeholder="ATGCGTA... (IUPAC codes, whitespace ignored)"
                     spellCheck={false}
                     rows={6}
-                    className="w-full p-2 font-mono text-xs bg-white dark:bg-slate-800 border border-border rounded resize-y"
+                    className="w-full p-2 font-mono text-xs bg-surface-raised text-text-primary border border-border rounded resize-y"
                   />
                 </div>
               ) : individual.sequence !== undefined ? (
                 <div className="space-y-2">
-                  <pre className="p-2 font-mono text-[11px] leading-snug text-slate-700 bg-white dark:bg-slate-800 border border-border rounded max-h-40 overflow-auto break-all whitespace-pre-wrap">
+                  <pre className="p-2 font-mono text-[11px] leading-snug text-text-secondary bg-surface-raised border border-border rounded max-h-40 overflow-auto break-all whitespace-pre-wrap">
                     {individual.sequence}
                   </pre>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => void handleCopySequence()}
-                      className="inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium text-slate-700 border border-border rounded hover:bg-slate-100 transition"
+                      className="panel-button inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium rounded"
                     >
                       <CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />
                       {Date.now() - copiedAt < 1500 ? t.copied : t.copy}
@@ -428,7 +469,7 @@ export function NodeInspector({
                       type="button"
                       data-testid="predict-structure"
                       onClick={() => setShowStructureViewer(true)}
-                      className="inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium text-slate-700 border border-border rounded hover:bg-slate-100 transition"
+                      className="panel-button inline-flex items-center gap-1.5 px-2 h-7 text-xs font-medium rounded"
                     >
                       <FlaskConical className="w-3.5 h-3.5" aria-hidden="true" />
                       {t.predictStructure}
@@ -442,7 +483,7 @@ export function NodeInspector({
           </div>
 
           {/* Footer */}
-          <div className="p-3 border-t border-border bg-white dark:bg-slate-800 text-[11px] font-mono text-text-muted text-center">
+          <div className="p-3 border-t border-border bg-surface-raised text-[11px] font-mono text-text-muted text-center">
             {t.individualId}: {individual.id}
           </div>
 
@@ -465,14 +506,14 @@ export function NodeInspector({
             >
               <div className="max-w-xs text-center space-y-4">
                 <Trash2 className="w-8 h-8 text-red-600 mx-auto" aria-hidden="true" />
-                <p id="confirm-delete-title" className="text-sm text-slate-800">
+                <p id="confirm-delete-title" className="text-sm text-text-primary">
                   {t.confirmDelete}
                 </p>
                 <div className="flex justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => setConfirmingDelete(false)}
-                    className="px-3 h-8 text-xs font-medium text-slate-600 hover:text-brand transition"
+                    className="panel-button px-3 h-8 text-xs font-medium rounded"
                   >
                     {t.cancel}
                   </button>
@@ -512,29 +553,29 @@ function ReadRows({ ind }: { readonly ind: Individual }): React.JSX.Element {
         {entries.map(([key, value]) => (
           <tr
             key={key}
-            className="border-b border-slate-100"
+            className="border-b border-border"
             data-testid={`inspector-row-${key}`}
           >
             <th
               scope="row"
-              className="py-1.5 pr-3 text-slate-400 uppercase tracking-tight whitespace-nowrap align-top text-left font-normal"
+              className="py-1.5 pr-3 text-text-muted uppercase tracking-tight whitespace-nowrap align-top text-left font-normal"
             >
               {key}
             </th>
-            <td className="py-1.5 text-slate-700 break-words">
+            <td className="py-1.5 text-text-secondary break-words">
               {value !== undefined && value.length > 0 ? value : '─'}
             </td>
           </tr>
         ))}
         {Object.entries(ind.fields).map(([k, v]) => (
-          <tr key={`f-${k}`} className="border-b border-slate-100" data-testid={`inspector-row-${k}`}>
+          <tr key={`f-${k}`} className="border-b border-border" data-testid={`inspector-row-${k}`}>
             <th
               scope="row"
-              className="py-1.5 pr-3 text-slate-400 uppercase tracking-tight whitespace-nowrap align-top text-left font-normal"
+              className="py-1.5 pr-3 text-text-muted uppercase tracking-tight whitespace-nowrap align-top text-left font-normal"
             >
               {k}
             </th>
-            <td className="py-1.5 text-slate-700 break-words">
+            <td className="py-1.5 text-text-secondary break-words">
               {v.length > 0 ? v : '─'}
             </td>
           </tr>
@@ -566,7 +607,7 @@ function EditForm({
           type="text"
           value={form.label}
           onChange={patch('label')}
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>
       <Field label="sex">
@@ -575,7 +616,7 @@ function EditForm({
           value={form.sex}
           onChange={patch('sex')}
           placeholder="수컷 / 암컷 / M / F"
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>
       <Field label="generation">
@@ -584,14 +625,14 @@ function EditForm({
           value={form.generation}
           onChange={patch('generation')}
           placeholder="F0 / F1 / F2 ..."
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>
       <Field label="sire">
         <select
           value={form.sire}
           onChange={patch('sire')}
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         >
           <option value="">— none —</option>
           {parentOptions.map((id) => (
@@ -605,7 +646,7 @@ function EditForm({
         <select
           value={form.dam}
           onChange={patch('dam')}
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         >
           <option value="">— none —</option>
           {parentOptions.map((id) => (
@@ -620,7 +661,7 @@ function EditForm({
           type="text"
           value={form.group}
           onChange={patch('group')}
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>
       <Field label="surrogate">
@@ -628,7 +669,7 @@ function EditForm({
           type="text"
           value={form.surrogate}
           onChange={patch('surrogate')}
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>
       <Field label="birth_date">
@@ -637,7 +678,7 @@ function EditForm({
           value={form.birthDate}
           onChange={patch('birthDate')}
           placeholder="YYYY-MM-DD"
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>
       <Field label="status">
@@ -645,7 +686,7 @@ function EditForm({
           type="text"
           value={form.status}
           onChange={patch('status')}
-          className="w-full p-1.5 text-xs bg-white dark:bg-slate-800 border border-border rounded font-mono"
+          className="w-full p-1.5 text-xs bg-surface-raised text-text-primary border border-border rounded font-mono"
         />
       </Field>
     </div>
@@ -668,11 +709,11 @@ function Field({
 }
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
-  planned: 'bg-slate-100 text-slate-600',
-  mated: 'bg-blue-100 text-blue-700',
-  pregnant: 'bg-pink-100 text-pink-700',
-  delivered: 'bg-green-100 text-green-700',
-  failed: 'bg-red-100 text-red-600',
+  planned: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-100',
+  mated: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-200',
+  pregnant: 'bg-pink-100 dark:bg-pink-950/50 text-pink-700 dark:text-pink-200',
+  delivered: 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-200',
+  failed: 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-200',
 };
 
 function IndividualMatings({
@@ -712,7 +753,7 @@ function IndividualMatings({
         type="button"
         id="matings-heading"
         onClick={onToggle}
-        className="flex items-center gap-1.5 w-full text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 hover:text-brand transition-colors"
+        className="flex items-center gap-1.5 w-full text-xs font-bold text-text-secondary uppercase tracking-wide mb-2 hover:text-brand transition-colors"
         aria-expanded={isOpen}
       >
         {isOpen ? (
@@ -722,7 +763,7 @@ function IndividualMatings({
         )}
         {t.matings}
         {myMatings.length > 0 && (
-          <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-200 text-slate-600 rounded-full font-mono">
+          <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 rounded-full font-mono">
             {myMatings.length}
           </span>
         )}
@@ -735,26 +776,26 @@ function IndividualMatings({
             myMatings.map((m) => (
               <div
                 key={m.id}
-                className="p-2 bg-white dark:bg-slate-800 border border-border rounded text-xs space-y-1"
+                className="p-2 bg-surface-raised border border-border rounded text-xs space-y-1"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono font-medium text-slate-700 truncate">
+                  <span className="font-mono font-medium text-text-secondary truncate">
                     {getPartnerName(m)}
                   </span>
                   <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${STATUS_BADGE_CLASSES[m.status] ?? 'bg-slate-100 text-slate-600'}`}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0 ${STATUS_BADGE_CLASSES[m.status] ?? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-100'}`}
                   >
                     {t[m.status]}
                   </span>
                 </div>
                 {m.matingDate !== undefined && (
-                  <p className="text-slate-500 font-mono">{m.matingDate}</p>
+                  <p className="text-text-muted font-mono">{m.matingDate}</p>
                 )}
                 {m.dueDate !== undefined && (
-                  <p className="text-slate-500 font-mono">{t.dueDate}: {m.dueDate}</p>
+                  <p className="text-text-muted font-mono">{t.dueDate}: {m.dueDate}</p>
                 )}
                 {m.notes !== undefined && (
-                  <p className="text-slate-500 italic">{m.notes}</p>
+                  <p className="text-text-muted italic">{m.notes}</p>
                 )}
                 <div className="flex gap-2 pt-1">
                   <select
@@ -762,7 +803,7 @@ function IndividualMatings({
                     onChange={(e) =>
                       onUpdateMating({ ...m, status: e.target.value as Mating['status'] })
                     }
-                    className="flex-1 p-1 text-[11px] bg-white dark:bg-slate-800 border border-border rounded font-mono"
+                    className="flex-1 p-1 text-[11px] bg-surface-raised text-text-primary border border-border rounded font-mono"
                     aria-label={t.matingStatus}
                   >
                     {(['planned', 'mated', 'pregnant', 'delivered', 'failed'] as const).map((s) => (
